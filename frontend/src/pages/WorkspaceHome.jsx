@@ -1,52 +1,106 @@
-import { Files, UploadCloud, MessageSquare, Terminal, Sparkles } from 'lucide-react'
+import { UploadCloud, MessageSquare, Terminal, Cpu, ArrowUpRight, FileText } from 'lucide-react'
 
 export default function WorkspaceHome() {
   return (
-    <div style={{ maxWidth: '1100px', width: '100%', margin: '0 auto', padding: '40px 20px' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
-          Document Intelligence Workspace
+    <div style={{ maxWidth: '1140px', width: '100%', margin: '0 auto', padding: '48px 24px' }}>
+      {/* Hero Welcome */}
+      <div style={{ marginBottom: '40px' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: 'var(--radius-full)', backgroundColor: 'var(--primary-subtle)', border: '1px solid var(--primary-border)', color: 'var(--primary)', fontSize: '12px', fontWeight: 600, marginBottom: '16px' }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary)' }}></span>
+          DOCAGENT RUNTIME v0.2.0
+        </div>
+        <h1 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: '-0.5px', marginBottom: '10px' }}>
+          Document Intelligence & Agent Runtime
         </h1>
-        <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
-          Autonomous RAG runtime with hybrid retrieval, code sandboxing, and MCP agent tool execution.
+        <p style={{ fontSize: '16px', color: 'var(--text-secondary)', maxWidth: '680px', lineHeight: 1.6 }}>
+          A unified workspace for deep document parsing, hybrid retrieval (dense + BM25 + reranking), autonomous ReAct agent loops, and isolated Python code execution.
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-        <div className="card glass" style={{ padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary)' }}>
+      {/* Feature Pillar Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+        <div className="card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--primary-subtle)',
+              border: '1px solid var(--primary-border)',
+              color: 'var(--primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '20px'
+            }}>
               <UploadCloud size={22} />
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Knowledge Base & Ingestion</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
+              Universal Ingestion & Chunker
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+              Upload PDFs, Markdown, and TXT files. Structural semantic chunking preserving headers, sections, and breadcrumb metadata.
+            </p>
           </div>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            Upload PDFs, Markdown, text, and structured tables with semantic chunking and chunk inspector.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="badge badge-mono">Next: Ticket 04-08</span>
+          </div>
         </div>
 
-        <div className="card glass" style={{ padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+        <div className="card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--success-bg)',
+              border: '1px solid var(--success-border)',
+              color: 'var(--success)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '20px'
+            }}>
               <MessageSquare size={22} />
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Autonomous Agent Chat</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
+              Hybrid Search & Agent Reasoning
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+              Dual BM25 + Dense vector retrieval with Reciprocal Rank Fusion, Cross-Encoder reranking, and live thought stream timelines.
+            </p>
           </div>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            Conversational RAG with real-time reasoning timeline, token-level citation grounding, and corrective reflection.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="badge badge-mono">Phase 2-4</span>
+          </div>
         </div>
 
-        <div className="card glass" style={{ padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
+        <div className="card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--warning-bg)',
+              border: '1px solid var(--warning-border)',
+              color: 'var(--warning)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '20px'
+            }}>
               <Terminal size={22} />
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Sandboxed Code & MCP</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
+              Code Sandboxing & MCP Tools
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+              Zero-hallucination quantitative calculations on structured tabular files, plus standard Model Context Protocol tool discovery.
+            </p>
           </div>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            Deterministic Python data calculations over uploaded tables, plus dynamic Model Context Protocol tools.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="badge badge-mono">Phase 5-6</span>
+          </div>
         </div>
       </div>
     </div>
