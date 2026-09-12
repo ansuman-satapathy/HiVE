@@ -1,8 +1,11 @@
 import os
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "QuickDesk"
+    model_config = ConfigDict(env_file=".env", case_sensitive=True, extra="allow")
+
+    PROJECT_NAME: str = "DocAgent Runtime"
     API_V1_STR: str = "/api"
     
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/quickdesk"
@@ -14,8 +17,8 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY: str = ""
     NVIDIA_MODEL: str = "meta/llama-3.1-8b-instruct"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
 
 settings = Settings()
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+
