@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle, ArrowRight, Bot } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -11,6 +11,23 @@ export default function Login() {
 
   const { login } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    async function checkInstance() {
+      try {
+        const res = await fetch('/api/auth/status')
+        if (res.ok) {
+          const data = await res.json()
+          if (!data.initialized) {
+            navigate('/onboarding')
+          }
+        }
+      } catch (err) {
+        console.error('Failed to query auth status:', err)
+      }
+    }
+    checkInstance()
+  }, [navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
