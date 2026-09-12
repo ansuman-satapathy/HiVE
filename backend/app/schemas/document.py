@@ -25,3 +25,14 @@ class DocumentUploadResponse(BaseModel):
     document: DocumentResponse
     is_duplicate: bool = False
     message: str
+
+class DocumentChunkResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    document_id: UUID
+    chunk_index: int
+    content: str
+    token_count: int
+    chunk_metadata: Dict[str, Any]
+    created_at: datetime
