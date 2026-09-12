@@ -91,8 +91,8 @@ export default function DocumentTable({
                   {/* Filename & Stepper */}
                   <td className="px-6 py-4 min-w-[280px]">
                     <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border border-[var(--border-default)] ${
-                        isProcessing ? 'bg-blue-500/10 text-blue-500' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        isProcessing ? 'bg-blue-500/15 text-blue-500' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
                       }`}>
                         {isProcessing ? <Loader2 size={16} className="spin-animate" /> : getFileIcon(doc.file_type)}
                       </div>

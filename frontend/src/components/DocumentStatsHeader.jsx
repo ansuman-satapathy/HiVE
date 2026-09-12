@@ -7,7 +7,7 @@ export default function DocumentStatsHeader({
   activeProcessingCount
 }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pb-4 border-b border-[var(--border-default)]">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pb-1">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-0.5">
           Knowledge Base

@@ -89,9 +89,9 @@ html.dark, :root.dark, .dark {
   --text-muted: #64748b;
   --text-inverse: #090d16;
 
-  --border-subtle: #1e293b;
-  --border-default: #334155;
-  --border-strong: #475569;
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
   --border-focus: #60a5fa;
 
   --success: #34d399;

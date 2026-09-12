@@ -18,10 +18,10 @@ export default function DocumentUploadDropzone({
           if (e.dataTransfer.files?.[0]) onFileSelect(e.dataTransfer.files[0])
         }}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative overflow-hidden cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 py-3 px-4 sm:py-3.5 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 ${
+        className={`relative overflow-hidden cursor-pointer rounded-2xl border border-dashed transition-all duration-200 py-3 px-4 sm:py-3.5 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 ${
           dragOver
-            ? 'border-blue-500 bg-blue-500/15 scale-[1.006] shadow-md shadow-blue-500/20 ring-2 ring-blue-500/30'
-            : 'border-blue-500/40 hover:border-blue-500 bg-[var(--bg-surface)] hover:bg-blue-500/[0.04] shadow-xs hover:shadow-md hover:shadow-blue-500/10 hover:scale-[1.002]'
+            ? 'border-blue-500 bg-blue-500/15 scale-[1.006] shadow-md shadow-blue-500/20 ring-1 ring-blue-500/30'
+            : 'border-blue-500/30 hover:border-blue-500/70 bg-[var(--bg-surface)] hover:bg-blue-500/[0.04] shadow-xs hover:shadow-md hover:shadow-blue-500/10 hover:scale-[1.002]'
         }`}
       >
         {/* Glow ambient background effect (visible by default, amplified on hover) */}
