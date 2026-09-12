@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { LogOut, Terminal } from 'lucide-react'
+import { LogOut, Bot, Files, MessageSquare, Search, Cpu, BarChart2 } from 'lucide-react'
 
 export default function DashboardLayout({ children }) {
   const { user, logout } = useAuth()
@@ -19,44 +20,68 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="app-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
-      {/* Flat Sticky Top Header */}
+      {/* Navigation Header */}
       <header style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '14px 24px',
+        padding: '12px 28px',
         borderBottom: '1px solid var(--border-color)',
-        backgroundColor: '#ffffff',
+        backgroundColor: 'var(--bg-card)',
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
       }}>
-        {/* Solid Color Logo and Name */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            background: 'var(--primary)',
-            padding: '8px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-          }}>
-            <Terminal size={18} />
+        {/* Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              background: 'var(--primary)',
+              padding: '8px',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+            }}>
+              <Bot size={20} />
+            </div>
+            <span style={{
+              fontFamily: 'var(--font-heading)',
+              fontWeight: 700,
+              fontSize: '18px',
+              letterSpacing: '-0.5px',
+              color: 'var(--text-primary)'
+            }}>
+              DocAgent Runtime
+            </span>
           </div>
-          <span style={{
-            fontFamily: 'var(--font-heading)',
-            fontWeight: 700,
-            fontSize: '18px',
-            letterSpacing: '-0.5px',
-            color: 'var(--primary)'
-          }}>
-            QuickDesk
-          </span>
+
+          {/* Navigation Links */}
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <NavLink
+              to="/workspace"
+              style={({ isActive }) => ({
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 14px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+                backgroundColor: isActive ? 'var(--bg-secondary)' : 'transparent',
+                textDecoration: 'none',
+                transition: 'all 0.15s ease',
+              })}
+            >
+              <Files size={16} />
+              <span>Workspace</span>
+            </NavLink>
+          </nav>
         </div>
 
-        {/* Profile Dropdown */}
+        {/* User Profile */}
         {user && (
           <div style={{ position: 'relative' }} ref={dropdownRef}>
             <button 
@@ -71,10 +96,7 @@ export default function DashboardLayout({ children }) {
                 gap: '8px',
                 cursor: 'pointer',
                 color: 'var(--text-primary)',
-                transition: 'all 0.2s ease',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e2e8f0'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
             >
               <div style={{
                 width: '24px',
@@ -99,11 +121,11 @@ export default function DashboardLayout({ children }) {
                 right: 0,
                 top: 'calc(100% + 8px)',
                 width: '220px',
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--bg-card)',
                 borderRadius: '8px',
                 border: '1px solid var(--border-color)',
                 padding: '12px',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                boxShadow: 'var(--shadow-card)',
                 textAlign: 'left',
                 display: 'flex',
                 flexDirection: 'column',
@@ -113,15 +135,6 @@ export default function DashboardLayout({ children }) {
                 <div style={{ padding: '4px 8px 8px 8px', borderBottom: '1px solid var(--border-color)' }}>
                   <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{user.full_name}</p>
                   <p style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</p>
-                  <span className={`badge ${user.role}`} style={{ 
-                    marginTop: '6px', 
-                    fontSize: '10px', 
-                    padding: '2px 6px',
-                    border: 'none',
-                    display: 'inline-flex'
-                  }}>
-                    {user.role}
-                  </span>
                 </div>
                 
                 <button 
@@ -141,8 +154,6 @@ export default function DashboardLayout({ children }) {
                     textAlign: 'left',
                     fontWeight: 500,
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                   <LogOut size={14} />
                   <span>Log Out</span>
@@ -153,11 +164,9 @@ export default function DashboardLayout({ children }) {
         )}
       </header>
 
-      {/* Main Content Area */}
-      <main style={{ flex: 1, padding: '30px 16px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-          {children}
-        </div>
+      {/* Main Content Viewport */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {children}
       </main>
     </div>
   )

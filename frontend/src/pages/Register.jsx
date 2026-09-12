@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { User, Mail, Lock, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react'
+import { AlertCircle, ArrowRight, Bot } from 'lucide-react'
 
 export default function Register() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
@@ -18,7 +17,6 @@ export default function Register() {
     e.preventDefault()
     setError(null)
 
-    // Form validations
     if (password.length < 6) {
       setError('Password must be at least 6 characters long')
       return
@@ -53,7 +51,7 @@ export default function Register() {
       setSuccess(true)
       setTimeout(() => {
         navigate('/login')
-      }, 2500)
+      }, 1500)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -65,22 +63,11 @@ export default function Register() {
     <div className="auth-container">
       <div className="auth-card glass">
         <div className="auth-header">
-          <div className="logo-icon-wrapper">
-            <svg
-              className="logo-icon-svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="10" r="2" />
-            </svg>
+          <div className="logo-icon-wrapper" style={{ background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '12px', margin: '0 auto 16px' }}>
+            <Bot size={24} />
           </div>
-          <h2>Create Account</h2>
-          <p className="auth-subtitle">Join QuickDesk to submit support requests</p>
+          <h2>Create Workspace</h2>
+          <p className="auth-subtitle">Set up your local document intelligence workspace</p>
         </div>
 
         {error && (
@@ -91,9 +78,8 @@ export default function Register() {
         )}
 
         {success && (
-          <div className="auth-alert success">
-            <CheckCircle2 size={18} />
-            <span>Registration successful! Redirecting to login...</span>
+          <div className="auth-alert success" style={{ color: 'var(--success)', backgroundColor: 'var(--success-bg)', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px' }}>
+            <span>Workspace user created successfully! Redirecting to login...</span>
           </div>
         )}
 
@@ -101,31 +87,27 @@ export default function Register() {
           <div className="input-group">
             <label htmlFor="fullName">Full Name</label>
             <div className="input-wrapper">
-              <User className="input-icon" size={18} />
               <input
                 id="fullName"
                 type="text"
                 required
-                placeholder="John Doe"
+                placeholder="Alex Developer"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                disabled={loading || success}
               />
             </div>
           </div>
 
           <div className="input-group">
-            <label htmlFor="email">Work Email</label>
+            <label htmlFor="email">Email</label>
             <div className="input-wrapper">
-              <Mail className="input-icon" size={18} />
               <input
                 id="email"
                 type="email"
                 required
-                placeholder="john@company.com"
+                placeholder="alex@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={loading || success}
               />
             </div>
           </div>
@@ -133,7 +115,6 @@ export default function Register() {
           <div className="input-group">
             <label htmlFor="password">Password</label>
             <div className="input-wrapper">
-              <Lock className="input-icon" size={18} />
               <input
                 id="password"
                 type="password"
@@ -141,7 +122,6 @@ export default function Register() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={loading || success}
               />
             </div>
           </div>
@@ -149,7 +129,6 @@ export default function Register() {
           <div className="input-group">
             <label htmlFor="confirmPassword">Confirm Password</label>
             <div className="input-wrapper">
-              <Lock className="input-icon" size={18} />
               <input
                 id="confirmPassword"
                 type="password"
@@ -157,20 +136,19 @@ export default function Register() {
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={loading || success}
               />
             </div>
           </div>
 
-          <button type="submit" className="btn-primary auth-submit-btn" disabled={loading || success}>
-            {loading ? 'Registering...' : 'Sign Up'}
-            {!loading && <ArrowRight size={18} className="btn-icon" />}
+          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', marginTop: '12px' }}>
+            <span>{loading ? 'Creating...' : 'Register Workspace'}</span>
+            {!loading && <ArrowRight size={16} />}
           </button>
         </form>
 
-        <p className="auth-footer">
-          Already have an account? <Link to="/login" className="auth-link">Log In</Link>
-        </p>
+        <div className="auth-footer" style={{ marginTop: '20px', textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          Already have an account? <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>Sign in</Link>
+        </div>
       </div>
     </div>
   )
