@@ -1,6 +1,7 @@
 import os
 import uuid
 import logging
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.db import database
@@ -46,6 +47,7 @@ class IngestionWorker:
                     doc.status = IngestionStatus.READY
                     doc.chunk_count = len(chunks_data)
                     doc.token_count = total_tokens
+                    doc.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
                     merged_meta = dict(doc.doc_metadata)
                     merged_meta.update(parsed_data.get("metadata", {}))
                     merged_meta["char_count"] = parsed_data.get("char_count", 0)
