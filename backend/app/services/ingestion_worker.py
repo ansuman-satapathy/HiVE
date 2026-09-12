@@ -1,6 +1,7 @@
 import os
 import uuid
 import logging
+import asyncio
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -26,11 +27,13 @@ class IngestionWorker:
             try:
                 logger.info(f"Starting parsing for document {document_id}")
                 await DocumentRepository.update_status(db, document_id, IngestionStatus.PARSING)
+                await asyncio.sleep(1.2)
 
                 parsed_data: Dict[str, Any] = DocumentParserService.parse_file(file_path, file_type)
                 text_content = parsed_data.get("text", "")
 
                 await DocumentRepository.update_status(db, document_id, IngestionStatus.CHUNKING)
+                await asyncio.sleep(1.2)
 
                 chunker = StructureAwareChunker()
                 chunks_data = chunker.chunk_document(

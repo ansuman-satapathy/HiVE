@@ -4,28 +4,22 @@ import {
   FileText,
   Trash2,
   Layers,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   Loader2,
   Search,
-  ChevronRight,
   Database,
   Hash,
   FileCode,
-  ArrowUpRight,
   Clock,
-  BookOpen,
-  Filter,
   Check,
   X,
   FileSpreadsheet,
   Copy,
-  ExternalLink,
   Code2,
   Maximize2,
   Minimize2,
-  SlidersHorizontal
+  Calendar
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 
@@ -77,7 +71,6 @@ export default function DocumentHub() {
   const [loadingChunks, setLoadingChunks] = useState(false)
   const [chunkSearch, setChunkSearch] = useState('')
   const [copiedChunkId, setCopiedChunkId] = useState(null)
-  const [fullWidthInspector, setFullWidthInspector] = useState(false)
   const fileInputRef = useRef(null)
 
   const fetchDocuments = useCallback(async () => {
@@ -117,7 +110,7 @@ export default function DocumentHub() {
     const runPoll = async () => {
       await fetchDocuments()
       if (!isMounted) return
-      const interval = hasActiveDocs ? 2000 : 15000
+      const interval = hasActiveDocs ? 1500 : 15000
       timeoutId = setTimeout(runPoll, interval)
     }
 
@@ -192,7 +185,7 @@ export default function DocumentHub() {
 
   const handleDelete = async (docId, e) => {
     e.stopPropagation()
-    if (!window.confirm('Delete this document and all its indexed chunks?')) return
+    if (!window.confirm('Delete this document and all its indexed sections?')) return
     try {
       const token = tokenStorage.getToken()
       const res = await fetch(`/api/documents/${docId}`, {
@@ -212,11 +205,6 @@ export default function DocumentHub() {
   }
 
   const handleInspectChunks = async (doc) => {
-    if (selectedDoc?.id === doc.id) {
-      setSelectedDoc(null)
-      setDocChunks([])
-      return
-    }
     setSelectedDoc(doc)
     setChunkSearch('')
     setLoadingChunks(true)
@@ -243,21 +231,21 @@ export default function DocumentHub() {
     setTimeout(() => setCopiedChunkId(null), 1800)
   }
 
-  // Aggregate Metrics
+  // Metrics
   const totalChunks = documents.reduce((acc, d) => acc + (d.chunk_count || 0), 0)
   const totalTokens = documents.reduce((acc, d) => acc + (d.token_count || 0), 0)
   const activeProcessingCount = documents.filter((d) =>
     ['pending', 'parsing', 'chunking', 'indexing'].includes(d.status)
   ).length
 
-  // Filtered Documents
+  // Filters
   const filteredDocs = documents.filter((d) => {
     const matchesSearch = d.filename.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesType = filterType === 'all' || d.file_type?.toLowerCase() === filterType
     return matchesSearch && matchesType
   })
 
-  // Filtered Chunks inside Inspector
+  // Filtered Chunks
   const filteredChunks = useMemo(() => {
     if (!chunkSearch) return docChunks
     const q = chunkSearch.toLowerCase()
@@ -268,8 +256,8 @@ export default function DocumentHub() {
   }, [docChunks, chunkSearch])
 
   return (
-    <div style={{ maxWidth: '1600px', width: '100%', margin: '0 auto', padding: '24px 32px' }}>
-      {/* Top Header: Title & Clean Metrics Strip */}
+    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px 32px' }}>
+      {/* Header Bar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -277,20 +265,19 @@ export default function DocumentHub() {
         flexWrap: 'wrap',
         gap: '16px',
         marginBottom: '20px',
-        paddingBottom: '18px',
+        paddingBottom: '16px',
         borderBottom: '1px solid var(--border-default)'
       }}>
         <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '2px 8px', borderRadius: 'var(--radius-full)', backgroundColor: 'var(--primary-subtle)', border: '1px solid var(--primary-border)', color: 'var(--primary)', fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>
-            <Sparkles size={12} />
-            <span>SEMANTIC CORPUS HUB</span>
-          </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.4px', margin: 0, color: 'var(--text-primary)' }}>
-            Corpus Documents
+          <h1 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
+            Knowledge Base
           </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+            Upload manuals, docs, and guides for agent assistance.
+          </p>
         </div>
 
-        {/* Live Corpus Stats Strip */}
+        {/* Clean Stats Counters */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div className="stat-chip">
             <Database size={14} style={{ color: 'var(--primary)' }} />
@@ -300,13 +287,13 @@ export default function DocumentHub() {
 
           <div className="stat-chip">
             <Layers size={14} style={{ color: '#0ea5e9' }} />
-            <span>Semantic Chunks:</span>
+            <span>Sections:</span>
             <strong>{totalChunks.toLocaleString()}</strong>
           </div>
 
           <div className="stat-chip">
             <Hash size={14} style={{ color: '#8b5cf6' }} />
-            <span>Total Tokens:</span>
+            <span>Words/Tokens:</span>
             <strong>{totalTokens.toLocaleString()}</strong>
           </div>
 
@@ -324,7 +311,7 @@ export default function DocumentHub() {
               fontWeight: 600,
             }}>
               <Loader2 size={12} className="spin-animate" />
-              <span>{activeProcessingCount} Ingesting</span>
+              <span>{activeProcessingCount} Processing</span>
             </div>
           )}
         </div>
@@ -377,15 +364,15 @@ export default function DocumentHub() {
         </div>
       )}
 
-      {/* Modern Compact Dropzone & Control Toolbar */}
+      {/* Action Strip: Compact Dropzone & Search / Filter Toolbar */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(320px, 400px) 1fr',
+        gridTemplateColumns: 'minmax(280px, 360px) 1fr',
         gap: '16px',
         alignItems: 'stretch',
         marginBottom: '20px'
       }}>
-        {/* Compact Drag & Drop Upload Zone */}
+        {/* Upload Zone */}
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
@@ -399,7 +386,7 @@ export default function DocumentHub() {
             border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border-strong)'}`,
             backgroundColor: dragOver ? 'var(--primary-subtle)' : 'var(--bg-surface)',
             borderRadius: 'var(--radius-lg)',
-            padding: '14px 18px',
+            padding: '12px 18px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -409,8 +396,8 @@ export default function DocumentHub() {
           }}
         >
           <div style={{
-            width: '38px',
-            height: '38px',
+            width: '36px',
+            height: '36px',
             borderRadius: 'var(--radius-md)',
             backgroundColor: 'var(--primary-subtle)',
             color: 'var(--primary)',
@@ -422,14 +409,14 @@ export default function DocumentHub() {
             {uploading ? <Loader2 size={18} className="spin-animate" /> : <UploadCloud size={18} />}
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                {uploading ? 'Uploading & parsing...' : 'Drop files here to index'}
+                {uploading ? 'Processing file...' : 'Upload document'}
               </span>
               <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 600 }}>Browse</span>
             </div>
             <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
-              Supports PDF, Markdown (.md), or TXT up to 50MB
+              PDF, Markdown (.md), or TXT up to 50MB
             </p>
           </div>
           <input
@@ -443,12 +430,12 @@ export default function DocumentHub() {
           />
         </div>
 
-        {/* Filter & Search Bar */}
+        {/* Filter and Search Bar */}
         <div style={{
           backgroundColor: 'var(--bg-surface)',
           border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-lg)',
-          padding: '12px 18px',
+          padding: '10px 18px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -465,7 +452,7 @@ export default function DocumentHub() {
               placeholder="Search documents by name..."
               style={{
                 width: '100%',
-                padding: '7px 12px 7px 34px',
+                padding: '6px 12px 6px 34px',
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--border-default)',
                 fontSize: '13px',
@@ -501,284 +488,210 @@ export default function DocumentHub() {
         </div>
       </div>
 
-      {/* Main Content Workspace: Responsive Split Layout */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: selectedDoc
-          ? (fullWidthInspector ? '380px 1fr' : '1fr 1.05fr')
-          : '1fr',
-        gap: '20px',
-        alignItems: 'start',
-      }}>
-        {/* Document Master List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {loading ? (
-            <div className="card" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <Loader2 size={24} className="spin-animate" style={{ margin: '0 auto 12px auto' }} />
-              <p style={{ fontSize: '13px', margin: 0 }}>Loading document workspace...</p>
-            </div>
-          ) : filteredDocs.length === 0 ? (
-            <div className="card" style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <FileText size={36} style={{ margin: '0 auto 14px auto', opacity: 0.4 }} />
-              <p style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
-                No documents found
-              </p>
-              <p style={{ fontSize: '13px', margin: 0, maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
-                {searchQuery || filterType !== 'all'
-                  ? 'No documents match your filter. Try adjusting your search query.'
-                  : 'Drop or upload your first file above to start automated chunking and semantic indexing.'}
-              </p>
-            </div>
-          ) : (
-            filteredDocs.map((doc) => {
-              const isSelected = selectedDoc?.id === doc.id
-              const isProcessing = ['pending', 'parsing', 'chunking', 'indexing'].includes(doc.status)
-              const percent = getProgressPercent(doc.status)
+      {/* Full Width Document Master Table */}
+      <div className="card" style={{ overflow: 'hidden', boxShadow: 'var(--shadow-xs)', border: '1px solid var(--border-default)' }}>
+        {loading ? (
+          <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <Loader2 size={24} className="spin-animate" style={{ margin: '0 auto 12px auto' }} />
+            <p style={{ fontSize: '13px', margin: 0 }}>Loading knowledge documents...</p>
+          </div>
+        ) : filteredDocs.length === 0 ? (
+          <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <FileText size={36} style={{ margin: '0 auto 14px auto', opacity: 0.4 }} />
+            <p style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
+              No documents found
+            </p>
+            <p style={{ fontSize: '13px', margin: 0, maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
+              {searchQuery || filterType !== 'all'
+                ? 'No documents match your filter query.'
+                : 'Upload or drop your first file above to get started.'}
+            </p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ backgroundColor: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-default)' }}>
+                  <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Document</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Type</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Size</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Sections</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Tokens</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</th>
+                  <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDocs.map((doc) => {
+                  const isProcessing = ['pending', 'parsing', 'chunking', 'indexing'].includes(doc.status)
+                  const percent = getProgressPercent(doc.status)
 
-              return (
-                <div
-                  key={doc.id}
-                  onClick={() => !isProcessing && handleInspectChunks(doc)}
-                  className="card"
-                  style={{
-                    padding: '12px 16px',
-                    cursor: isProcessing ? 'default' : 'pointer',
-                    border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-default)',
-                    backgroundColor: isSelected ? 'var(--primary-subtle)' : 'var(--bg-surface)',
-                    transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? '0 0 0 1px var(--primary)' : 'var(--shadow-xs)',
-                    position: 'relative',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {/* Subtle top progress bar if processing */}
-                  {isProcessing && (
-                    <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: '3px',
-                      backgroundColor: 'var(--border-default)',
-                    }}>
-                      <div
-                        className="shimmer-progress"
-                        style={{
-                          height: '100%',
-                          width: `${percent}%`,
-                          transition: 'width 0.5s ease',
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
-                    {/* Left: Type Icon + Title & Metadata */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
-                      <div style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: 'var(--radius-md)',
-                        backgroundColor: isProcessing ? 'var(--primary-subtle)' : 'var(--bg-subtle)',
-                        border: '1px solid var(--border-default)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--primary)',
-                        flexShrink: 0,
-                      }}>
-                        {isProcessing ? (
-                          <Loader2 size={16} className="spin-animate" />
-                        ) : (
-                          getFileIcon(doc.file_type)
-                        )}
-                      </div>
-
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                          <h3 style={{
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            color: 'var(--text-primary)',
-                            margin: 0,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
+                  return (
+                    <tr
+                      key={doc.id}
+                      style={{
+                        borderBottom: '1px solid var(--border-default)',
+                        backgroundColor: isProcessing ? 'var(--primary-subtle)' : 'var(--bg-surface)',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                    >
+                      {/* Document Name & Stepper */}
+                      <td style={{ padding: '14px 18px', minWidth: '280px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: 'var(--radius-sm)',
+                            backgroundColor: isProcessing ? 'var(--primary-subtle)' : 'var(--bg-subtle)',
+                            border: '1px solid var(--border-default)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--primary)',
+                            flexShrink: 0,
                           }}>
-                            {doc.filename}
-                          </h3>
-                          {doc.isOptimistic && (
-                            <span className="badge badge-mono" style={{ fontSize: '9px', padding: '1px 5px' }}>
-                              uploading
-                            </span>
-                          )}
-                        </div>
-
-                        {/* In-Place Processing Stages Stepper */}
-                        {isProcessing ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '3px', flexWrap: 'wrap' }}>
-                            <span className={`stage-step ${doc.status === 'pending' || doc.status === 'parsing' ? 'active pulse-soft' : 'done'}`}>
-                              {doc.status === 'pending' || doc.status === 'parsing' ? (
-                                <Loader2 size={10} className="spin-animate" />
-                              ) : (
-                                <Check size={10} />
-                              )}
-                              <span>1. Parsing</span>
-                            </span>
-
-                            <span className={`stage-step ${doc.status === 'chunking' ? 'active pulse-soft' : doc.status === 'indexing' || doc.status === 'ready' ? 'done' : 'waiting'}`}>
-                              {doc.status === 'chunking' ? (
-                                <Loader2 size={10} className="spin-animate" />
-                              ) : doc.status === 'indexing' || doc.status === 'ready' ? (
-                                <Check size={10} />
-                              ) : null}
-                              <span>2. Chunking</span>
-                            </span>
-
-                            <span className={`stage-step ${doc.status === 'indexing' ? 'active pulse-soft' : doc.status === 'ready' ? 'done' : 'waiting'}`}>
-                              {doc.status === 'indexing' ? (
-                                <Loader2 size={10} className="spin-animate" />
-                              ) : doc.status === 'ready' ? (
-                                <Check size={10} />
-                              ) : null}
-                              <span>3. Indexing</span>
-                            </span>
-
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>
-                              ({formatBytes(doc.file_size_bytes)})
-                            </span>
+                            {isProcessing ? <Loader2 size={15} className="spin-animate" /> : getFileIcon(doc.file_type)}
                           </div>
-                        ) : (
-                          /* Standard Ready Document Metadata */
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                            <span style={{ fontWeight: 500 }}>{formatBytes(doc.file_size_bytes)}</span>
-                            <span>•</span>
-                            <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{doc.file_type}</span>
-                            <span>•</span>
-                            <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{doc.chunk_count} chunks</span>
-                            <span>•</span>
-                            <span>{doc.token_count?.toLocaleString()} tokens</span>
-                            {doc.created_at && (
-                              <>
-                                <span>•</span>
-                                <span>{new Date(doc.created_at).toLocaleDateString()}</span>
-                              </>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {doc.filename}
+                              </span>
+                              {doc.isOptimistic && (
+                                <span className="badge badge-mono" style={{ fontSize: '9px', padding: '1px 5px' }}>
+                                  uploading
+                                </span>
+                              )}
+                            </div>
+
+                            {/* In-Place Processing Stages */}
+                            {isProcessing ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                <span className={`stage-step ${doc.status === 'pending' || doc.status === 'parsing' ? 'active pulse-soft' : 'done'}`}>
+                                  {doc.status === 'pending' || doc.status === 'parsing' ? <Loader2 size={10} className="spin-animate" /> : <Check size={10} />}
+                                  <span>1. Parsing</span>
+                                </span>
+                                <span className={`stage-step ${doc.status === 'chunking' ? 'active pulse-soft' : doc.status === 'indexing' || doc.status === 'ready' ? 'done' : 'waiting'}`}>
+                                  {doc.status === 'chunking' ? <Loader2 size={10} className="spin-animate" /> : doc.status === 'indexing' || doc.status === 'ready' ? <Check size={10} /> : null}
+                                  <span>2. Splitting</span>
+                                </span>
+                                <span className={`stage-step ${doc.status === 'indexing' ? 'active pulse-soft' : doc.status === 'ready' ? 'done' : 'waiting'}`}>
+                                  {doc.status === 'indexing' ? <Loader2 size={10} className="spin-animate" /> : doc.status === 'ready' ? <Check size={10} /> : null}
+                                  <span>3. Ready</span>
+                                </span>
+                              </div>
+                            ) : (
+                              doc.created_at && (
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                  Added {new Date(doc.created_at).toLocaleDateString()}
+                                </span>
+                              )
                             )}
                           </div>
-                        )}
-                      </div>
-                    </div>
+                        </div>
+                      </td>
 
-                    {/* Right Action & Status Badge */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      <span className={`badge ${
-                        doc.status === 'ready' ? 'badge-success' :
-                        doc.status === 'failed' ? 'badge-danger' :
-                        doc.status === 'indexing' ? 'badge-warning' : 'badge-primary'
-                      }`} style={{ fontSize: '10px', padding: '2px 7px' }}>
-                        {doc.status}
-                      </span>
+                      {/* File Type */}
+                      <td style={{ padding: '14px 16px', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                        {doc.file_type}
+                      </td>
 
-                      {!isProcessing && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleInspectChunks(doc)
-                          }}
-                          className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
-                          style={{ padding: '4px 10px', fontSize: '11px', gap: '4px', height: '28px' }}
-                        >
-                          <Layers size={13} />
-                          <span>{isSelected ? 'Viewing' : 'Inspect'}</span>
-                        </button>
-                      )}
+                      {/* File Size */}
+                      <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        {formatBytes(doc.file_size_bytes)}
+                      </td>
 
-                      <button
-                        onClick={(e) => handleDelete(doc.id, e)}
-                        className="btn btn-ghost btn-sm"
-                        title="Delete document"
-                        style={{ padding: '5px', color: 'var(--text-muted)' }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
+                      {/* Chunk Count */}
+                      <td style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {doc.chunk_count || 0}
+                      </td>
 
-        {/* Right Pane: Redesigned Premium Chunk Inspector */}
-        {selectedDoc && (
-          <div className="card" style={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: 'calc(100vh - 170px)',
-            minHeight: '650px',
-            position: 'sticky',
-            top: '80px',
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            boxShadow: 'var(--shadow-md)',
-            borderRadius: 'var(--radius-lg)',
-            overflow: 'hidden'
-          }}>
-            {/* Inspector Header with Title and Actions */}
+                      {/* Token Count */}
+                      <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        {doc.token_count?.toLocaleString() || 0}
+                      </td>
+
+                      {/* Status */}
+                      <td style={{ padding: '14px 16px' }}>
+                        <span className={`badge ${
+                          doc.status === 'ready' ? 'badge-success' :
+                          doc.status === 'failed' ? 'badge-danger' :
+                          doc.status === 'indexing' ? 'badge-warning' : 'badge-primary'
+                        }`} style={{ fontSize: '10px' }}>
+                          {doc.status}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          {!isProcessing && (
+                            <button
+                              onClick={() => handleInspectChunks(doc)}
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '4px 10px', fontSize: '11px', gap: '4px' }}
+                            >
+                              <Layers size={13} />
+                              <span>Inspect</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => handleDelete(doc.id, e)}
+                            className="btn btn-ghost btn-sm"
+                            title="Delete file"
+                            style={{ padding: '6px', color: 'var(--text-muted)' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Slide-over Content Inspector Drawer */}
+      {selectedDoc && (
+        <div className="drawer-overlay" onClick={() => { setSelectedDoc(null); setDocChunks([]) }}>
+          <div
+            className="drawer-panel"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '640px', maxWidth: '100%' }}
+          >
+            {/* Inspector Header */}
             <div style={{
               padding: '16px 20px',
               borderBottom: '1px solid var(--border-default)',
-              backgroundColor: 'var(--bg-surface)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: '12px'
             }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
                   <Layers size={14} style={{ color: 'var(--primary)' }} />
-                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-                    Chunk Inspector
-                  </span>
-                  <span className="badge badge-mono" style={{ fontSize: '10px', padding: '1px 6px' }}>
-                    {docChunks.length} chunks
+                  <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                    Document Sections ({docChunks.length})
                   </span>
                 </div>
-                <h3 style={{
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                  margin: 0,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {selectedDoc.filename}
                 </h3>
               </div>
-
-              {/* Inspector Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <button
-                  onClick={() => setFullWidthInspector(!fullWidthInspector)}
-                  className="btn btn-ghost btn-sm"
-                  title={fullWidthInspector ? 'Standard Width' : 'Expand Inspector'}
-                  style={{ padding: '6px' }}
-                >
-                  {fullWidthInspector ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-                </button>
-                <button
-                  onClick={() => { setSelectedDoc(null); setDocChunks([]) }}
-                  className="btn btn-ghost btn-sm"
-                  title="Close Inspector"
-                  style={{ padding: '6px' }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
+              <button
+                onClick={() => { setSelectedDoc(null); setDocChunks([]) }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px' }}
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            {/* Document Quick Stats Bar */}
+            {/* Quick Metadata Bar */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -788,32 +701,23 @@ export default function DocumentHub() {
               borderBottom: '1px solid var(--border-default)',
               fontSize: '12px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Size: </span>
-                  <strong style={{ color: 'var(--text-primary)' }}>{formatBytes(selectedDoc.file_size_bytes)}</strong>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Total Tokens: </span>
-                  <strong style={{ color: 'var(--text-primary)' }}>{selectedDoc.token_count?.toLocaleString()}</strong>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Format: </span>
-                  <strong style={{ color: 'var(--text-primary)', textTransform: 'uppercase' }}>{selectedDoc.file_type}</strong>
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div><span style={{ color: 'var(--text-muted)' }}>Size: </span><strong>{formatBytes(selectedDoc.file_size_bytes)}</strong></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Tokens: </span><strong>{selectedDoc.token_count?.toLocaleString()}</strong></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Format: </span><strong style={{ textTransform: 'uppercase' }}>{selectedDoc.file_type}</strong></div>
               </div>
 
-              {/* Search Inside Chunks */}
-              <div style={{ position: 'relative', width: '200px' }}>
-                <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              {/* In-Drawer Filter */}
+              <div style={{ position: 'relative', width: '180px' }}>
+                <Search size={12} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   type="text"
                   value={chunkSearch}
                   onChange={(e) => setChunkSearch(e.target.value)}
-                  placeholder="Filter chunk text..."
+                  placeholder="Filter text..."
                   style={{
                     width: '100%',
-                    padding: '4px 8px 4px 26px',
+                    padding: '3px 8px 3px 26px',
                     borderRadius: 'var(--radius-sm)',
                     border: '1px solid var(--border-default)',
                     fontSize: '11px',
@@ -824,29 +728,26 @@ export default function DocumentHub() {
               </div>
             </div>
 
-            {/* Chunks scroll view */}
+            {/* Chunks List */}
             <div style={{
               flex: 1,
               overflowY: 'auto',
+              padding: '16px 20px',
               display: 'flex',
               flexDirection: 'column',
               gap: '12px',
-              padding: '16px 20px',
               backgroundColor: 'var(--bg-canvas)'
             }}>
               {loadingChunks ? (
                 <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
                   <Loader2 size={24} className="spin-animate" style={{ margin: '0 auto 12px auto' }} />
-                  <p style={{ fontSize: '13px', margin: 0 }}>Retrieving semantic chunks...</p>
+                  <p style={{ fontSize: '13px', margin: 0 }}>Loading document content...</p>
                 </div>
               ) : filteredChunks.length === 0 ? (
                 <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
                   <Code2 size={32} style={{ margin: '0 auto 12px auto', opacity: 0.4 }} />
                   <p style={{ fontSize: '14px', fontWeight: 500, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
-                    {chunkSearch ? 'No matching chunks' : 'No chunks extracted'}
-                  </p>
-                  <p style={{ fontSize: '12px', margin: 0 }}>
-                    {chunkSearch ? 'Try a different filter term.' : 'Document is currently empty or indexing.'}
+                    {chunkSearch ? 'No matching text found' : 'No sections extracted'}
                   </p>
                 </div>
               ) : (
@@ -855,61 +756,65 @@ export default function DocumentHub() {
                   return (
                     <div
                       key={chunk.id}
-                      className="chunk-item-card"
+                      style={{
+                        backgroundColor: 'var(--bg-surface)',
+                        border: '1px solid var(--border-default)',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'hidden',
+                        boxShadow: 'var(--shadow-xs)'
+                      }}
                     >
-                      {/* Chunk Sub-Header */}
                       <div style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '8px 14px',
-                        backgroundColor: 'var(--bg-surface)',
-                        gap: '10px'
+                        padding: '8px 12px',
+                        backgroundColor: 'var(--bg-subtle)',
+                        borderBottom: '1px solid var(--border-default)',
+                        fontSize: '11px'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                          <span className="badge badge-mono" style={{ fontSize: '10.5px', fontWeight: 600 }}>
-                            Chunk #{chunk.chunk_index}
-                          </span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            {chunk.token_count} tokens
-                          </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className="badge badge-mono">Section #{chunk.chunk_index + 1}</span>
+                          <span style={{ color: 'var(--text-muted)' }}>{chunk.token_count} tokens</span>
                           {chunk.chunk_metadata?.active_heading && (
                             <span style={{
-                              fontSize: '11px',
                               fontWeight: 600,
                               color: 'var(--primary)',
                               backgroundColor: 'var(--primary-subtle)',
-                              padding: '2px 8px',
+                              padding: '2px 6px',
                               borderRadius: 'var(--radius-sm)',
-                              maxWidth: '240px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
                             }}>
                               § {chunk.chunk_metadata.active_heading}
                             </span>
                           )}
                         </div>
-
-                        {/* Copy Chunk Content Button */}
                         <button
                           onClick={(e) => copyChunkToClipboard(chunk.id, chunk.content, e)}
                           className="btn btn-ghost btn-sm"
                           style={{
-                            padding: '3px 8px',
+                            padding: '2px 8px',
                             fontSize: '11px',
                             gap: '4px',
-                            height: '24px',
+                            height: '22px',
                             color: isCopied ? 'var(--success)' : 'var(--text-secondary)'
                           }}
                         >
-                          {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                          {isCopied ? <Check size={11} /> : <Copy size={11} />}
                           <span>{isCopied ? 'Copied' : 'Copy'}</span>
                         </button>
                       </div>
 
-                      {/* Monospace Formatted Chunk Code Block */}
-                      <div className="code-chunk-body">
+                      <div style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '12px',
+                        lineHeight: 1.6,
+                        color: 'var(--text-primary)',
+                        padding: '12px 14px',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        maxHeight: '220px',
+                        overflowY: 'auto'
+                      }}>
                         {chunk.content}
                       </div>
                     </div>
@@ -918,8 +823,8 @@ export default function DocumentHub() {
               )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
