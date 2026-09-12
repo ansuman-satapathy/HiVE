@@ -95,7 +95,7 @@ export default function DashboardLayout({ children }) {
                 letterSpacing: '-0.3px',
                 color: 'var(--text-primary)'
               }}>
-                DocAgent Runtime
+                QuickDesk
               </span>
             </div>
           </div>
