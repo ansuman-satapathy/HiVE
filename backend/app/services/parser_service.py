@@ -4,20 +4,8 @@ from typing import Dict, Any, List
 from pypdf import PdfReader
 
 class DocumentParserService:
-    """Service to parse raw files (PDF, Markdown, TXT) into normalized text and metadata."""
-
     @classmethod
     def parse_file(cls, file_path: str, file_type: str) -> Dict[str, Any]:
-        """
-        Extract text content and structural metadata from a file.
-        Returns:
-            {
-                "text": str,
-                "pages": List[Dict[str, Any]] (optional for multipage PDFs),
-                "char_count": int,
-                "metadata": Dict[str, Any]
-            }
-        """
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -41,7 +29,6 @@ class DocumentParserService:
         total_pages = len(reader.pages)
         for idx, page in enumerate(reader.pages):
             page_text = page.extract_text() or ""
-            # Normalize whitespace: collapse multiple blank lines into two
             normalized_text = re.sub(r'\n{3,}', '\n\n', page_text).strip()
             
             if normalized_text:
@@ -68,14 +55,10 @@ class DocumentParserService:
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
 
-        # Normalize line endings
         normalized_content = content.replace("\r\n", "\n").strip()
 
-        # Extract top-level heading as document title if present
         title_match = re.search(r"^#\s+(.+)$", normalized_content, re.MULTILINE)
         doc_title = title_match.group(1).strip() if title_match else os.path.basename(file_path)
-
-        # Count headings
         headings = re.findall(r"^(#{1,6})\s+(.+)$", normalized_content, re.MULTILINE)
 
         return {
