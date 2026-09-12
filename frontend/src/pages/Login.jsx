@@ -78,10 +78,22 @@ export default function Login() {
             <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
             {!loading && <ArrowRight size={16} />}
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setEmail('demo@docagent.com')
+              setPassword('password123')
+            }}
+            className="btn btn-secondary btn-sm"
+            style={{ width: '100%', marginTop: '8px', fontSize: '12px', gap: '6px' }}
+          >
+            <span>⚡ Fill Default Admin Credentials</span>
+          </button>
         </form>
 
         <div className="auth-footer" style={{ marginTop: '20px', textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          Don't have an account? <Link to="/register" style={{ color: 'var(--primary)', fontWeight: 600 }}>Create workspace</Link>
+          Need initial setup? <Link to="/onboarding" style={{ color: 'var(--primary)', fontWeight: 600 }}>Setup Wizard</Link>
         </div>
       </div>
     </div>

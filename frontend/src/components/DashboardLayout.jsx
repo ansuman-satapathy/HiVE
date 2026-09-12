@@ -28,11 +28,25 @@ export default function DashboardLayout({ children }) {
     }
   }, [])
 
+  const activeCount = queueData?.active_count || 0
+
   useEffect(() => {
-    fetchQueue()
-    const interval = setInterval(fetchQueue, 2500)
-    return () => clearInterval(interval)
-  }, [fetchQueue])
+    let timeoutId
+    let isMounted = true
+
+    const runPoll = async () => {
+      await fetchQueue()
+      if (!isMounted) return
+      const interval = activeCount > 0 || drawerOpen ? 2000 : 15000
+      timeoutId = setTimeout(runPoll, interval)
+    }
+
+    runPoll()
+    return () => {
+      isMounted = false
+      clearTimeout(timeoutId)
+    }
+  }, [fetchQueue, activeCount > 0, drawerOpen])
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -43,8 +57,6 @@ export default function DashboardLayout({ children }) {
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
-
-  const activeCount = queueData?.active_count || 0
 
   return (
     <div className="app-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-canvas)' }}>

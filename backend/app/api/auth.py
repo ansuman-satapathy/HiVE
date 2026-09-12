@@ -8,6 +8,11 @@ from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+@router.get("/status")
+async def get_auth_status(db: AsyncSession = Depends(get_db)):
+    """Check whether the workspace has been initialized or requires root setup."""
+    return await AuthService.get_instance_status(db)
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     register_data: UserRegister,
