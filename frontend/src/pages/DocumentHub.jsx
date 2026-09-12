@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   UploadCloud,
   FileText,
@@ -19,7 +19,13 @@ import {
   Filter,
   Check,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Copy,
+  ExternalLink,
+  Code2,
+  Maximize2,
+  Minimize2,
+  SlidersHorizontal
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 
@@ -69,6 +75,9 @@ export default function DocumentHub() {
   const [selectedDoc, setSelectedDoc] = useState(null)
   const [docChunks, setDocChunks] = useState([])
   const [loadingChunks, setLoadingChunks] = useState(false)
+  const [chunkSearch, setChunkSearch] = useState('')
+  const [copiedChunkId, setCopiedChunkId] = useState(null)
+  const [fullWidthInspector, setFullWidthInspector] = useState(false)
   const fileInputRef = useRef(null)
 
   const fetchDocuments = useCallback(async () => {
@@ -80,7 +89,6 @@ export default function DocumentHub() {
       if (res.ok) {
         const data = await res.json()
         setDocuments((prevDocs) => {
-          // Merge preserving optimistic items that are still uploading or in-flight
           const serverMap = new Map(data.map(d => [d.id, d]))
           const merged = data.slice()
           for (const doc of prevDocs) {
@@ -109,7 +117,6 @@ export default function DocumentHub() {
     const runPoll = async () => {
       await fetchDocuments()
       if (!isMounted) return
-      // When any document is processing, poll every 2s for live in-place progress updates
       const interval = hasActiveDocs ? 2000 : 15000
       timeoutId = setTimeout(runPoll, interval)
     }
@@ -133,7 +140,6 @@ export default function DocumentHub() {
     setError(null)
     setUploadSuccess(null)
 
-    // Generate optimistic item immediately visible directly in the list
     const tempId = `opt-${Date.now()}`
     const optimisticDoc = {
       id: tempId,
@@ -168,7 +174,6 @@ export default function DocumentHub() {
 
       setUploadSuccess(data.message)
       
-      // Replace optimistic entry with real server response
       if (data.document) {
         setDocuments((prev) => [
           data.document,
@@ -179,7 +184,6 @@ export default function DocumentHub() {
       await fetchDocuments()
     } catch (err) {
       setError(err.message || 'Failed to upload document')
-      // Remove optimistic doc on error
       setDocuments((prev) => prev.filter(d => d.id !== tempId))
     } finally {
       setUploading(false)
@@ -214,6 +218,7 @@ export default function DocumentHub() {
       return
     }
     setSelectedDoc(doc)
+    setChunkSearch('')
     setLoadingChunks(true)
     try {
       const token = tokenStorage.getToken()
@@ -231,6 +236,13 @@ export default function DocumentHub() {
     }
   }
 
+  const copyChunkToClipboard = (chunkId, text, e) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(text)
+    setCopiedChunkId(chunkId)
+    setTimeout(() => setCopiedChunkId(null), 1800)
+  }
+
   // Aggregate Metrics
   const totalChunks = documents.reduce((acc, d) => acc + (d.chunk_count || 0), 0)
   const totalTokens = documents.reduce((acc, d) => acc + (d.token_count || 0), 0)
@@ -238,16 +250,26 @@ export default function DocumentHub() {
     ['pending', 'parsing', 'chunking', 'indexing'].includes(d.status)
   ).length
 
-  // Filtering
+  // Filtered Documents
   const filteredDocs = documents.filter((d) => {
     const matchesSearch = d.filename.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesType = filterType === 'all' || d.file_type?.toLowerCase() === filterType
     return matchesSearch && matchesType
   })
 
+  // Filtered Chunks inside Inspector
+  const filteredChunks = useMemo(() => {
+    if (!chunkSearch) return docChunks
+    const q = chunkSearch.toLowerCase()
+    return docChunks.filter(c =>
+      c.content?.toLowerCase().includes(q) ||
+      c.chunk_metadata?.active_heading?.toLowerCase().includes(q)
+    )
+  }, [docChunks, chunkSearch])
+
   return (
-    <div style={{ maxWidth: '1440px', width: '100%', margin: '0 auto', padding: '24px 32px' }}>
-      {/* Top Bar: Compact Title + Corpus Metrics Pill Bar */}
+    <div style={{ maxWidth: '1600px', width: '100%', margin: '0 auto', padding: '24px 32px' }}>
+      {/* Top Header: Title & Clean Metrics Strip */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -263,73 +285,46 @@ export default function DocumentHub() {
             <Sparkles size={12} />
             <span>SEMANTIC CORPUS HUB</span>
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.4px', margin: 0, color: 'var(--text-primary)' }}>
-            Corpus Management
+          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.4px', margin: 0, color: 'var(--text-primary)' }}>
+            Corpus Documents
           </h1>
         </div>
 
         {/* Live Corpus Stats Strip */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-            padding: '6px 14px',
-            boxShadow: 'var(--shadow-xs)'
-          }}>
-            <Database size={15} style={{ color: 'var(--primary)' }} />
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Documents:</span>
-            <strong style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{documents.length}</strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div className="stat-chip">
+            <Database size={14} style={{ color: 'var(--primary)' }} />
+            <span>Files:</span>
+            <strong>{documents.length}</strong>
           </div>
 
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-            padding: '6px 14px',
-            boxShadow: 'var(--shadow-xs)'
-          }}>
-            <Layers size={15} style={{ color: '#0ea5e9' }} />
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Total Chunks:</span>
-            <strong style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{totalChunks.toLocaleString()}</strong>
+          <div className="stat-chip">
+            <Layers size={14} style={{ color: '#0ea5e9' }} />
+            <span>Semantic Chunks:</span>
+            <strong>{totalChunks.toLocaleString()}</strong>
           </div>
 
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-            padding: '6px 14px',
-            boxShadow: 'var(--shadow-xs)'
-          }}>
-            <Hash size={15} style={{ color: '#8b5cf6' }} />
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Indexed Tokens:</span>
-            <strong style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{totalTokens.toLocaleString()}</strong>
+          <div className="stat-chip">
+            <Hash size={14} style={{ color: '#8b5cf6' }} />
+            <span>Total Tokens:</span>
+            <strong>{totalTokens.toLocaleString()}</strong>
           </div>
 
           {activeProcessingCount > 0 && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '6px',
               backgroundColor: 'var(--primary-subtle)',
               border: '1px solid var(--primary-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '6px 14px',
+              borderRadius: 'var(--radius-full)',
+              padding: '4px 12px',
               color: 'var(--primary)',
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: 600,
             }}>
-              <Loader2 size={13} className="spin-animate" />
-              <span>{activeProcessingCount} Processing</span>
+              <Loader2 size={12} className="spin-animate" />
+              <span>{activeProcessingCount} Ingesting</span>
             </div>
           )}
         </div>
@@ -385,8 +380,8 @@ export default function DocumentHub() {
       {/* Modern Compact Dropzone & Control Toolbar */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(320px, 420px) 1fr',
-        gap: '20px',
+        gridTemplateColumns: 'minmax(320px, 400px) 1fr',
+        gap: '16px',
         alignItems: 'stretch',
         marginBottom: '20px'
       }}>
@@ -404,18 +399,18 @@ export default function DocumentHub() {
             border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border-strong)'}`,
             backgroundColor: dragOver ? 'var(--primary-subtle)' : 'var(--bg-surface)',
             borderRadius: 'var(--radius-lg)',
-            padding: '16px 20px',
+            padding: '14px 18px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '16px',
+            gap: '14px',
             transition: 'all 0.15s ease',
             boxShadow: 'var(--shadow-xs)',
           }}
         >
           <div style={{
-            width: '42px',
-            height: '42px',
+            width: '38px',
+            height: '38px',
             borderRadius: 'var(--radius-md)',
             backgroundColor: 'var(--primary-subtle)',
             color: 'var(--primary)',
@@ -424,17 +419,17 @@ export default function DocumentHub() {
             justifyContent: 'center',
             flexShrink: 0,
           }}>
-            {uploading ? <Loader2 size={20} className="spin-animate" /> : <UploadCloud size={20} />}
+            {uploading ? <Loader2 size={18} className="spin-animate" /> : <UploadCloud size={18} />}
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1px' }}>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                {uploading ? 'Uploading & parsing...' : 'Drop file to index'}
+                {uploading ? 'Uploading & parsing...' : 'Drop files here to index'}
               </span>
               <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 600 }}>Browse</span>
             </div>
             <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
-              PDF, Markdown (.md), or TXT up to 50MB
+              Supports PDF, Markdown (.md), or TXT up to 50MB
             </p>
           </div>
           <input
@@ -453,15 +448,15 @@ export default function DocumentHub() {
           backgroundColor: 'var(--bg-surface)',
           border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-lg)',
-          padding: '14px 20px',
+          padding: '12px 18px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '16px',
+          gap: '14px',
           boxShadow: 'var(--shadow-xs)'
         }}>
           {/* Search Box */}
-          <div style={{ position: 'relative', flex: 1, maxWidth: '380px' }}>
+          <div style={{ position: 'relative', flex: 1, maxWidth: '420px' }}>
             <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
@@ -506,15 +501,17 @@ export default function DocumentHub() {
         </div>
       </div>
 
-      {/* Main Content Workspace: Split View with Master List and Dedicated Chunk Inspector */}
+      {/* Main Content Workspace: Responsive Split Layout */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: selectedDoc ? '1.1fr 0.9fr' : '1fr',
+        gridTemplateColumns: selectedDoc
+          ? (fullWidthInspector ? '380px 1fr' : '1fr 1.05fr')
+          : '1fr',
         gap: '20px',
         alignItems: 'start',
       }}>
         {/* Document Master List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {loading ? (
             <div className="card" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <Loader2 size={24} className="spin-animate" style={{ margin: '0 auto 12px auto' }} />
@@ -544,7 +541,7 @@ export default function DocumentHub() {
                   onClick={() => !isProcessing && handleInspectChunks(doc)}
                   className="card"
                   style={{
-                    padding: '14px 18px',
+                    padding: '12px 16px',
                     cursor: isProcessing ? 'default' : 'pointer',
                     border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-default)',
                     backgroundColor: isSelected ? 'var(--primary-subtle)' : 'var(--bg-surface)',
@@ -575,12 +572,12 @@ export default function DocumentHub() {
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
                     {/* Left: Type Icon + Title & Metadata */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                       <div style={{
-                        width: '38px',
-                        height: '38px',
+                        width: '36px',
+                        height: '36px',
                         borderRadius: 'var(--radius-md)',
                         backgroundColor: isProcessing ? 'var(--primary-subtle)' : 'var(--bg-subtle)',
                         border: '1px solid var(--border-default)',
@@ -591,16 +588,16 @@ export default function DocumentHub() {
                         flexShrink: 0,
                       }}>
                         {isProcessing ? (
-                          <Loader2 size={18} className="spin-animate" />
+                          <Loader2 size={16} className="spin-animate" />
                         ) : (
                           getFileIcon(doc.file_type)
                         )}
                       </div>
 
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
                           <h3 style={{
-                            fontSize: '14px',
+                            fontSize: '13px',
                             fontWeight: 600,
                             color: 'var(--text-primary)',
                             margin: 0,
@@ -619,7 +616,7 @@ export default function DocumentHub() {
 
                         {/* In-Place Processing Stages Stepper */}
                         {isProcessing ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '3px', flexWrap: 'wrap' }}>
                             <span className={`stage-step ${doc.status === 'pending' || doc.status === 'parsing' ? 'active pulse-soft' : 'done'}`}>
                               {doc.status === 'pending' || doc.status === 'parsing' ? (
                                 <Loader2 size={10} className="spin-animate" />
@@ -653,7 +650,7 @@ export default function DocumentHub() {
                           </div>
                         ) : (
                           /* Standard Ready Document Metadata */
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
                             <span style={{ fontWeight: 500 }}>{formatBytes(doc.file_size_bytes)}</span>
                             <span>•</span>
                             <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{doc.file_type}</span>
@@ -673,12 +670,12 @@ export default function DocumentHub() {
                     </div>
 
                     {/* Right Action & Status Badge */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                       <span className={`badge ${
                         doc.status === 'ready' ? 'badge-success' :
                         doc.status === 'failed' ? 'badge-danger' :
                         doc.status === 'indexing' ? 'badge-warning' : 'badge-primary'
-                      }`}>
+                      }`} style={{ fontSize: '10px', padding: '2px 7px' }}>
                         {doc.status}
                       </span>
 
@@ -689,7 +686,7 @@ export default function DocumentHub() {
                             handleInspectChunks(doc)
                           }}
                           className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
-                          style={{ padding: '5px 10px', fontSize: '11px', gap: '4px' }}
+                          style={{ padding: '4px 10px', fontSize: '11px', gap: '4px', height: '28px' }}
                         >
                           <Layers size={13} />
                           <span>{isSelected ? 'Viewing' : 'Inspect'}</span>
@@ -700,9 +697,9 @@ export default function DocumentHub() {
                         onClick={(e) => handleDelete(doc.id, e)}
                         className="btn btn-ghost btn-sm"
                         title="Delete document"
-                        style={{ padding: '6px', color: 'var(--text-muted)' }}
+                        style={{ padding: '5px', color: 'var(--text-muted)' }}
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
@@ -712,84 +709,118 @@ export default function DocumentHub() {
           )}
         </div>
 
-        {/* Right Pane: Chunk Inspector */}
+        {/* Right Pane: Redesigned Premium Chunk Inspector */}
         {selectedDoc && (
           <div className="card" style={{
-            padding: '20px',
             display: 'flex',
             flexDirection: 'column',
-            height: '700px',
+            height: 'calc(100vh - 170px)',
+            minHeight: '650px',
             position: 'sticky',
             top: '80px',
             backgroundColor: 'var(--bg-surface)',
             border: '1px solid var(--border-default)',
-            boxShadow: 'var(--shadow-sm)',
+            boxShadow: 'var(--shadow-md)',
+            borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden'
           }}>
-            {/* Inspector Header */}
+            {/* Inspector Header with Title and Actions */}
             <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--border-default)',
+              backgroundColor: 'var(--bg-surface)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              paddingBottom: '14px',
-              borderBottom: '1px solid var(--border-default)'
+              gap: '12px'
             }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
                   <Layers size={14} style={{ color: 'var(--primary)' }} />
-                  <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
                     Chunk Inspector
+                  </span>
+                  <span className="badge badge-mono" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                    {docChunks.length} chunks
                   </span>
                 </div>
                 <h3 style={{
-                  fontSize: '14px',
+                  fontSize: '15px',
                   fontWeight: 600,
                   color: 'var(--text-primary)',
                   margin: 0,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  maxWidth: '320px'
                 }}>
                   {selectedDoc.filename}
                 </h3>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="badge badge-mono" style={{ fontSize: '11px' }}>
-                  {docChunks.length} chunks
-                </span>
+              {/* Inspector Action Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  onClick={() => setFullWidthInspector(!fullWidthInspector)}
+                  className="btn btn-ghost btn-sm"
+                  title={fullWidthInspector ? 'Standard Width' : 'Expand Inspector'}
+                  style={{ padding: '6px' }}
+                >
+                  {fullWidthInspector ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                </button>
                 <button
                   onClick={() => { setSelectedDoc(null); setDocChunks([]) }}
                   className="btn btn-ghost btn-sm"
-                  style={{ padding: '4px 8px', fontSize: '12px' }}
+                  title="Close Inspector"
+                  style={{ padding: '6px' }}
                 >
-                  <X size={15} />
+                  <X size={16} />
                 </button>
               </div>
             </div>
 
-            {/* Document Statistics Sub-bar */}
+            {/* Document Quick Stats Bar */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '10px 12px',
+              padding: '10px 20px',
               backgroundColor: 'var(--bg-subtle)',
-              borderRadius: 'var(--radius-md)',
-              margin: '12px 0',
+              borderBottom: '1px solid var(--border-default)',
               fontSize: '12px'
             }}>
-              <div>
-                <span style={{ color: 'var(--text-secondary)' }}>Size: </span>
-                <strong style={{ color: 'var(--text-primary)' }}>{formatBytes(selectedDoc.file_size_bytes)}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Size: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{formatBytes(selectedDoc.file_size_bytes)}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Total Tokens: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{selectedDoc.token_count?.toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Format: </span>
+                  <strong style={{ color: 'var(--text-primary)', textTransform: 'uppercase' }}>{selectedDoc.file_type}</strong>
+                </div>
               </div>
-              <div>
-                <span style={{ color: 'var(--text-secondary)' }}>Tokens: </span>
-                <strong style={{ color: 'var(--text-primary)' }}>{selectedDoc.token_count?.toLocaleString()}</strong>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-secondary)' }}>Type: </span>
-                <strong style={{ color: 'var(--text-primary)', textTransform: 'uppercase' }}>{selectedDoc.file_type}</strong>
+
+              {/* Search Inside Chunks */}
+              <div style={{ position: 'relative', width: '200px' }}>
+                <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  value={chunkSearch}
+                  onChange={(e) => setChunkSearch(e.target.value)}
+                  placeholder="Filter chunk text..."
+                  style={{
+                    width: '100%',
+                    padding: '4px 8px 4px 26px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-default)',
+                    fontSize: '11px',
+                    backgroundColor: 'var(--bg-surface)',
+                    outline: 'none',
+                  }}
+                />
               </div>
             </div>
 
@@ -799,62 +830,91 @@ export default function DocumentHub() {
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
-              gap: '10px',
-              paddingRight: '4px'
+              gap: '12px',
+              padding: '16px 20px',
+              backgroundColor: 'var(--bg-canvas)'
             }}>
               {loadingChunks ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  <Loader2 size={22} className="spin-animate" style={{ margin: '0 auto 10px auto' }} />
-                  <p style={{ fontSize: '13px', margin: 0 }}>Loading chunks...</p>
+                <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <Loader2 size={24} className="spin-animate" style={{ margin: '0 auto 12px auto' }} />
+                  <p style={{ fontSize: '13px', margin: 0 }}>Retrieving semantic chunks...</p>
                 </div>
-              ) : docChunks.length === 0 ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                  {selectedDoc.status === 'ready' ? 'No chunks extracted.' : 'Document is currently being processed.'}
+              ) : filteredChunks.length === 0 ? (
+                <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <Code2 size={32} style={{ margin: '0 auto 12px auto', opacity: 0.4 }} />
+                  <p style={{ fontSize: '14px', fontWeight: 500, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
+                    {chunkSearch ? 'No matching chunks' : 'No chunks extracted'}
+                  </p>
+                  <p style={{ fontSize: '12px', margin: 0 }}>
+                    {chunkSearch ? 'Try a different filter term.' : 'Document is currently empty or indexing.'}
+                  </p>
                 </div>
               ) : (
-                docChunks.map((chunk) => (
-                  <div
-                    key={chunk.id}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--bg-subtle)',
-                      border: '1px solid var(--border-default)',
-                      transition: 'border-color 0.15s ease',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span className="badge badge-mono" style={{ fontSize: '10px' }}>
-                        Chunk #{chunk.chunk_index} • {chunk.token_count} tokens
-                      </span>
-                      {chunk.chunk_metadata?.active_heading && (
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          color: 'var(--primary)',
-                          maxWidth: '220px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          § {chunk.chunk_metadata.active_heading}
-                        </span>
-                      )}
+                filteredChunks.map((chunk) => {
+                  const isCopied = copiedChunkId === chunk.id
+                  return (
+                    <div
+                      key={chunk.id}
+                      className="chunk-item-card"
+                    >
+                      {/* Chunk Sub-Header */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 14px',
+                        backgroundColor: 'var(--bg-surface)',
+                        gap: '10px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                          <span className="badge badge-mono" style={{ fontSize: '10.5px', fontWeight: 600 }}>
+                            Chunk #{chunk.chunk_index}
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {chunk.token_count} tokens
+                          </span>
+                          {chunk.chunk_metadata?.active_heading && (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: 'var(--primary)',
+                              backgroundColor: 'var(--primary-subtle)',
+                              padding: '2px 8px',
+                              borderRadius: 'var(--radius-sm)',
+                              maxWidth: '240px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              § {chunk.chunk_metadata.active_heading}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Copy Chunk Content Button */}
+                        <button
+                          onClick={(e) => copyChunkToClipboard(chunk.id, chunk.content, e)}
+                          className="btn btn-ghost btn-sm"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '11px',
+                            gap: '4px',
+                            height: '24px',
+                            color: isCopied ? 'var(--success)' : 'var(--text-secondary)'
+                          }}
+                        >
+                          {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                          <span>{isCopied ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
+
+                      {/* Monospace Formatted Chunk Code Block */}
+                      <div className="code-chunk-body">
+                        {chunk.content}
+                      </div>
                     </div>
-                    <p style={{
-                      fontSize: '12px',
-                      fontFamily: 'var(--font-mono)',
-                      lineHeight: 1.5,
-                      color: 'var(--text-secondary)',
-                      margin: 0,
-                      whiteSpace: 'pre-wrap',
-                      maxHeight: '160px',
-                      overflowY: 'auto',
-                    }}>
-                      {chunk.content}
-                    </p>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           </div>

@@ -482,3 +482,53 @@ code, pre, .font-mono {
   color: var(--text-muted);
   border: 1px solid var(--border-default);
 }
+
+/* Chunk Inspector & Rich Code Blocks */
+.chunk-item-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease-in-out;
+  overflow: hidden;
+}
+
+.chunk-item-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.chunk-item-card.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.code-chunk-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: #1e293b;
+  background-color: #f8fafc;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-subtle);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.stat-chip strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
