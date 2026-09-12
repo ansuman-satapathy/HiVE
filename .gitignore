@@ -81,4 +81,6 @@ coverage/
 *.seed
 .scratch/
 task.md
+uploads/
+backend/uploads/
 

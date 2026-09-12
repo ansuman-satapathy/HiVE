@@ -35,6 +35,10 @@ async def override_get_db():
 
 app.dependency_overrides[get_db] = override_get_db
 
+# Override SessionLocal for background tasks in tests
+from app.db import database
+database.SessionLocal = TestSessionLocal
+
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 @pytest.fixture(scope="session")
