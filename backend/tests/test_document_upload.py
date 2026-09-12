@@ -33,7 +33,16 @@ async def test_upload_markdown_document_and_list(client, db_session):
     assert get_resp.status_code == 200
     assert get_resp.json()["filename"] == "architecture.md"
 
-    # 4. Upload identical file (deduplication check)
+    # 4. Retrieve document chunks
+    chunks_resp = await client.get(f"/api/documents/{doc_id}/chunks", headers=headers)
+    assert chunks_resp.status_code == 200
+    chunks = chunks_resp.json()
+    assert len(chunks) >= 1
+    assert chunks[0]["document_id"] == doc_id
+    assert "Architecture Overview" in chunks[0]["content"]
+    assert chunks[0]["chunk_metadata"]["active_heading"] == "Architecture Overview"
+
+    # 5. Upload identical file (deduplication check)
     files_dup = {"file": ("architecture.md", io.BytesIO(md_content), "text/markdown")}
     dup_resp = await client.post("/api/documents/upload", headers=headers, files=files_dup)
     assert dup_resp.status_code == 202
@@ -41,7 +50,7 @@ async def test_upload_markdown_document_and_list(client, db_session):
     assert dup_data["is_duplicate"] is True
     assert dup_data["document"]["id"] == doc_id
 
-    # 5. Delete document
+    # 6. Delete document
     del_resp = await client.delete(f"/api/documents/{doc_id}", headers=headers)
     assert del_resp.status_code == 204
 
