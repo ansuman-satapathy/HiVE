@@ -49,15 +49,9 @@ export default function DocumentUploadDropzone({
           </div>
         </div>
 
-        {/* Right: File format chips & Action Trigger */}
-        <div className="relative z-10 flex items-center gap-2.5 shrink-0">
-          <div className="hidden md:flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
-            <span className="px-2 py-0.5 rounded-md bg-[var(--bg-surface)] border border-blue-500/20 text-blue-600 dark:text-blue-400 font-mono font-semibold">PDF</span>
-            <span className="px-2 py-0.5 rounded-md bg-[var(--bg-surface)] border border-blue-500/20 text-blue-600 dark:text-blue-400 font-mono font-semibold">MD</span>
-            <span className="px-2 py-0.5 rounded-md bg-[var(--bg-surface)] border border-blue-500/20 text-blue-600 dark:text-blue-400 font-mono font-semibold">TXT</span>
-          </div>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs group-hover:shadow-sm transition-all select-none">
+        {/* Right: Action Trigger */}
+        <div className="relative z-10 shrink-0">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs group-hover:shadow-sm transition-all select-none">
             <FileUp size={13} />
             <span>Select File</span>
           </div>

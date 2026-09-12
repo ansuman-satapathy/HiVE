@@ -247,7 +247,6 @@ export default function DocumentHub() {
         setSearchQuery={setSearchQuery}
         filterType={filterType}
         setFilterType={setFilterType}
-        onUploadClick={() => fileInputRef.current?.click()}
       />
 
       {/* Documents Master Table */}
