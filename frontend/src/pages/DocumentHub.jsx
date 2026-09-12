@@ -19,7 +19,9 @@ import {
   Code2,
   Maximize2,
   Minimize2,
-  Calendar
+  Calendar,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 
@@ -70,6 +72,7 @@ export default function DocumentHub() {
   const [docChunks, setDocChunks] = useState([])
   const [loadingChunks, setLoadingChunks] = useState(false)
   const [chunkSearch, setChunkSearch] = useState('')
+  const [chunkPage, setChunkPage] = useState(1)
   const [copiedChunkId, setCopiedChunkId] = useState(null)
   const fileInputRef = useRef(null)
 
@@ -207,10 +210,11 @@ export default function DocumentHub() {
   const handleInspectChunks = async (doc) => {
     setSelectedDoc(doc)
     setChunkSearch('')
+    setChunkPage(1)
     setLoadingChunks(true)
     try {
       const token = tokenStorage.getToken()
-      const res = await fetch(`/api/documents/${doc.id}/chunks`, {
+      const res = await fetch(`/api/documents/${doc.id}/chunks?limit=500`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
@@ -245,7 +249,7 @@ export default function DocumentHub() {
     return matchesSearch && matchesType
   })
 
-  // Filtered Chunks
+  // Filtered Chunks & Pagination
   const filteredChunks = useMemo(() => {
     if (!chunkSearch) return docChunks
     const q = chunkSearch.toLowerCase()
@@ -254,6 +258,14 @@ export default function DocumentHub() {
       c.chunk_metadata?.active_heading?.toLowerCase().includes(q)
     )
   }, [docChunks, chunkSearch])
+
+  const CHUNKS_PER_PAGE = 10
+  const totalChunkPages = Math.max(1, Math.ceil(filteredChunks.length / CHUNKS_PER_PAGE))
+  const safeChunkPage = Math.min(chunkPage, totalChunkPages)
+  const paginatedChunks = useMemo(() => {
+    const startIndex = (safeChunkPage - 1) * CHUNKS_PER_PAGE
+    return filteredChunks.slice(startIndex, startIndex + CHUNKS_PER_PAGE)
+  }, [filteredChunks, safeChunkPage])
 
   return (
     <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '24px 32px' }}>
@@ -713,7 +725,10 @@ export default function DocumentHub() {
                 <input
                   type="text"
                   value={chunkSearch}
-                  onChange={(e) => setChunkSearch(e.target.value)}
+                  onChange={(e) => {
+                    setChunkSearch(e.target.value)
+                    setChunkPage(1)
+                  }}
                   placeholder="Filter text..."
                   style={{
                     width: '100%',
@@ -751,13 +766,13 @@ export default function DocumentHub() {
                   </p>
                 </div>
               ) : (
-                filteredChunks.map((chunk) => {
+                paginatedChunks.map((chunk) => {
                   const isCopied = copiedChunkId === chunk.id
                   return (
                     <div
                       key={chunk.id}
                       style={{
-                        backgroundColor: 'var(--bg-surface)',
+                        backgroundColor: '#ffffff',
                         border: '1px solid var(--border-default)',
                         borderRadius: 'var(--radius-md)',
                         overflow: 'hidden',
@@ -769,7 +784,7 @@ export default function DocumentHub() {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '8px 12px',
-                        backgroundColor: 'var(--bg-subtle)',
+                        backgroundColor: '#f8fafc',
                         borderBottom: '1px solid var(--border-default)',
                         fontSize: '11px'
                       }}>
@@ -808,20 +823,62 @@ export default function DocumentHub() {
                         fontFamily: 'var(--font-mono)',
                         fontSize: '12px',
                         lineHeight: 1.6,
-                        color: 'var(--text-primary)',
-                        padding: '12px 14px',
+                        color: '#0f172a',
+                        backgroundColor: '#ffffff',
+                        padding: '14px 16px',
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
-                        maxHeight: '220px',
+                        minHeight: '40px',
+                        maxHeight: '260px',
                         overflowY: 'auto'
                       }}>
-                        {chunk.content}
+                        {chunk.content || <em style={{ color: '#94a3b8' }}>(Empty chunk content)</em>}
                       </div>
                     </div>
                   )
                 })
               )}
             </div>
+
+            {/* Pagination Controls Footer */}
+            {filteredChunks.length > CHUNKS_PER_PAGE && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 20px',
+                borderTop: '1px solid var(--border-default)',
+                backgroundColor: 'var(--bg-surface)',
+                fontSize: '12px'
+              }}>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  Showing {(safeChunkPage - 1) * CHUNKS_PER_PAGE + 1} - {Math.min(safeChunkPage * CHUNKS_PER_PAGE, filteredChunks.length)} of {filteredChunks.length} sections
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={() => setChunkPage(p => Math.max(1, p - 1))}
+                    disabled={safeChunkPage <= 1}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '4px 10px', fontSize: '11px', gap: '4px' }}
+                  >
+                    <ChevronLeft size={13} />
+                    <span>Previous</span>
+                  </button>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', padding: '0 4px' }}>
+                    {safeChunkPage} / {totalChunkPages}
+                  </span>
+                  <button
+                    onClick={() => setChunkPage(p => Math.min(totalChunkPages, p + 1))}
+                    disabled={safeChunkPage >= totalChunkPages}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '4px 10px', fontSize: '11px', gap: '4px' }}
+                  >
+                    <span>Next</span>
+                    <ChevronRight size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
