@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Bot, Check, ArrowRight, ShieldCheck, Database, Key, Sparkles, Loader2, AlertCircle } from 'lucide-react'
+import { Bot, Check, ArrowRight, Sparkles, Loader2, AlertCircle, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 
 export default function Onboarding() {
   const [step, setStep] = useState(1)
@@ -14,6 +15,7 @@ export default function Onboarding() {
   const [error, setError] = useState(null)
 
   const { setSession } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -48,7 +50,6 @@ export default function Onboarding() {
     setError(null)
 
     try {
-      // 1. Register admin user
       const registerRes = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,7 +65,6 @@ export default function Onboarding() {
         throw new Error(registerData.detail || 'Failed to initialize administrator')
       }
 
-      // 2. Log in and acquire token
       const loginRes = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,7 +76,6 @@ export default function Onboarding() {
         throw new Error('User created but login failed. Please sign in.')
       }
 
-      // 3. Establish active session and enter workspace
       await setSession(loginData.access_token)
       navigate('/workspace')
     } catch (err) {
@@ -86,174 +85,120 @@ export default function Onboarding() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'var(--bg-canvas)',
-      padding: '40px 20px',
-    }}>
-      <div style={{
-        maxWidth: '520px',
-        width: '100%',
-        backgroundColor: 'var(--bg-surface)',
-        borderRadius: 'var(--radius-xl)',
-        border: '1px solid var(--border-default)',
-        boxShadow: 'var(--shadow-lg)',
-        padding: '36px 32px',
-      }}>
-        {/* Coolify-style Header Badge */}
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <div style={{
-            background: 'linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%)',
-            color: '#fff',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '48px',
-            height: '48px',
-            borderRadius: '14px',
-            marginBottom: '16px',
-            boxShadow: 'var(--shadow-md)',
-          }}>
+    <div className="min-h-screen flex items-center justify-center p-4 relative transition-colors duration-200" style={{ backgroundColor: 'var(--bg-canvas)' }}>
+      {/* Theme toggle */}
+      <div className="absolute top-6 right-6">
+        <button
+          onClick={toggleTheme}
+          className="p-2.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-all shadow-sm flex items-center justify-center"
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        >
+          {theme === 'dark' ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} className="text-slate-600" />}
+        </button>
+      </div>
+
+      <div className="w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-2xl p-8 sm:p-10 shadow-xl transition-all">
+        {/* Header Badge */}
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center mx-auto mb-4 shadow-md shadow-blue-500/20">
             <Bot size={24} />
           </div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: 'var(--radius-full)', backgroundColor: 'var(--primary-subtle)', color: 'var(--primary)', fontSize: '11px', fontWeight: 600, marginBottom: '8px' }}>
-            <Sparkles size={12} />
-            INITIAL SETUP
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[11px] font-semibold mb-2">
+            <Sparkles size={11} />
+            <span>INITIAL SETUP</span>
           </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>
-            Initialize DocAgent
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+            Setup QuickDesk
           </h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-            Configure your self-hosted autonomous document intelligence runtime
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
+            Configure your self-hosted document intelligence workspace
           </p>
         </div>
 
         {/* Step Indicator */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '12px',
-          marginBottom: '28px',
-          paddingBottom: '20px',
-          borderBottom: '1px solid var(--border-default)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '24px',
-              height: '24px',
-              borderRadius: '50%',
-              backgroundColor: step >= 1 ? 'var(--primary)' : 'var(--border-default)',
-              color: '#fff',
-              fontSize: '11px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              {step > 1 ? <Check size={14} /> : '1'}
+        <div className="flex items-center justify-center gap-3 mb-8 pb-5 border-b border-[var(--border-default)]">
+          <div className="flex items-center gap-2">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+              step >= 1 ? 'bg-blue-600 text-white' : 'bg-[var(--border-default)] text-[var(--text-muted)]'
+            }`}>
+              {step > 1 ? <Check size={13} /> : '1'}
             </div>
-            <span style={{ fontSize: '12px', fontWeight: step === 1 ? 600 : 400, color: step === 1 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-              Root Admin
+            <span className={`text-xs ${step === 1 ? 'font-semibold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
+              Admin Account
             </span>
           </div>
 
-          <div style={{ width: '32px', height: '1px', backgroundColor: 'var(--border-default)' }} />
+          <div className="w-8 h-px bg-[var(--border-default)]" />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '24px',
-              height: '24px',
-              borderRadius: '50%',
-              backgroundColor: step >= 2 ? 'var(--primary)' : 'var(--border-default)',
-              color: '#fff',
-              fontSize: '11px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+          <div className="flex items-center gap-2">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+              step >= 2 ? 'bg-blue-600 text-white' : 'bg-[var(--border-default)] text-[var(--text-muted)]'
+            }`}>
               2
             </div>
-            <span style={{ fontSize: '12px', fontWeight: step === 2 ? 600 : 400, color: step === 2 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+            <span className={`text-xs ${step === 2 ? 'font-semibold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
               Workspace
             </span>
           </div>
         </div>
 
         {error && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '12px',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--error-bg)',
-            border: '1px solid var(--error-border)',
-            color: 'var(--error)',
-            fontSize: '13px',
-            marginBottom: '20px',
-          }}>
-            <AlertCircle size={16} />
+          <div className="flex items-center gap-2.5 p-3.5 mb-6 rounded-lg text-sm bg-red-500/10 border border-red-500/25 text-red-500 dark:text-red-400">
+            <AlertCircle size={16} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Step 1: Root Administrator Credentials */}
         {step === 1 && (
-          <form onSubmit={handleCreateRootAdmin} className="auth-form">
-            <div className="input-group">
-              <label htmlFor="fullName">Root Administrator Name</label>
-              <div className="input-wrapper">
-                <input
-                  id="fullName"
-                  type="text"
-                  required
-                  placeholder="System Administrator"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                />
-              </div>
+          <form onSubmit={handleCreateRootAdmin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                Administrator Name
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="System Admin"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm transition-all"
+              />
             </div>
 
-            <div className="input-group">
-              <label htmlFor="email">Email Address</label>
-              <div className="input-wrapper">
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  placeholder="admin@docagent.local"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="admin@quickdesk.local"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm transition-all"
+              />
             </div>
 
-            <div className="input-group">
-              <label htmlFor="password">Admin Password (min. 6 chars)</label>
-              <div className="input-wrapper">
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  placeholder="••••••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                Password (min. 6 chars)
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm transition-all"
+              />
             </div>
 
             <button
               type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%', marginTop: '10px', padding: '11px', gap: '8px' }}
+              className="w-full mt-2 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.99]"
             >
-              <span>Continue to Workspace Config</span>
+              <span>Continue to Workspace</span>
               <ArrowRight size={16} />
             </button>
           </form>
@@ -261,65 +206,66 @@ export default function Onboarding() {
 
         {/* Step 2: Workspace Config & API Keys */}
         {step === 2 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            <div className="input-group">
-              <label htmlFor="wsName">Primary Workspace Name</label>
-              <div className="input-wrapper">
-                <input
-                  id="wsName"
-                  type="text"
-                  value={workspaceName}
-                  onChange={(e) => setWorkspaceName(e.target.value)}
-                  placeholder="Production Workspace"
-                />
-              </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                Workspace Name
+              </label>
+              <input
+                type="text"
+                value={workspaceName}
+                onChange={(e) => setWorkspaceName(e.target.value)}
+                placeholder="Production Workspace"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm transition-all"
+              />
             </div>
 
-            <div className="input-group">
-              <label htmlFor="apiKey" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>NVIDIA NIM / OpenAI API Key</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Optional</span>
-              </label>
-              <div className="input-wrapper">
-                <input
-                  id="apiKey"
-                  type="password"
-                  value={nvidiaApiKey}
-                  onChange={(e) => setNvidiaApiKey(e.target.value)}
-                  placeholder="nvapi-... (can configure later)"
-                />
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-[var(--text-secondary)]">
+                  NVIDIA NIM / OpenAI API Key
+                </label>
+                <span className="text-[11px] text-[var(--text-muted)]">Optional</span>
               </div>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                Powers hybrid dense vector embeddings and neural cross-encoder reranking.
+              <input
+                type="password"
+                value={nvidiaApiKey}
+                onChange={(e) => setNvidiaApiKey(e.target.value)}
+                placeholder="nvapi-... (can configure later)"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm transition-all"
+              />
+              <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
+                Used for embeddings and neural cross-encoder reranking.
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+            <div className="flex gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="btn btn-secondary"
-                style={{ flex: 1, padding: '11px' }}
                 disabled={loading}
+                className="flex-1 py-2.5 px-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] text-sm font-medium transition-all"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={handleCompleteSetup}
-                className="btn btn-primary"
-                style={{ flex: 2, padding: '11px', gap: '8px' }}
                 disabled={loading}
+                className="flex-[2] py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.99] disabled:opacity-60"
               >
                 {loading ? <Loader2 size={16} className="spin-animate" /> : <Sparkles size={16} />}
-                <span>{loading ? 'Initializing...' : 'Complete & Launch'}</span>
+                <span>{loading ? 'Initializing...' : 'Complete Setup'}</span>
               </button>
             </div>
           </div>
         )}
 
-        <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-          Already configured? <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>Sign in here</Link>
+        <div className="mt-8 pt-6 border-t border-[var(--border-default)] text-center text-xs text-[var(--text-secondary)]">
+          Already configured?{' '}
+          <Link to="/login" className="text-blue-500 hover:text-blue-400 font-semibold transition-colors">
+            Sign in here
+          </Link>
         </div>
       </div>
     </div>

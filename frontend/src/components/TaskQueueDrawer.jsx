@@ -16,17 +16,17 @@ function getStageProgress(status) {
 function getStatusBadge(status) {
   switch (status) {
     case 'ready':
-      return <span className="badge badge-success">ready</span>
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">ready</span>
     case 'failed':
-      return <span className="badge badge-danger">failed</span>
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/25">failed</span>
     case 'parsing':
-      return <span className="badge badge-info"><Loader2 size={10} className="spin-animate" style={{ marginRight: 4 }} />parsing</span>
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-sky-500/10 text-sky-500 border border-sky-500/25 gap-1"><Loader2 size={10} className="spin-animate" />parsing</span>
     case 'chunking':
-      return <span className="badge badge-primary"><Loader2 size={10} className="spin-animate" style={{ marginRight: 4 }} />chunking</span>
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-blue-500/10 text-blue-500 border border-blue-500/25 gap-1"><Loader2 size={10} className="spin-animate" />chunking</span>
     case 'indexing':
-      return <span className="badge badge-warning"><Loader2 size={10} className="spin-animate" style={{ marginRight: 4 }} />indexing</span>
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/25 gap-1"><Loader2 size={10} className="spin-animate" />indexing</span>
     default:
-      return <span className="badge badge-mono">{status}</span>
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] border border-[var(--border-default)]">{status}</span>
   }
 }
 
@@ -50,142 +50,84 @@ export default function TaskQueueDrawer({ isOpen, onClose, queueData, onRefresh 
     <div className="drawer-overlay" onClick={onClose}>
       <div className="drawer-panel" onClick={(e) => e.stopPropagation()}>
         {/* Drawer Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '20px 24px',
-          borderBottom: '1px solid var(--border-default)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-              Background Processing
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+              Background Tasks
             </h2>
             {activeTasks.length > 0 && (
-              <span className="badge badge-primary" style={{ fontSize: '11px' }}>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/25">
                 {activeTasks.length} active
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-1.5">
             <button
               onClick={onRefresh}
-              className="btn btn-ghost btn-sm"
+              className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors"
               title="Refresh queue"
-              style={{ padding: '6px' }}
             >
-              <RefreshCw size={15} />
+              <RefreshCw size={14} />
             </button>
             <button
               onClick={onClose}
-              className="btn btn-ghost btn-sm"
-              style={{ padding: '6px' }}
+              className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors"
+              title="Close drawer"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           </div>
         </div>
 
         {/* Drawer Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-[var(--bg-canvas)]">
           {/* Active Tasks Section */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-                Active Queue ({activeTasks.length})
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                In Progress ({activeTasks.length})
               </span>
             </div>
 
             {activeTasks.length === 0 ? (
-              <div style={{
-                padding: '24px 16px',
-                textAlign: 'center',
-                backgroundColor: 'var(--bg-subtle)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px dashed var(--border-default)',
-                color: 'var(--text-muted)',
-                fontSize: '13px',
-              }}>
-                No documents currently processing.
+              <div className="p-6 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] text-center text-xs text-[var(--text-muted)]">
+                No files currently being parsed
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="space-y-3">
                 {activeTasks.map((task) => {
                   const progress = getStageProgress(task.status)
                   return (
                     <div
                       key={task.id}
-                      style={{
-                        padding: '16px',
-                        borderRadius: 'var(--radius-lg)',
-                        border: '1px solid var(--border-default)',
-                        backgroundColor: 'var(--bg-surface)',
-                        boxShadow: 'var(--shadow-xs)',
-                      }}
+                      className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-sm space-y-3 transition-all"
                     >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                          <div style={{
-                            padding: '6px',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'var(--primary-subtle)',
-                            color: 'var(--primary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                          }}>
-                            <FileText size={16} />
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <p style={{
-                              fontSize: '13px',
-                              fontWeight: 600,
-                              color: 'var(--text-primary)',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              margin: 0,
-                            }}>
-                              {task.filename}
-                            </p>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                              {(task.file_size_bytes / 1024).toFixed(1)} KB • {task.file_type.toUpperCase()}
-                            </span>
-                          </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                            {task.filename}
+                          </p>
+                          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                            {(task.file_size_bytes / 1024).toFixed(1)} KB • {task.file_type?.toUpperCase()}
+                          </p>
                         </div>
                         {getStatusBadge(task.status)}
                       </div>
 
-                      {/* Animated Progress Bar */}
-                      <div style={{
-                        width: '100%',
-                        height: '6px',
-                        backgroundColor: 'var(--border-subtle)',
-                        borderRadius: 'var(--radius-full)',
-                        overflow: 'hidden',
-                        marginBottom: '10px',
-                      }}>
-                        <div style={{
-                          width: `${progress}%`,
-                          height: '100%',
-                          backgroundColor: 'var(--primary)',
-                          borderRadius: 'var(--radius-full)',
-                          transition: 'width 0.4s ease',
-                        }} />
+                      {/* Animated Progress Track */}
+                      <div className="w-full bg-[var(--bg-subtle)] border border-[var(--border-default)] h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500 rounded-full transition-all duration-300 shimmer-progress"
+                          style={{ width: `${progress}%` }}
+                        />
                       </div>
 
-                      {/* Step Indicator Flow */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                        <span style={{ color: task.status === 'parsing' ? 'var(--primary)' : 'inherit', fontWeight: task.status === 'parsing' ? 600 : 400 }}>
-                          1. Parsing
+                      <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] pt-0.5">
+                        <span className="flex items-center gap-1">
+                          <Clock size={11} />
+                          {task.elapsed_seconds ? `${task.elapsed_seconds.toFixed(1)}s` : 'Active'}
                         </span>
-                        <ChevronRight size={12} style={{ color: 'var(--text-muted)' }} />
-                        <span style={{ color: task.status === 'chunking' ? 'var(--primary)' : 'inherit', fontWeight: task.status === 'chunking' ? 600 : 400 }}>
-                          2. Chunking
-                        </span>
-                        <ChevronRight size={12} style={{ color: 'var(--text-muted)' }} />
-                        <span style={{ color: task.status === 'ready' ? 'var(--success)' : 'inherit' }}>
-                          3. Ready
-                        </span>
+                        <span>{progress}% complete</span>
                       </div>
                     </div>
                   )
@@ -196,94 +138,37 @@ export default function TaskQueueDrawer({ isOpen, onClose, queueData, onRefresh 
 
           {/* Recent Completed Section */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-                Recent Ingestion Jobs ({recentCompleted.length})
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Recent ({recentCompleted.length})
               </span>
             </div>
 
             {recentCompleted.length === 0 ? (
-              <div style={{
-                padding: '20px 16px',
-                textAlign: 'center',
-                backgroundColor: 'var(--bg-subtle)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--text-muted)',
-                fontSize: '13px',
-              }}>
-                No completed jobs recorded yet.
+              <div className="p-6 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] text-center text-xs text-[var(--text-muted)]">
+                No completed ingestion jobs yet
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {recentCompleted.map((job) => (
+              <div className="space-y-2">
+                {recentCompleted.map((task) => (
                   <div
-                    key={job.id}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-default)',
-                      backgroundColor: 'var(--bg-surface)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '12px',
-                    }}
+                    key={task.id}
+                    className="p-3.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] flex items-center justify-between gap-3 text-xs"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                      {job.status === 'ready' ? (
-                        <CheckCircle2 size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
-                      ) : (
-                        <AlertCircle size={16} style={{ color: 'var(--error)', flexShrink: 0 }} />
-                      )}
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{
-                          fontSize: '13px',
-                          fontWeight: 500,
-                          color: 'var(--text-primary)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          margin: 0,
-                        }}>
-                          {job.filename}
-                        </p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                          <span>{job.chunk_count} chunks</span>
-                          <span>•</span>
-                          <span>{job.token_count} tokens</span>
-                          <span>•</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                            <Clock size={10} />
-                            {job.elapsed_seconds}s
-                          </span>
-                        </div>
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-[var(--text-primary)] truncate">
+                        {task.filename}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                        {task.chunk_count || 0} sections • {task.token_count || 0} tokens
+                      </p>
                     </div>
-                    <div>
-                      {getStatusBadge(job.status)}
-                    </div>
+                    {getStatusBadge(task.status)}
                   </div>
                 ))}
               </div>
             )}
           </div>
-        </div>
-
-        {/* Drawer Footer */}
-        <div style={{
-          padding: '14px 24px',
-          borderTop: '1px solid var(--border-default)',
-          backgroundColor: 'var(--bg-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '12px',
-          color: 'var(--text-secondary)',
-        }}>
-          <span>Async Workers: Active</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
-            Polling interval: 2.5s
-          </span>
         </div>
       </div>
     </div>

@@ -744,95 +744,64 @@ export default function DocumentHub() {
             </div>
 
             {/* Chunks List */}
-            <div style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '16px 20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-              backgroundColor: 'var(--bg-canvas)'
-            }}>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[var(--bg-canvas)]">
               {loadingChunks ? (
-                <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  <Loader2 size={24} className="spin-animate" style={{ margin: '0 auto 12px auto' }} />
-                  <p style={{ fontSize: '13px', margin: 0 }}>Loading document content...</p>
+                <div className="py-20 text-center text-[var(--text-muted)]">
+                  <Loader2 size={24} className="spin-animate mx-auto mb-3 text-blue-500" />
+                  <p className="text-xs font-medium">Loading document content...</p>
                 </div>
               ) : filteredChunks.length === 0 ? (
-                <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  <Code2 size={32} style={{ margin: '0 auto 12px auto', opacity: 0.4 }} />
-                  <p style={{ fontSize: '14px', fontWeight: 500, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
+                <div className="py-20 text-center text-[var(--text-muted)]">
+                  <Code2 size={32} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
                     {chunkSearch ? 'No matching text found' : 'No sections extracted'}
                   </p>
                 </div>
               ) : (
                 paginatedChunks.map((chunk) => {
                   const isCopied = copiedChunkId === chunk.id
+                  const heading = chunk.chunk_metadata?.active_heading || chunk.chunk_metadata?.section_hierarchy?.[0]
                   return (
                     <div
                       key={chunk.id}
-                      style={{
-                        backgroundColor: '#ffffff',
-                        border: '1px solid var(--border-default)',
-                        borderRadius: 'var(--radius-md)',
-                        overflow: 'hidden',
-                        boxShadow: 'var(--shadow-xs)'
-                      }}
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden shadow-xs hover:border-[var(--border-strong)] transition-all"
                     >
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 12px',
-                        backgroundColor: '#f8fafc',
-                        borderBottom: '1px solid var(--border-default)',
-                        fontSize: '11px'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className="badge badge-mono">Section #{chunk.chunk_index + 1}</span>
-                          <span style={{ color: 'var(--text-muted)' }}>{chunk.token_count} tokens</span>
-                          {chunk.chunk_metadata?.active_heading && (
-                            <span style={{
-                              fontWeight: 600,
-                              color: 'var(--primary)',
-                              backgroundColor: 'var(--primary-subtle)',
-                              padding: '2px 6px',
-                              borderRadius: 'var(--radius-sm)',
-                            }}>
-                              § {chunk.chunk_metadata.active_heading}
+                      {/* Section Card Header */}
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-[var(--bg-subtle)] border-b border-[var(--border-default)]">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-default)] shadow-2xs">
+                            Section #{chunk.chunk_index + 1}
+                          </span>
+                          <span className="text-[11px] text-[var(--text-muted)] font-medium">
+                            {chunk.token_count} tokens
+                          </span>
+                          {chunk.chunk_metadata?.page_number && (
+                            <span className="text-[10px] text-[var(--text-muted)] font-medium bg-[var(--bg-surface)] px-1.5 py-0.5 rounded border border-[var(--border-default)]">
+                              p. {chunk.chunk_metadata.page_number}
+                            </span>
+                          )}
+                          {heading && (
+                            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20 max-w-[220px] truncate">
+                              § {heading}
                             </span>
                           )}
                         </div>
                         <button
                           onClick={(e) => copyChunkToClipboard(chunk.id, chunk.content, e)}
-                          className="btn btn-ghost btn-sm"
-                          style={{
-                            padding: '2px 8px',
-                            fontSize: '11px',
-                            gap: '4px',
-                            height: '22px',
-                            color: isCopied ? 'var(--success)' : 'var(--text-secondary)'
-                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all shadow-2xs"
                         >
-                          {isCopied ? <Check size={11} /> : <Copy size={11} />}
-                          <span>{isCopied ? 'Copied' : 'Copy'}</span>
+                          {isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                          <span className={isCopied ? 'text-emerald-500 font-semibold' : ''}>{isCopied ? 'Copied' : 'Copy'}</span>
                         </button>
                       </div>
 
-                      <div style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '12px',
-                        lineHeight: 1.6,
-                        color: '#0f172a',
-                        backgroundColor: '#ffffff',
-                        padding: '14px 16px',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        minHeight: '40px',
-                        maxHeight: '260px',
-                        overflowY: 'auto'
-                      }}>
-                        {chunk.content || <em style={{ color: '#94a3b8' }}>(Empty chunk content)</em>}
+                      {/* Section Card Content Body */}
+                      <div className="p-4 bg-[var(--bg-surface)] font-mono text-[12.5px] leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap break-words max-h-72 overflow-y-auto selection:bg-blue-500/20">
+                        {chunk.content ? (
+                          chunk.content
+                        ) : (
+                          <span className="italic text-[var(--text-muted)]">No textual content extracted for this section.</span>
+                        )}
                       </div>
                     </div>
                   )

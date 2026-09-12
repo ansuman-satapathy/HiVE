@@ -1,114 +1,86 @@
 import { Link } from 'react-router-dom'
-import { UploadCloud, MessageSquare, Terminal, Cpu, ArrowUpRight, FileText } from 'lucide-react'
+import { UploadCloud, MessageSquare, Terminal, ArrowUpRight } from 'lucide-react'
 
 export default function WorkspaceHome() {
   return (
-    <div style={{ maxWidth: '1140px', width: '100%', margin: '0 auto', padding: '48px 24px' }}>
+    <div className="max-w-5xl w-full mx-auto px-6 py-12">
       {/* Hero Welcome */}
-      <div style={{ marginBottom: '40px' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: 'var(--radius-full)', backgroundColor: 'var(--primary-subtle)', border: '1px solid var(--primary-border)', color: 'var(--primary)', fontSize: '12px', fontWeight: 600, marginBottom: '16px' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary)' }}></span>
-          DOCAGENT RUNTIME v0.2.0
+      <div className="mb-10">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-500 text-xs font-semibold mb-4">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+          QUICKDESK RUNTIME v0.2.0
         </div>
-        <h1 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: '-0.5px', marginBottom: '10px' }}>
-          Document Intelligence & Agent Runtime
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-3">
+          Knowledge Base & Agent Intelligence
         </h1>
-        <p style={{ fontSize: '16px', color: 'var(--text-secondary)', maxWidth: '680px', lineHeight: 1.6 }}>
-          A unified workspace for deep document parsing, hybrid retrieval (dense + BM25 + reranking), autonomous ReAct agent loops, and isolated Python code execution.
+        <p className="text-sm sm:text-base text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+          A unified workspace for deep document parsing, hybrid retrieval, autonomous ReAct agent loops, and quantitative tabular calculation.
         </p>
       </div>
 
       {/* Feature Pillar Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-        <div className="card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-7 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] flex flex-col justify-between shadow-sm hover:border-[var(--border-strong)] transition-all">
           <div>
-            <div style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--primary-subtle)',
-              border: '1px solid var(--primary-border)',
-              color: 'var(--primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '20px'
-            }}>
+            <div className="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center mb-5 shadow-xs">
               <UploadCloud size={22} />
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
-              Universal Ingestion & Chunker
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-2">
+              Document Ingestion & Chunker
             </h3>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
               Upload PDFs, Markdown, and TXT files. Structural semantic chunking preserving headers, sections, and breadcrumb metadata.
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span className="badge badge-success">Live: Ticket 04-07</span>
+          <div className="flex items-center justify-between pt-4 border-t border-[var(--border-default)]">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 uppercase tracking-wide">
+              Live
+            </span>
             <Link
               to="/workspace/documents"
-              className="btn btn-secondary btn-sm"
-              style={{ gap: '6px', fontSize: '12px' }}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 hover:text-blue-400 transition-colors"
             >
-              <span>Open Document Hub</span>
+              <span>Open Documents</span>
               <ArrowUpRight size={14} />
             </Link>
           </div>
         </div>
 
-        <div className="card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className="p-7 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] flex flex-col justify-between shadow-sm hover:border-[var(--border-strong)] transition-all">
           <div>
-            <div style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--success-bg)',
-              border: '1px solid var(--success-border)',
-              color: 'var(--success)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '20px'
-            }}>
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center mb-5 shadow-xs">
               <MessageSquare size={22} />
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-2">
               Hybrid Search & Agent Reasoning
             </h3>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
               Dual BM25 + Dense vector retrieval with Reciprocal Rank Fusion, Cross-Encoder reranking, and live thought stream timelines.
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="badge badge-mono">Phase 2-4</span>
+          <div className="flex items-center justify-between pt-4 border-t border-[var(--border-default)]">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border-default)]">
+              Next Phase
+            </span>
           </div>
         </div>
 
-        <div className="card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className="p-7 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] flex flex-col justify-between shadow-sm hover:border-[var(--border-strong)] transition-all">
           <div>
-            <div style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--warning-bg)',
-              border: '1px solid var(--warning-border)',
-              color: 'var(--warning)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '20px'
-            }}>
+            <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-5 shadow-xs">
               <Terminal size={22} />
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
-              Code Sandboxing & MCP Tools
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-2">
+              Code Sandboxing & Tools
             </h3>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
               Zero-hallucination quantitative calculations on structured tabular files, plus standard Model Context Protocol tool discovery.
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="badge badge-mono">Phase 5-6</span>
+          <div className="flex items-center justify-between pt-4 border-t border-[var(--border-default)]">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border-default)]">
+              Phase 5
+            </span>
           </div>
         </div>
       </div>
