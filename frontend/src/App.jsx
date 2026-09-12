@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import Register from './pages/Register'
 import Login from './pages/Login'
 import WorkspaceHome from './pages/WorkspaceHome'
+import DocumentHub from './pages/DocumentHub'
 import ProtectedRoute from './components/ProtectedRoute'
 import DashboardLayout from './components/DashboardLayout'
 import './App.css'
@@ -23,6 +24,17 @@ function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <WorkspaceHome />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/workspace/documents" 
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <DocumentHub />
                 </DashboardLayout>
               </ProtectedRoute>
             } 

@@ -5,12 +5,25 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
-from app.schemas.document import DocumentResponse, DocumentUploadResponse, DocumentChunkResponse
+from app.schemas.document import (
+    DocumentResponse,
+    DocumentUploadResponse,
+    DocumentChunkResponse,
+    IngestionQueueResponse,
+)
 from app.db.repositories.document_repo import DocumentRepository
 from app.services.document_service import DocumentService
 
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
+
+
+@router.get("/queue", response_model=IngestionQueueResponse)
+async def get_ingestion_queue(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    return await DocumentService.get_queue_status(db, current_user.id)
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -42,6 +55,7 @@ async def list_documents(
 ):
     docs = await DocumentRepository.list_documents(db, current_user.id, skip=skip, limit=limit)
     return [DocumentResponse.model_validate(doc) for doc in docs]
+
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)

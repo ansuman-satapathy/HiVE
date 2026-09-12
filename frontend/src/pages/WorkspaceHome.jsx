@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { UploadCloud, MessageSquare, Terminal, Cpu, ArrowUpRight, FileText } from 'lucide-react'
 
 export default function WorkspaceHome() {
@@ -42,8 +43,16 @@ export default function WorkspaceHome() {
               Upload PDFs, Markdown, and TXT files. Structural semantic chunking preserving headers, sections, and breadcrumb metadata.
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="badge badge-mono">Next: Ticket 04-08</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span className="badge badge-success">Live: Ticket 04-07</span>
+            <Link
+              to="/workspace/documents"
+              className="btn btn-secondary btn-sm"
+              style={{ gap: '6px', fontSize: '12px' }}
+            >
+              <span>Open Document Hub</span>
+              <ArrowUpRight size={14} />
+            </Link>
           </div>
         </div>
 

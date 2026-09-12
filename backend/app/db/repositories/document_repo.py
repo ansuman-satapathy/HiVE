@@ -68,6 +68,52 @@ class DocumentRepository:
         return result.all()
 
     @staticmethod
+    async def list_active_ingestion_tasks(
+        db: AsyncSession,
+        user_id: uuid.UUID
+    ) -> List[Document]:
+        """List documents currently undergoing background ingestion for a user."""
+        active_statuses = [
+            IngestionStatus.PENDING,
+            IngestionStatus.PARSING,
+            IngestionStatus.CHUNKING,
+            IngestionStatus.INDEXING,
+        ]
+        statement = (
+            select(Document)
+            .where(
+                Document.user_id == user_id,
+                Document.status.in_(active_statuses)
+            )
+            .order_by(Document.created_at.desc())
+        )
+        result = await db.exec(statement)
+        return result.all()
+
+    @staticmethod
+    async def list_recent_completed(
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        limit: int = 5
+    ) -> List[Document]:
+        """List recent completed or failed documents for a user."""
+        finished_statuses = [
+            IngestionStatus.READY,
+            IngestionStatus.FAILED,
+        ]
+        statement = (
+            select(Document)
+            .where(
+                Document.user_id == user_id,
+                Document.status.in_(finished_statuses)
+            )
+            .order_by(Document.updated_at.desc())
+            .limit(limit)
+        )
+        result = await db.exec(statement)
+        return result.all()
+
+    @staticmethod
     async def update_status(
         db: AsyncSession,
         document_id: uuid.UUID,
