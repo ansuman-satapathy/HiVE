@@ -1,14 +1,13 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-export default function ProtectedRoute({ children, allowedRoles }) {
+export default function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="spinner"></div>
-        <p>Verifying session...</p>
+      <div className="loading-screen" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p>Loading session...</p>
       </div>
     )
   }
@@ -16,17 +15,6 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   if (!user) {
     return <Navigate to="/login" replace />
   }
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    let redirectPath = '/employee'
-    if (user.role === 'agent') {
-      redirectPath = '/agent'
-    } else if (user.role === 'superadmin') {
-      redirectPath = '/admin'
-    }
-    return <Navigate to={redirectPath} replace />
-  }
-
 
   return children
 }
