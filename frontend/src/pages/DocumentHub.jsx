@@ -55,11 +55,25 @@ export default function DocumentHub() {
     }
   }, [])
 
+  const hasActiveDocs = documents.some((d) => ['pending', 'parsing', 'chunking', 'indexing'].includes(d.status))
+
   useEffect(() => {
-    fetchDocuments()
-    const interval = setInterval(fetchDocuments, 3000)
-    return () => clearInterval(interval)
-  }, [fetchDocuments])
+    let timeoutId
+    let isMounted = true
+
+    const runPoll = async () => {
+      await fetchDocuments()
+      if (!isMounted) return
+      const interval = hasActiveDocs ? 2500 : 20000
+      timeoutId = setTimeout(runPoll, interval)
+    }
+
+    runPoll()
+    return () => {
+      isMounted = false
+      clearTimeout(timeoutId)
+    }
+  }, [fetchDocuments, hasActiveDocs])
 
   const handleFileUpload = async (file) => {
     if (!file) return

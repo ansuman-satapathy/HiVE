@@ -87,6 +87,19 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const setSession = async (accessToken) => {
+    tokenStorage.setToken(accessToken)
+    setToken(accessToken)
+    const userResponse = await fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    })
+    if (userResponse.ok) {
+      const userData = await userResponse.json()
+      setUser(userData)
+      return userData
+    }
+  }
+
   // Logout action
   const logout = () => {
     tokenStorage.clearToken()
@@ -95,7 +108,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, setSession }}>
       {children}
     </AuthContext.Provider>
   )

@@ -62,3 +62,16 @@ class AuthService:
             "access_token": access_token,
             "token_type": "bearer"
         }
+
+    @staticmethod
+    async def get_instance_status(db: AsyncSession) -> dict:
+        """Check if workspace instance has been initialized with an administrator."""
+        statement = select(User)
+        result = await db.exec(statement)
+        has_users = result.first() is not None
+        return {
+            "initialized": has_users,
+            "product_name": "DocAgent Runtime",
+            "version": "0.2.0",
+        }
+

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext'
 import Register from './pages/Register'
 import Login from './pages/Login'
+import Onboarding from './pages/Onboarding'
 import WorkspaceHome from './pages/WorkspaceHome'
 import DocumentHub from './pages/DocumentHub'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -16,6 +17,7 @@ function App() {
           {/* Public auth routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           
           {/* Protected workspace */}
           <Route 
