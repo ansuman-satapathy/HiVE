@@ -12,7 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.main import app
 from app.api.deps import get_db
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.core.security import get_password_hash, create_access_token
 
 
@@ -71,7 +71,6 @@ async def client():
 async def create_test_user(
     db: AsyncSession,
     email: str,
-    role: UserRole,
     password: str = "password123",
     full_name: str = "Test User",
 ) -> User:
@@ -80,7 +79,6 @@ async def create_test_user(
         email=email,
         password_hash=get_password_hash(password),
         full_name=full_name,
-        role=role,
     )
     db.add(user)
     await db.commit()
@@ -90,5 +88,5 @@ async def create_test_user(
 
 def auth_header(user: User) -> dict:
     """Generate a Bearer Authorization header for the given user."""
-    token = create_access_token(subject=user.id, role=user.role)
+    token = create_access_token(subject=user.id)
     return {"Authorization": f"Bearer {token}"}
