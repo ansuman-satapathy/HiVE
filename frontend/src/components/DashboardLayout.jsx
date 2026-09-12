@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { LogOut, Bot, Files, Sparkles, Activity, Layers, Loader2 } from 'lucide-react'
+import { useTheme } from '../context/ThemeContext'
+import { LogOut, Bot, Files, Activity, Layers, Loader2, Sun, Moon } from 'lucide-react'
 import TaskQueueDrawer from './TaskQueueDrawer'
 import { tokenStorage } from '../utils/storage'
 
 export default function DashboardLayout({ children }) {
   const { user, logout } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [queueData, setQueueData] = useState({ active_count: 0, active_tasks: [], recent_completed: [] })
@@ -46,7 +48,7 @@ export default function DashboardLayout({ children }) {
       isMounted = false
       clearTimeout(timeoutId)
     }
-  }, [fetchQueue, activeCount > 0, drawerOpen])
+  }, [fetchQueue, activeCount, drawerOpen])
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -54,116 +56,80 @@ export default function DashboardLayout({ children }) {
         setDropdownOpen(false)
       }
     }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   return (
-    <div className="app-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-canvas)' }}>
+    <div className="min-h-screen flex flex-col transition-colors duration-200" style={{ backgroundColor: 'var(--bg-canvas)' }}>
       {/* Navigation Header */}
-      <header style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 32px',
-        borderBottom: '1px solid var(--border-default)',
-        backgroundColor: 'var(--bg-surface)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-      }}>
+      <header className="sticky top-0 z-40 flex items-center justify-between px-6 lg:px-10 py-3.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)] transition-colors">
         {/* Brand & Nav */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              background: 'linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%)',
-              padding: '8px',
-              borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              boxShadow: 'var(--shadow-xs)'
-            }}>
-              <Bot size={20} />
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
+              <Bot size={18} />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{
-                fontFamily: 'var(--font-heading)',
-                fontWeight: 700,
-                fontSize: '17px',
-                letterSpacing: '-0.3px',
-                color: 'var(--text-primary)'
-              }}>
-                QuickDesk
-              </span>
-            </div>
+            <span className="font-bold text-base tracking-tight text-[var(--text-primary)]">
+              QuickDesk
+            </span>
           </div>
 
           {/* Navigation Links */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <nav className="flex items-center gap-1.5">
             <NavLink
               to="/workspace"
               end
-              style={({ isActive }) => ({
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '7px 14px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-                backgroundColor: isActive ? 'var(--primary-subtle)' : 'transparent',
-                textDecoration: 'none',
-                transition: 'all 0.15s ease',
-              })}
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-blue-500/10 text-blue-500 font-semibold dark:bg-blue-500/15'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
+                }`
+              }
             >
-              <Files size={16} />
+              <Files size={15} />
               <span>Workspace</span>
             </NavLink>
 
             <NavLink
               to="/workspace/documents"
-              style={({ isActive }) => ({
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '7px 14px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-                backgroundColor: isActive ? 'var(--primary-subtle)' : 'transparent',
-                textDecoration: 'none',
-                transition: 'all 0.15s ease',
-              })}
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-blue-500/10 text-blue-500 font-semibold dark:bg-blue-500/15'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
+                }`
+              }
             >
-              <Layers size={16} />
+              <Layers size={15} />
               <span>Documents</span>
             </NavLink>
           </nav>
         </div>
 
-        {/* Right Section: Task Indicator + Profile */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        {/* Right Section: Theme Toggle + Task Indicator + Profile */}
+        <div className="flex items-center gap-3">
+          {/* Dark / Light Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-all flex items-center justify-center"
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-slate-600" />}
+          </button>
+
           {/* Background Tasks Indicator Button */}
           <button
             onClick={() => setDrawerOpen(true)}
-            className={`btn btn-secondary btn-sm ${activeCount > 0 ? 'pulse-glow' : ''}`}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              gap: '8px',
-              fontSize: '12px',
-              fontWeight: 500,
-              backgroundColor: activeCount > 0 ? 'var(--primary-subtle)' : 'var(--bg-surface)',
-              borderColor: activeCount > 0 ? 'var(--primary-border)' : 'var(--border-default)',
-              color: activeCount > 0 ? 'var(--primary)' : 'var(--text-secondary)',
-            }}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-medium transition-all ${
+              activeCount > 0
+                ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 pulse-glow'
+                : 'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]'
+            }`}
           >
             {activeCount > 0 ? (
-              <Loader2 size={13} className="spin-animate" />
+              <Loader2 size={13} className="spin-animate text-blue-500" />
             ) : (
               <Activity size={13} />
             )}
@@ -174,66 +140,29 @@ export default function DashboardLayout({ children }) {
 
           {/* User Profile Dropdown */}
           {user && (
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
-              <button 
+            <div className="relative" ref={dropdownRef}>
+              <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="btn btn-secondary btn-sm"
-                style={{
-                  borderRadius: 'var(--radius-full)',
-                  padding: '5px 14px',
-                  gap: '8px',
-                }}
+                className="flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] text-xs font-medium transition-all"
               >
-                <div style={{
-                  width: '22px',
-                  height: '22px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--primary)',
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '11px',
-                  fontWeight: 600
-                }}>
+                <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
                   {user.full_name?.charAt(0).toUpperCase()}
                 </div>
-                <span style={{ fontSize: '13px', fontWeight: 500 }}>{user.full_name}</span>
+                <span>{user.full_name}</span>
               </button>
 
               {dropdownOpen && (
-                <div style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: 'calc(100% + 8px)',
-                  width: '220px',
-                  backgroundColor: 'var(--bg-surface)',
-                  borderRadius: 'var(--radius-lg)',
-                  border: '1px solid var(--border-default)',
-                  padding: '12px',
-                  boxShadow: 'var(--shadow-lg)',
-                  textAlign: 'left',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  zIndex: 100
-                }}>
-                  <div style={{ padding: '4px 8px 8px 8px', borderBottom: '1px solid var(--border-default)' }}>
-                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{user.full_name}</p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</p>
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 shadow-xl flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-2 border-b border-[var(--border-default)] mb-1">
+                    <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{user.full_name}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] truncate">{user.email}</p>
                   </div>
-                  
-                  <button 
-                    onClick={logout} 
-                    className="btn btn-ghost"
-                    style={{
-                      color: 'var(--error)',
-                      justifyContent: 'flex-start',
-                      padding: '8px 10px',
-                      fontSize: '13px',
-                    }}
+
+                  <button
+                    onClick={logout}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors text-left"
                   >
-                    <LogOut size={14} />
+                    <LogOut size={13} />
                     <span>Log Out</span>
                   </button>
                 </div>
@@ -244,7 +173,7 @@ export default function DashboardLayout({ children }) {
       </header>
 
       {/* Main Content Viewport */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <main className="flex-1 flex flex-col">
         {children}
       </main>
 
