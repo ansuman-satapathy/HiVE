@@ -1,22 +1,11 @@
 """
-Critical path tests for QuickDesk:
+Critical path tests for DocAgent Runtime:
   1. Auth: register → login → token works on /me
   2. Auth: invalid credentials are rejected
-  3. Role enforcement: employee cannot access agent-only endpoints
-  4. Role enforcement: agent CAN access agent-only endpoints
-  5. RAG: fallback reply when no KB match exists
+  3. Health check responds with 200 and healthy status
 """
-from datetime import datetime, timezone
-from uuid import uuid4
-
 import pytest
-import pytest_asyncio
-from unittest.mock import AsyncMock, patch
-
-from app.models.ticket import TicketCategory, TicketPriority, TicketStatus
-from app.models.user import UserRole
-from app.schemas.ticket import TicketResponse
-from app.services.rag_service import RAGService
+from app.models.user import User
 from tests.conftest import create_test_user, auth_header
 
 
@@ -25,21 +14,21 @@ from tests.conftest import create_test_user, auth_header
 # ═══════════════════════════════════════════════════════════════════════════
 @pytest.mark.asyncio
 async def test_register_login_and_me(client):
-    """A new user can register, log in, and retrieve their profile via /me."""
+    """A user can register, log in, and retrieve their profile via /me."""
     # Register
     reg = await client.post("/api/auth/register", json={
-        "email": "newuser@test.com",
-        "password": "securepass123",
-        "full_name": "New User",
+        "email": "user@docagent.com",
+        "password": "securepassword123",
+        "full_name": "Workspace Owner",
     })
     assert reg.status_code == 201
-    assert reg.json()["email"] == "newuser@test.com"
-    assert reg.json()["role"] == "employee"  # public signup → always employee
+    assert reg.json()["email"] == "user@docagent.com"
+    assert reg.json()["full_name"] == "Workspace Owner"
 
     # Login
     login = await client.post("/api/auth/login", json={
-        "email": "newuser@test.com",
-        "password": "securepass123",
+        "email": "user@docagent.com",
+        "password": "securepassword123",
     })
     assert login.status_code == 200
     token = login.json()["access_token"]
@@ -50,8 +39,8 @@ async def test_register_login_and_me(client):
         "Authorization": f"Bearer {token}"
     })
     assert me.status_code == 200
-    assert me.json()["email"] == "newuser@test.com"
-    assert me.json()["full_name"] == "New User"
+    assert me.json()["email"] == "user@docagent.com"
+    assert me.json()["full_name"] == "Workspace Owner"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -60,10 +49,10 @@ async def test_register_login_and_me(client):
 @pytest.mark.asyncio
 async def test_login_wrong_password_rejected(client, db_session):
     """Login with incorrect password returns 401 Unauthorized."""
-    await create_test_user(db_session, "alice@test.com", UserRole.EMPLOYEE)
+    await create_test_user(db_session, "alice@docagent.com")
 
     resp = await client.post("/api/auth/login", json={
-        "email": "alice@test.com",
+        "email": "alice@docagent.com",
         "password": "wrongpassword",
     })
     assert resp.status_code == 401
@@ -71,76 +60,11 @@ async def test_login_wrong_password_rejected(client, db_session):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 3. ROLE ENFORCEMENT — Employee blocked from agent-only endpoint
+# 3. HEALTH CHECK
 # ═══════════════════════════════════════════════════════════════════════════
 @pytest.mark.asyncio
-async def test_employee_cannot_access_agent_endpoint(client, db_session):
-    """An employee token must be rejected by agent-only routes with 403."""
-    employee = await create_test_user(db_session, "emp@test.com", UserRole.EMPLOYEE)
-
-    resp = await client.get("/api/auth/agent-only", headers=auth_header(employee))
-    assert resp.status_code == 403
-    assert "permission" in resp.json()["detail"].lower()
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 4. ROLE ENFORCEMENT — Agent passes agent-only endpoint
-# ═══════════════════════════════════════════════════════════════════════════
-@pytest.mark.asyncio
-async def test_agent_can_access_agent_endpoint(client, db_session):
-    """An agent token must be accepted by agent-only routes."""
-    agent = await create_test_user(db_session, "agent@test.com", UserRole.AGENT)
-
-    resp = await client.get("/api/auth/agent-only", headers=auth_header(agent))
+async def test_health_check(client):
+    """API health check returns 200 OK."""
+    resp = await client.get("/api/health")
     assert resp.status_code == 200
-    assert resp.json()["email"] == "agent@test.com"
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 5. RAG — Fallback reply when query has no KB match
-# ═══════════════════════════════════════════════════════════════════════════
-@pytest.mark.asyncio
-async def test_rag_fallback_when_no_kb_match():
-    """
-    When the ticket content doesn't match any knowledge base article,
-    the RAG service must return the explicit fallback message instead
-    of hallucinating a response.
-    """
-    service = RAGService(kb_dir="/nonexistent/path", chroma_dir="/nonexistent/chroma")
-
-    result = await service.generate_draft_reply(
-        title="Recipe for apple pie",
-        description="I need a good recipe for baking apple pie with cinnamon",
-    )
-
-    assert result["ai_draft"] == "No relevant knowledge base article found for this ticket."
-    assert result["citations"] == []
-
-
-@pytest.mark.asyncio
-async def test_ticket_response_schema_preserves_ai_citations():
-    """Ticket API responses must preserve the citation list returned by the RAG layer."""
-    payload = {
-        "id": uuid4(),
-        "title": "VPN setup help",
-        "description": "Need VPN setup help",
-        "attachment": None,
-        "status": TicketStatus.OPEN,
-        "ai_category": TicketCategory.IT,
-        "ai_priority": TicketPriority.HIGH,
-        "category": None,
-        "priority": None,
-        "ai_draft": "Use the VPN setup guide.",
-        "final_reply": None,
-        "created_by": uuid4(),
-        "creator": None,
-        "resolved_by": None,
-        "resolved_at": None,
-        "created_at": datetime.now(timezone.utc).replace(tzinfo=None),
-        "updated_at": datetime.now(timezone.utc).replace(tzinfo=None),
-        "ai_citations": ["vpn_setup.md", "wifi_access.md"],
-    }
-
-    response = TicketResponse.model_validate(payload)
-
-    assert response.ai_citations == ["vpn_setup.md", "wifi_access.md"]
+    assert resp.json()["status"] == "healthy"
