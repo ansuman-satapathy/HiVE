@@ -7,7 +7,7 @@ from fastapi import UploadFile, HTTPException, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.user import User
-from app.models.document import Document
+from app.models.document import Document, IngestionStatus
 from app.db.repositories.document_repo import DocumentRepository
 from app.services.ingestion_worker import IngestionWorker
 from app.core.config import settings
@@ -114,3 +114,38 @@ class DocumentService:
                 pass
 
         await DocumentRepository.delete_document(db, document_id)
+
+    @classmethod
+    async def get_queue_status(cls, db: AsyncSession, user_id: UUID) -> dict:
+        """Fetch active ingestion queue telemetry and recent completed tasks for user."""
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        active_docs = await DocumentRepository.list_active_ingestion_tasks(db, user_id)
+        recent_docs = await DocumentRepository.list_recent_completed(db, user_id, limit=8)
+
+        def to_task_dict(doc: Document) -> dict:
+            elapsed = 0.0
+            if doc.created_at:
+                end_time = doc.updated_at if doc.status in (IngestionStatus.READY, IngestionStatus.FAILED) else now
+                elapsed = max(0.0, (end_time - doc.created_at).total_seconds())
+            return {
+                "id": doc.id,
+                "filename": doc.filename,
+                "file_type": doc.file_type,
+                "file_size_bytes": doc.file_size_bytes,
+                "status": doc.status,
+                "chunk_count": doc.chunk_count,
+                "token_count": doc.token_count,
+                "error_message": doc.error_message,
+                "created_at": doc.created_at,
+                "updated_at": doc.updated_at,
+                "elapsed_seconds": round(elapsed, 1),
+            }
+
+        return {
+            "active_count": len(active_docs),
+            "active_tasks": [to_task_dict(d) for d in active_docs],
+            "recent_completed": [to_task_dict(d) for d in recent_docs],
+        }
+

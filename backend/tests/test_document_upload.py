@@ -42,7 +42,19 @@ async def test_upload_markdown_document_and_list(client, db_session):
     assert "Architecture Overview" in chunks[0]["content"]
     assert chunks[0]["chunk_metadata"]["active_heading"] == "Architecture Overview"
 
-    # 5. Upload identical file (deduplication check)
+    # 5. Check queue status
+    queue_resp = await client.get("/api/documents/queue", headers=headers)
+    assert queue_resp.status_code == 200
+    queue_data = queue_resp.json()
+    assert "active_count" in queue_data
+    assert "active_tasks" in queue_data
+    assert "recent_completed" in queue_data
+    assert len(queue_data["recent_completed"]) >= 1
+    assert queue_data["recent_completed"][0]["id"] == doc_id
+    assert queue_data["recent_completed"][0]["status"] == "ready"
+    assert queue_data["recent_completed"][0]["elapsed_seconds"] >= 0.0
+
+    # 6. Upload identical file (deduplication check)
     files_dup = {"file": ("architecture.md", io.BytesIO(md_content), "text/markdown")}
     dup_resp = await client.post("/api/documents/upload", headers=headers, files=files_dup)
     assert dup_resp.status_code == 202
@@ -50,7 +62,7 @@ async def test_upload_markdown_document_and_list(client, db_session):
     assert dup_data["is_duplicate"] is True
     assert dup_data["document"]["id"] == doc_id
 
-    # 6. Delete document
+    # 7. Delete document
     del_resp = await client.delete(f"/api/documents/{doc_id}", headers=headers)
     assert del_resp.status_code == 204
 

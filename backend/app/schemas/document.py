@@ -36,3 +36,24 @@ class DocumentChunkResponse(BaseModel):
     token_count: int
     chunk_metadata: Dict[str, Any]
     created_at: datetime
+
+class IngestionTaskItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    filename: str
+    file_type: str
+    file_size_bytes: int
+    status: IngestionStatus
+    chunk_count: int
+    token_count: int
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    elapsed_seconds: float
+
+class IngestionQueueResponse(BaseModel):
+    active_count: int
+    active_tasks: List[IngestionTaskItem]
+    recent_completed: List[IngestionTaskItem]
+

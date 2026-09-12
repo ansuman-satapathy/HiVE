@@ -1,5 +1,11 @@
 from .user import UserRegister, UserLogin, UserResponse, Token
-from .document import DocumentResponse, DocumentUploadResponse, DocumentChunkResponse
+from .document import (
+    DocumentResponse,
+    DocumentUploadResponse,
+    DocumentChunkResponse,
+    IngestionTaskItem,
+    IngestionQueueResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -9,4 +15,6 @@ __all__ = [
     "DocumentResponse",
     "DocumentUploadResponse",
     "DocumentChunkResponse",
+    "IngestionTaskItem",
+    "IngestionQueueResponse",
 ]
