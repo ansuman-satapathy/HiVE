@@ -7,12 +7,12 @@ export default function DocumentStatsHeader({
   activeProcessingCount
 }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-[var(--border-default)]">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pb-4 border-b border-[var(--border-default)]">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-1">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-0.5">
           Knowledge Base
         </h1>
-        <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+        <p className="text-xs text-[var(--text-secondary)]">
           Manage indexed corpus manuals, technical guides, and documents for autonomous agent reasoning.
         </p>
       </div>

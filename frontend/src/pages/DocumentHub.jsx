@@ -198,7 +198,7 @@ export default function DocumentHub() {
   }, [documents, searchQuery, filterType])
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-6 sm:px-8 py-8 space-y-7 transition-colors">
+    <div className="max-w-7xl w-full mx-auto px-6 sm:px-8 py-5 sm:py-6 space-y-4 sm:space-y-5 transition-colors">
       {/* Header Bar with Metrics */}
       <DocumentStatsHeader
         documentCount={documents.length}
