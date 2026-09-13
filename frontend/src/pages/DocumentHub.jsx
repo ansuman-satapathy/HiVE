@@ -11,7 +11,7 @@ import DocumentChunkInspector from '../components/DocumentChunkInspector'
 
 export default function DocumentHub() {
   const { notify, confirm } = useFeedback()
-  const { fetchQueue, setDrawerOpen } = useTaskQueue()
+  const { fetchQueue, setDrawerOpen, activeCount } = useTaskQueue()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
@@ -150,6 +150,10 @@ export default function DocumentHub() {
 
   const handleFileUpload = async (filesInput) => {
     if (!filesInput) return
+    if (uploading || hasActiveDocs) {
+      notify.warning('Documents are currently being ingested. Please wait for processing to finish before uploading more files.')
+      return
+    }
     const fileList = Array.isArray(filesInput) ? filesInput : [filesInput]
     if (fileList.length === 0) return
 
@@ -418,10 +422,13 @@ export default function DocumentHub() {
       {/* Hero Upload Dropzone */}
       <DocumentUploadDropzone
         uploading={uploading}
+        hasActiveDocs={hasActiveDocs}
+        activeCount={activeCount}
         dragOver={dragOver}
         setDragOver={setDragOver}
         onFileSelect={handleFileUpload}
         fileInputRef={fileInputRef}
+        onOpenDrawer={() => setDrawerOpen(true)}
       />
 
       {/* Search & Filter Toolbar */}

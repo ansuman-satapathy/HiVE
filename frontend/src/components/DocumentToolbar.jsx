@@ -48,29 +48,31 @@ export default function DocumentToolbar({
           )}
         </div>
 
-        {/* Floating / Inline Batch Actions Bar */}
+        {/* Clean, subtle Batch Actions Bar */}
         {selectedCount > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 text-xs shrink-0 animate-in fade-in duration-200">
-            <span className="font-semibold text-red-500 flex items-center gap-1.5">
-              <CheckSquare size={14} />
-              {selectedCount} selected
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] text-xs shrink-0 shadow-2xs animate-in fade-in duration-150">
+            <span className="font-medium text-[var(--text-secondary)] flex items-center gap-1.5">
+              <CheckSquare size={13} className="text-blue-500" />
+              <strong className="text-[var(--text-primary)] font-semibold">{selectedCount}</strong>
+              <span>selected</span>
             </span>
+            <div className="h-3.5 w-px bg-[var(--border-default)] mx-1" />
             <button
               onClick={onBatchDelete}
               disabled={isBatchDeleting}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:pointer-events-none text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20 disabled:opacity-50 disabled:pointer-events-none font-medium text-xs transition-colors cursor-pointer"
             >
               {isBatchDeleting ? (
-                <Loader2 size={13} className="spin-animate" />
+                <Loader2 size={12} className="spin-animate" />
               ) : (
-                <Trash2 size={13} />
+                <Trash2 size={12} />
               )}
               <span>{isBatchDeleting ? 'Deleting...' : 'Delete'}</span>
             </button>
             <button
               onClick={onClearSelection}
               disabled={isBatchDeleting}
-              className="px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-50 transition-colors cursor-pointer"
+              className="px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] rounded-md hover:bg-[var(--bg-subtle)] disabled:opacity-50 transition-colors cursor-pointer"
             >
               Cancel
             </button>
