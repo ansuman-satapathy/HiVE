@@ -65,7 +65,7 @@ export default function Login() {
             <Bot size={26} />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-            QuickDesk
+            HiVE
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1.5">
             Sign in to your document intelligence workspace

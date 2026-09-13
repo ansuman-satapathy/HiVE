@@ -1,6 +1,6 @@
-# QuickDesk — AI-Assisted Internal Helpdesk
+# HiVE — Document Intelligence & Agentic Runtime Platform
 
-QuickDesk is a full-stack internal helpdesk platform where employees raise support tickets and AI triages them in the background. Every ticket is instantly classified (category + priority) by an LLM, and a RAG pipeline drafts a resolution reply from an internal knowledge base. Agents review, override, and resolve tickets through a real-time dashboard. The entire system is containerized and runs with a single `docker compose up`.
+HiVE is a full-stack document intelligence and agentic runtime platform featuring structure-aware document parsing, hybrid search (BM25 + Dense Vector Indexing), Reciprocal Rank Fusion (RRF), cross-encoder re-ranking, and autonomous ReAct agent loops. The entire system is containerized and runs with a single `docker compose up`.
 
 ---
 

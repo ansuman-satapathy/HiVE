@@ -108,7 +108,7 @@ export default function Onboarding() {
             <span>INITIAL SETUP</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-            Setup QuickDesk
+            Setup HiVE
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
             Configure your self-hosted document intelligence workspace
@@ -173,7 +173,7 @@ export default function Onboarding() {
               <input
                 type="email"
                 required
-                placeholder="admin@quickdesk.local"
+                placeholder="admin@hive.local"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm transition-all"

@@ -8,7 +8,7 @@ export default function WorkspaceHome() {
       <div className="mb-10">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-500 text-xs font-semibold mb-4">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-          QUICKDESK RUNTIME v0.2.0
+          HiVE RUNTIME v0.2.0
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-3">
           Knowledge Base & Agent Intelligence

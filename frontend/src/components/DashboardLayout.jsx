@@ -71,7 +71,7 @@ export default function DashboardLayout({ children }) {
               <Bot size={18} />
             </div>
             <span className="font-bold text-base tracking-tight text-[var(--text-primary)]">
-              QuickDesk
+              HiVE
             </span>
           </div>
 
