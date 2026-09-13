@@ -145,9 +145,12 @@ class DocumentService:
             doc_metadata={"storage_path": permanent_file_path}
         )
 
-        # Dispatch ingestion: if background_tasks is provided, use it so ASGI test clients execute inline,
-        # otherwise dispatch to parallel concurrent queue.
-        if background_tasks is not None:
+        # Dispatch ingestion:
+        # In test environments (TESTING=true), use background_tasks so ASGI test client can wait for inline execution.
+        # In normal server operation (dev / prod), dispatch to parallel concurrent queue (IngestionWorker.enqueue_document)
+        # so multiple documents process concurrently up to MAX_CONCURRENT_INGESTION.
+        is_testing = os.getenv("TESTING", "").lower() in ("true", "1")
+        if background_tasks is not None and is_testing:
             background_tasks.add_task(
                 IngestionWorker.process_document,
                 document_id=doc.id,

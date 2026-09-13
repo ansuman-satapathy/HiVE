@@ -2,9 +2,13 @@
 Shared test fixtures: in-memory async SQLite database, FastAPI test client,
 and helper functions to create users and obtain JWT tokens.
 """
+import os
 import asyncio
 import pytest
 import pytest_asyncio
+
+# Ensure document upload dispatches through FastAPI BackgroundTasks during tests
+os.environ["TESTING"] = "true"
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlmodel import SQLModel
@@ -16,10 +20,17 @@ from app.models.user import User
 from app.core.security import get_password_hash, create_access_token
 
 
+from sqlalchemy.pool import StaticPool
+
 # ── In-memory SQLite engine for tests ──────────────────────────────────────
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
 
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+test_engine = create_async_engine(
+    TEST_DATABASE_URL,
+    echo=False,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 TestSessionLocal = async_sessionmaker(
     bind=test_engine,
     class_=AsyncSession,
