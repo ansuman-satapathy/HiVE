@@ -108,20 +108,24 @@ export default function DocumentTable({
                           )}
                         </div>
 
-                        {/* Ingestion Steps */}
+                        {/* Streamlined Live Queue Progress Indicator */}
                         {isProcessing ? (
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className={`stage-step ${doc.status === 'pending' || doc.status === 'parsing' ? 'active' : 'done'}`}>
-                              {doc.status === 'pending' || doc.status === 'parsing' ? <Loader2 size={9} className="spin-animate" /> : <Check size={9} />}
-                              <span>1. Parsing</span>
-                            </span>
-                            <span className={`stage-step ${doc.status === 'chunking' ? 'active' : doc.status === 'indexing' || doc.status === 'ready' ? 'done' : 'waiting'}`}>
-                              {doc.status === 'chunking' ? <Loader2 size={9} className="spin-animate" /> : doc.status === 'indexing' || doc.status === 'ready' ? <Check size={9} /> : null}
-                              <span>2. Splitting</span>
-                            </span>
-                            <span className={`stage-step ${doc.status === 'indexing' ? 'active' : doc.status === 'ready' ? 'done' : 'waiting'}`}>
-                              {doc.status === 'indexing' ? <Loader2 size={9} className="spin-animate" /> : doc.status === 'ready' ? <Check size={9} /> : null}
-                              <span>3. Ready</span>
+                          <div className="flex items-center gap-2 mt-1.5 max-w-[200px]">
+                            <div className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-default)] h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-blue-500 rounded-full transition-all duration-300 shimmer-progress"
+                                style={{
+                                  width: `${
+                                    doc.status === 'pending' ? 20 :
+                                    doc.status === 'parsing' ? 45 :
+                                    doc.status === 'chunking' ? 70 :
+                                    doc.status === 'indexing' ? 90 : 100
+                                  }%`
+                                }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-mono text-blue-500 font-medium capitalize">
+                              {doc.status}...
                             </span>
                           </div>
                         ) : (
