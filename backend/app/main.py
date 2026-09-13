@@ -62,9 +62,7 @@ async def lifespan(app: FastAPI):
                         storage_path = doc.doc_metadata.get("storage_path") if doc.doc_metadata else None
                         if storage_path and os.path.exists(storage_path):
                             logger.info(f"Auto-resuming interrupted ingestion for '{doc.filename}' ({doc.id})")
-                            asyncio.create_task(
-                                IngestionWorker.process_document(doc.id, storage_path, doc.file_type)
-                            )
+                            IngestionWorker.enqueue_document(doc.id, storage_path, doc.file_type)
             except Exception as resume_err:
                 logger.warning(f"Error during startup document auto-resume: {resume_err}")
 

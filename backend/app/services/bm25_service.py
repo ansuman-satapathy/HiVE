@@ -1,6 +1,7 @@
 import re
 import uuid
 import logging
+import threading
 from typing import List, Dict, Any, Optional
 from rank_bm25 import BM25Plus
 
@@ -10,13 +11,16 @@ class BM25IndexService:
     """
     In-memory BM25 lexical inverted index for document chunks.
     Ensures exact matching on technical identifiers, SKUs, error codes, UUIDs, and function names.
+    Thread-safe for concurrent parallel ingestion queues.
     """
     _instance: Optional["BM25IndexService"] = None
+    _lock = threading.Lock()
 
     def __init__(self):
         self.chunk_records: List[Dict[str, Any]] = []
         self.corpus_tokens: List[List[str]] = []
         self.bm25_index: Optional[BM25Plus] = None
+        self._rw_lock = threading.Lock()
 
     @classmethod
     def get_instance(cls) -> "BM25IndexService":
@@ -64,9 +68,10 @@ class BM25IndexService:
             })
             new_tokens.append(tokens)
 
-        self.chunk_records.extend(new_records)
-        self.corpus_tokens.extend(new_tokens)
-        self._rebuild_bm25()
+        with self._rw_lock:
+            self.chunk_records.extend(new_records)
+            self.corpus_tokens.extend(new_tokens)
+            self._rebuild_bm25()
         logger.info(f"Indexed {len(new_records)} chunks in BM25. Total corpus size: {len(self.chunk_records)}")
 
     def remove_document_chunks(self, document_id: uuid.UUID | str) -> None:
@@ -74,22 +79,23 @@ class BM25IndexService:
         Remove all indexed chunks belonging to a deleted document.
         """
         doc_id_str = str(document_id)
-        filtered_records = []
-        filtered_tokens = []
-        removed_count = 0
+        with self._rw_lock:
+            filtered_records = []
+            filtered_tokens = []
+            removed_count = 0
 
-        for rec, toks in zip(self.chunk_records, self.corpus_tokens):
-            if rec["document_id"] != doc_id_str:
-                filtered_records.append(rec)
-                filtered_tokens.append(toks)
-            else:
-                removed_count += 1
+            for rec, toks in zip(self.chunk_records, self.corpus_tokens):
+                if rec["document_id"] != doc_id_str:
+                    filtered_records.append(rec)
+                    filtered_tokens.append(toks)
+                else:
+                    removed_count += 1
 
-        if removed_count > 0:
-            self.chunk_records = filtered_records
-            self.corpus_tokens = filtered_tokens
-            self._rebuild_bm25()
-            logger.info(f"Removed {removed_count} chunks for document {doc_id_str} from BM25 index.")
+            if removed_count > 0:
+                self.chunk_records = filtered_records
+                self.corpus_tokens = filtered_tokens
+                self._rebuild_bm25()
+                logger.info(f"Removed {removed_count} chunks for document {doc_id_str} from BM25 index.")
 
     def search_sparse(
         self,
@@ -101,14 +107,15 @@ class BM25IndexService:
         Search indexed chunks using BM25 lexical ranking.
         Returns top matching chunks with 'bm25_score'.
         """
-        if not self.bm25_index or not self.chunk_records:
-            return []
-
         query_tokens = self.tokenize(query)
         if not query_tokens:
             return []
 
-        scores = self.bm25_index.get_scores(query_tokens)
+        with self._rw_lock:
+            if not self.bm25_index or not self.chunk_records:
+                return []
+            records_snapshot = list(self.chunk_records)
+            scores = self.bm25_index.get_scores(query_tokens)
 
         # Filter and rank candidates
         doc_id_str = str(document_id) if document_id else None
@@ -118,7 +125,7 @@ class BM25IndexService:
             if score <= 0.0:
                 continue
 
-            record = self.chunk_records[idx]
+            record = records_snapshot[idx]
             if doc_id_str and record["document_id"] != doc_id_str:
                 continue
 

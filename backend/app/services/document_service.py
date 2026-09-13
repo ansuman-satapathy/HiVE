@@ -145,12 +145,21 @@ class DocumentService:
             doc_metadata={"storage_path": permanent_file_path}
         )
 
-        background_tasks.add_task(
-            IngestionWorker.process_document,
-            document_id=doc.id,
-            file_path=permanent_file_path,
-            file_type=file_type
-        )
+        # Dispatch ingestion: if background_tasks is provided, use it so ASGI test clients execute inline,
+        # otherwise dispatch to parallel concurrent queue.
+        if background_tasks is not None:
+            background_tasks.add_task(
+                IngestionWorker.process_document,
+                document_id=doc.id,
+                file_path=permanent_file_path,
+                file_type=file_type
+            )
+        else:
+            IngestionWorker.enqueue_document(
+                document_id=doc.id,
+                file_path=permanent_file_path,
+                file_type=file_type
+            )
 
         logger.info(f"Successfully accepted new document {doc.id} ({filename}, {total_size} bytes) for ingestion.")
         return doc, False, None, "Document uploaded successfully. Background processing started."

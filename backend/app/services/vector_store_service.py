@@ -1,6 +1,7 @@
 import os
 import uuid
 import logging
+import threading
 from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -17,6 +18,7 @@ class VectorStoreService:
     """
     Persistent dense vector store management using ChromaDB.
     Maps embeddings directly to DocumentChunk.id with cosine similarity ranking.
+    Thread-safe for concurrent parallel ingestion queues.
     """
 
     _instance: Optional["VectorStoreService"] = None
@@ -26,6 +28,7 @@ class VectorStoreService:
         persist_directory: Optional[str] = None,
         embedding_provider: Optional[EmbeddingProvider] = None,
     ):
+        self._lock = threading.Lock()
         self.persist_directory = persist_directory or settings.CHROMA_PERSIST_DIR
         self.embedding_provider = embedding_provider or EmbeddingFactory.get_provider()
 
@@ -92,12 +95,13 @@ class VectorStoreService:
         # Batch embed
         embeddings = self.embedding_provider.embed_documents(documents)
 
-        self.collection.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas,
-        )
+        with self._lock:
+            self.collection.upsert(
+                ids=ids,
+                embeddings=embeddings,
+                documents=documents,
+                metadatas=metadatas,
+            )
         logger.info(f"Successfully upserted {len(ids)} dense vectors into ChromaDB.")
         return len(ids)
 
@@ -105,10 +109,11 @@ class VectorStoreService:
         """Purge all vectors corresponding to a deleted document safely."""
         doc_id_str = str(document_id)
         try:
-            coll = self.collection
-            count_before = coll.count()
-            coll.delete(where={"document_id": doc_id_str})
-            count_after = coll.count()
+            with self._lock:
+                coll = self.collection
+                count_before = coll.count()
+                coll.delete(where={"document_id": doc_id_str})
+                count_after = coll.count()
             deleted = count_before - count_after
             logger.info(f"Deleted {deleted} vectors for document '{doc_id_str}' from ChromaDB.")
             return deleted
