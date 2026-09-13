@@ -85,18 +85,12 @@ export default function DocumentHub() {
         if (data.total_tokens !== undefined) setTotalTokens(data.total_tokens)
 
         setDocuments((prevDocs) => {
-          // If there are optimistic files currently uploading, preserve them at the head of the table
-          const activeOptimistics = prevDocs.filter((d) => d.id && String(d.id).startsWith('temp-'))
-          const finalItems = activeOptimistics.length > 0
-            ? [...activeOptimistics, ...items.filter((item) => !activeOptimistics.some((opt) => opt.filename === item.filename))]
-            : items
-
           // In-place diff check: avoid re-rendering entire table if data hasn't changed
-          if (prevDocs.length === finalItems.length) {
+          if (prevDocs.length === items.length) {
             let changed = false
             for (let i = 0; i < prevDocs.length; i++) {
               const a = prevDocs[i]
-              const b = finalItems[i]
+              const b = items[i]
               if (
                 a.id !== b.id ||
                 a.status !== b.status ||
@@ -114,7 +108,7 @@ export default function DocumentHub() {
             }
           }
 
-          return finalItems
+          return items
         })
       }
     } catch (err) {
@@ -193,29 +187,6 @@ export default function DocumentHub() {
       return
     }
 
-    // Step 1: Immediately render optimistic placeholder rows in the table with status='pending' and isOptimistic=true
-    const tempDocs = fileList.map((file) => {
-      const ext = file.name.split('.').pop().toLowerCase()
-      const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      return {
-        id: tempId,
-        filename: file.name,
-        file_type: ext,
-        file_size_bytes: file.size,
-        status: 'pending',
-        chunk_count: 0,
-        token_count: 0,
-        created_at: new Date().toISOString(),
-        isOptimistic: true,
-      }
-    })
-
-    const tempDocIds = new Set(tempDocs.map((d) => d.id))
-    tempDocs.forEach((d) => activeOptimisticIdsRef.current.add(d.id))
-
-    // Prepend to table immediately so user sees files before upload/ingestion starts
-    setDocuments((prev) => [...tempDocs, ...prev])
-    setTotalCount((c) => c + tempDocs.length)
     setUploading(true)
 
     const formData = new FormData()
@@ -235,9 +206,6 @@ export default function DocumentHub() {
       if (!res.ok) {
         throw new Error(data.detail || 'Batch upload failed')
       }
-
-      // Clean up optimistic tracking IDs
-      tempDocs.forEach((d) => activeOptimisticIdsRef.current.delete(d.id))
 
       // Provide clear, specific toast feedback based on details
       const uploadedItems = (data.details || []).filter((item) => item.status === 'uploaded')
@@ -270,19 +238,25 @@ export default function DocumentHub() {
           notify.info(`Uploaded ${successCount} file${successCount === 1 ? '' : 's'} (${uploadedNames}). Skipped ${dupCount} duplicate${dupCount === 1 ? '' : 's'} (${skippedNames}).`, 'Upload Partial')
         }
       } else if (successCount > 0) {
-        notify.success(`Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}! Ingestion queued.`)
+        notify.success(`Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}! Ingestion starting.`)
       } else {
         notify.info('No new documents were processed.')
       }
 
-      // Reconcile table: remove the temporary optimistic items and insert the confirmed server documents
+      // Immediately render confirmed server documents in the table
       const serverDocs = data.documents || []
-      setDocuments((prev) => {
-        const withoutTemp = prev.filter((d) => !tempDocIds.has(d.id))
-        const existingIds = new Set(withoutTemp.map((d) => d.id))
-        const newItems = serverDocs.filter((d) => !existingIds.has(d.id))
-        return [...newItems, ...withoutTemp]
-      })
+      if (serverDocs.length > 0) {
+        setDocuments((prev) => {
+          const existingIds = new Set(prev.map((d) => d.id))
+          const newItems = serverDocs.filter((d) => !existingIds.has(d.id))
+          return [...newItems, ...prev]
+        })
+        setTotalCount((c) => c + serverDocs.length)
+      }
+
+      setUploading(false)
+      fetchQueue()
+      await fetchDocuments(true)
 
       // Turn off dropzone uploading state immediately so UI is responsive
       setUploading(false)
@@ -291,10 +265,6 @@ export default function DocumentHub() {
       fetchQueue()
       await fetchDocuments(true)
     } catch (err) {
-      // Remove optimistic rows on failure
-      tempDocs.forEach((d) => activeOptimisticIdsRef.current.delete(d.id))
-      setDocuments((prev) => prev.filter((d) => !tempDocIds.has(d.id)))
-      setTotalCount((c) => Math.max(0, c - tempDocs.length))
       notify.error(err.message || 'Failed to upload documents')
     } finally {
       setUploading(false)
