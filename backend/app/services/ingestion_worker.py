@@ -45,14 +45,12 @@ class IngestionWorker:
                 if chunks_data:
                     created_chunks = await DocumentRepository.add_chunks(db, document_id, chunks_data)
 
-                # Indexing stage (Ticket 09 BM25 Indexing)
+                # Indexing stage (Ticket 09 BM25 Indexing & Ticket 10 Dense Vector Indexing)
                 await DocumentRepository.update_status(db, document_id, IngestionStatus.INDEXING)
                 await asyncio.sleep(0.5)
 
                 if created_chunks:
-                    from app.services.bm25_service import BM25IndexService
-                    bm25_service = BM25IndexService.get_instance()
-                    bm25_service.index_chunks([
+                    chunk_payloads = [
                         {
                             "id": chunk.id,
                             "document_id": chunk.document_id,
@@ -62,7 +60,15 @@ class IngestionWorker:
                             "chunk_metadata": chunk.chunk_metadata,
                         }
                         for chunk in created_chunks
-                    ])
+                    ]
+
+                    # 1. Sparse lexical index
+                    from app.services.bm25_service import BM25IndexService
+                    BM25IndexService.get_instance().index_chunks(chunk_payloads)
+
+                    # 2. Dense vector index
+                    from app.services.vector_store_service import VectorStoreService
+                    VectorStoreService.get_instance().add_chunks(chunk_payloads)
 
                 total_tokens = sum(c["token_count"] for c in chunks_data)
                 doc = await DocumentRepository.get_by_id(db, document_id)

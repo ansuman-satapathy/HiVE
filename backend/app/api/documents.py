@@ -11,10 +11,12 @@ from app.schemas.document import (
     DocumentChunkResponse,
     IngestionQueueResponse,
     SparseSearchResult,
+    DenseSearchResult,
 )
 from app.db.repositories.document_repo import DocumentRepository
 from app.services.document_service import DocumentService
 from app.services.bm25_service import BM25IndexService
+from app.services.vector_store_service import VectorStoreService
 
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -37,6 +39,26 @@ async def search_sparse_chunks(
 
     bm25_service = BM25IndexService.get_instance()
     results = bm25_service.search_sparse(query=q, top_k=top_k, document_id=document_id)
+    return results
+
+
+@router.get("/search/dense", response_model=List[DenseSearchResult])
+async def search_dense_chunks(
+    q: str = Query(..., min_length=1, description="Semantic text query to search"),
+    top_k: int = Query(5, ge=1, le=50),
+    document_id: UUID = Query(None, description="Optional document ID filter"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ticket 10: Semantic dense vector search over indexed chunks using ChromaDB.
+    Returns top semantically matching chunks with cosine similarity scores.
+    """
+    if document_id:
+        await DocumentService.get_user_document(db, current_user.id, document_id)
+
+    vector_store = VectorStoreService.get_instance()
+    results = vector_store.search_dense(query=q, top_k=top_k, document_id=document_id)
     return results
 
 
