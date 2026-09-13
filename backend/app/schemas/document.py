@@ -111,3 +111,26 @@ class HybridSearchResult(BaseModel):
     bm25_score: Optional[float] = None
 
 
+class RerankedSearchResult(BaseModel):
+    chunk_id: UUID
+    document_id: UUID
+    chunk_index: int
+    content: str
+    token_count: int
+    chunk_metadata: Dict[str, Any]
+    rerank_score: float
+    initial_rrf_score: Optional[float] = None
+    dense_rank: Optional[int] = None
+    sparse_rank: Optional[int] = None
+    dense_score: Optional[float] = None
+    bm25_score: Optional[float] = None
+
+
+class RerankResponse(BaseModel):
+    query: str
+    results: List[RerankedSearchResult]
+    latency_ms: float
+    reranker_used: str
+    fallback_triggered: bool
+
+

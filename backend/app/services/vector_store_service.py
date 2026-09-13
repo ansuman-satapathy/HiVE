@@ -74,12 +74,13 @@ class VectorStoreService:
                 "chunk_index": int(chunk.get("chunk_index", 0)),
                 "token_count": int(chunk.get("token_count", 0)),
             }
-            # Flatten or store stringified breadcrumbs if present
+            # Persist chunk_metadata attributes into ChromaDB metadata
             chunk_meta = chunk.get("chunk_metadata") or {}
-            if "active_heading" in chunk_meta:
-                meta["active_heading"] = str(chunk_meta["active_heading"])
-            if "page" in chunk_meta:
-                meta["page"] = int(chunk_meta["page"])
+            for k, v in chunk_meta.items():
+                if isinstance(v, (str, int, float, bool)):
+                    meta[k] = v
+                elif v is not None:
+                    meta[k] = str(v)
 
             metadatas.append(meta)
 

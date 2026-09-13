@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY: str = ""
     NVIDIA_MODEL: str = "meta/llama-3.1-8b-instruct"
     EMBEDDING_PROVIDER: str = "auto"  # "auto", "nvidia", or "local"
+    RERANKER_PROVIDER: str = "auto"   # "auto", "nvidia", or "local"
+    NVIDIA_RERANK_MODEL: str = "nvidia/llama-nemotron-rerank-1b-v2"
+    RERANKER_TIMEOUT_SECONDS: float = 5.0
 
     CHROMA_PERSIST_DIR: str = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
