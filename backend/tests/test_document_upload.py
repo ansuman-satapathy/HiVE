@@ -126,7 +126,20 @@ async def test_batch_upload_multiple_formats_and_limits(client, db_session):
     assert any(d["duplicate_type"] == "content" for d in dup_data["details"])
     assert any(d["duplicate_type"] == "name" for d in dup_data["details"])
 
-    # 3. Exceeding 10 files batch limit should return 400
+    # 3. Exactly 10 files batch upload (maximum boundary allowed)
+    exactly_10_files = [
+        ("files", (f"boundary_doc_{i}.txt", io.BytesIO(f"Boundary content {i}".encode("utf-8")), "text/plain"))
+        for i in range(10)
+    ]
+    ten_response = await client.post("/api/documents/upload-batch", headers=headers, files=exactly_10_files)
+    assert ten_response.status_code == 202
+    ten_data = ten_response.json()
+    assert ten_data["total_uploaded"] == 10
+    assert ten_data["successful_count"] == 10
+    assert ten_data["failed_count"] == 0
+    assert len(ten_data["documents"]) == 10
+
+    # 4. Exceeding 10 files batch limit (> 10, e.g. 11 files) should return 400
     too_many_files = [
         ("files", (f"file_{i}.txt", io.BytesIO(b"Sample text"), "text/plain"))
         for i in range(11)
@@ -134,3 +147,7 @@ async def test_batch_upload_multiple_formats_and_limits(client, db_session):
     exceed_response = await client.post("/api/documents/upload-batch", headers=headers, files=too_many_files)
     assert exceed_response.status_code == 400
     assert "Maximum 10 files" in exceed_response.json()["detail"]
+
+    # 5. Empty files batch should be rejected
+    empty_response = await client.post("/api/documents/upload-batch", headers=headers, files=[])
+    assert empty_response.status_code in (400, 422)
