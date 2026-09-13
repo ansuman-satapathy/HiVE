@@ -25,6 +25,7 @@ export default function DocumentHub() {
   const [chunkPage, setChunkPage] = useState(1)
   const [copiedChunkId, setCopiedChunkId] = useState(null)
   const fileInputRef = useRef(null)
+  const activeOptimisticIdsRef = useRef(new Set())
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -38,7 +39,7 @@ export default function DocumentHub() {
           const serverMap = new Map(data.map((d) => [d.id, d]))
           const merged = data.slice()
           for (const doc of prevDocs) {
-            if (doc.isOptimistic && !serverMap.has(doc.id)) {
+            if (doc.isOptimistic && activeOptimisticIdsRef.current.has(doc.id) && !serverMap.has(doc.id)) {
               merged.unshift(doc)
             }
           }
@@ -115,7 +116,7 @@ export default function DocumentHub() {
 
     setUploading(true)
 
-    // Create optimistic entries in UI
+    // Create optimistic entries in UI and register in ref
     const optimisticDocs = fileList.map((file, idx) => {
       const ext = file.name.split('.').pop().toLowerCase()
       return {
@@ -132,14 +133,15 @@ export default function DocumentHub() {
       }
     })
 
+    const optIds = new Set(optimisticDocs.map((d) => d.id))
+    optIds.forEach((id) => activeOptimisticIdsRef.current.add(id))
+
     setDocuments((prev) => [...optimisticDocs, ...prev])
 
     const formData = new FormData()
     fileList.forEach((file) => {
       formData.append('files', file)
     })
-
-    const optIds = new Set(optimisticDocs.map((d) => d.id))
 
     try {
       const token = tokenStorage.getToken()
@@ -155,6 +157,7 @@ export default function DocumentHub() {
       }
 
       // Remove temporary optimistic records before setting real server data
+      optIds.forEach((id) => activeOptimisticIdsRef.current.delete(id))
       setDocuments((prev) => prev.filter((d) => !optIds.has(d.id)))
 
       // Provide clear, specific toast feedback based on details
@@ -162,31 +165,37 @@ export default function DocumentHub() {
       const duplicateItems = (data.details || []).filter((item) => item.is_duplicate)
       const failedItems = (data.details || []).filter((item) => item.status === 'failed')
 
-      if (duplicateItems.length > 0 && uploadedItems.length === 0 && failedItems.length === 0) {
-        // All files were duplicates
+      const successCount = data.successful_count ?? uploadedItems.length
+      const dupCount = data.duplicate_count ?? duplicateItems.length
+      const failCount = data.failed_count ?? failedItems.length
+
+      if (successCount === 0 && dupCount > 0 && failCount === 0) {
+        // All files were duplicates - display explicit duplicate warning
         if (duplicateItems.length === 1) {
-          notify.info(duplicateItems[0].message || `Skipped '${duplicateItems[0].filename}': already exists.`)
+          notify.warning(duplicateItems[0].message || `Skipped duplicate '${duplicateItems[0].filename}': already exists in workspace.`, 'Duplicate Skipped')
         } else {
-          notify.info(`Skipped ${duplicateItems.length} duplicate files (identical name or content already exists).`)
+          notify.warning(`Skipped ${dupCount} duplicate file${dupCount === 1 ? '' : 's'} (identical name or content already exists).`, 'Duplicates Skipped')
         }
-      } else if (failedItems.length > 0) {
+      } else if (failCount > 0) {
         const failMsg = failedItems.map((f) => `${f.filename}: ${f.message}`).slice(0, 2).join(' | ')
         notify.warning(
-          `Uploaded ${uploadedItems.length} file${uploadedItems.length === 1 ? '' : 's'}` +
-          (duplicateItems.length > 0 ? `, ${duplicateItems.length} skipped` : '') +
-          `. ${failedItems.length} failed: ${failMsg}`
+          `Uploaded ${successCount} file${successCount === 1 ? '' : 's'}` +
+          (dupCount > 0 ? `, ${dupCount} skipped duplicate${dupCount === 1 ? '' : 's'}` : '') +
+          `. ${failCount} failed: ${failMsg}`
         )
-      } else if (duplicateItems.length > 0) {
+      } else if (dupCount > 0) {
         // Mixed: some uploaded, some skipped as duplicates
         const uploadedNames = uploadedItems.map((u) => `'${u.filename}'`).join(', ')
         const skippedNames = duplicateItems.map((d) => `'${d.filename}'`).join(', ')
         if (duplicateItems.length === 1 && uploadedItems.length === 1) {
-          notify.info(`Uploaded ${uploadedNames}. Skipped duplicate ${skippedNames} (${duplicateItems[0].duplicate_type === 'content' ? 'identical content' : 'name already exists'}).`)
+          notify.info(`Uploaded ${uploadedNames}. Skipped duplicate ${skippedNames} (${duplicateItems[0].duplicate_type === 'content' ? 'identical content' : 'name already exists'}).`, 'Upload Partial')
         } else {
-          notify.info(`Uploaded ${uploadedItems.length} file${uploadedItems.length === 1 ? '' : 's'} (${uploadedNames}). Skipped ${duplicateItems.length} duplicate${duplicateItems.length === 1 ? '' : 's'} (${skippedNames}).`)
+          notify.info(`Uploaded ${successCount} file${successCount === 1 ? '' : 's'} (${uploadedNames}). Skipped ${dupCount} duplicate${dupCount === 1 ? '' : 's'} (${skippedNames}).`, 'Upload Partial')
         }
+      } else if (successCount > 0) {
+        notify.success(`Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}! Ingestion queued.`)
       } else {
-        notify.success(`Successfully uploaded ${data.successful_count} file${data.successful_count > 1 ? 's' : ''}! Ingestion queued.`)
+        notify.info('No new documents were processed.')
       }
 
       // Sync real documents and queue immediately
@@ -195,6 +204,7 @@ export default function DocumentHub() {
     } catch (err) {
       notify.error(err.message || 'Failed to upload documents')
       // Remove optimistic records
+      optIds.forEach((id) => activeOptimisticIdsRef.current.delete(id))
       setDocuments((prev) => prev.filter((d) => !optIds.has(d.id)))
     } finally {
       setUploading(false)
