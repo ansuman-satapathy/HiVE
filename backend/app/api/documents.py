@@ -78,7 +78,7 @@ async def upload_document(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    doc, is_duplicate, message = await DocumentService.handle_upload(
+    doc, is_duplicate, duplicate_type, message = await DocumentService.handle_upload(
         file=file,
         user=current_user,
         db=db,
@@ -87,6 +87,7 @@ async def upload_document(
     return DocumentUploadResponse(
         document=DocumentResponse.model_validate(doc),
         is_duplicate=is_duplicate,
+        duplicate_type=duplicate_type,
         message=message
     )
 
@@ -114,6 +115,7 @@ async def upload_documents_batch(
         duplicate_count=res["duplicate_count"],
         failed_count=res["failed_count"],
         documents=[DocumentResponse.model_validate(d) for d in res["documents"]],
+        details=res.get("details", []),
         messages=res["messages"],
     )
 

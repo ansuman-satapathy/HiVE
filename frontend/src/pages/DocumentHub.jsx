@@ -139,6 +139,8 @@ export default function DocumentHub() {
       formData.append('files', file)
     })
 
+    const optIds = new Set(optimisticDocs.map((d) => d.id))
+
     try {
       const token = tokenStorage.getToken()
       const res = await fetch('/api/documents/upload-batch', {
@@ -152,12 +154,32 @@ export default function DocumentHub() {
         throw new Error(data.detail || 'Batch upload failed')
       }
 
-      if (data.failed_count > 0) {
-        notify.warning(`Uploaded ${data.successful_count} files (${data.failed_count} failed)`)
+      // Remove temporary optimistic records before setting real server data
+      setDocuments((prev) => prev.filter((d) => !optIds.has(d.id)))
+
+      // Provide clear, specific toast feedback based on details
+      if (data.duplicate_count > 0 && data.successful_count === 0 && data.failed_count === 0) {
+        // All files were duplicates
+        const dupMessages = (data.details || [])
+          .filter((item) => item.is_duplicate)
+          .map((item) => item.message)
+        if (dupMessages.length === 1) {
+          notify.info(dupMessages[0])
+        } else {
+          notify.info(`Skipped ${data.duplicate_count} duplicate files (identical name or content already exists).`)
+        }
+      } else if (data.failed_count > 0) {
+        notify.warning(
+          `Uploaded ${data.successful_count} file${data.successful_count === 1 ? '' : 's'}` +
+          (data.duplicate_count > 0 ? `, ${data.duplicate_count} duplicate${data.duplicate_count === 1 ? '' : 's'} skipped` : '') +
+          `, ${data.failed_count} failed.`
+        )
       } else if (data.duplicate_count > 0) {
-        notify.info(`Uploaded ${data.successful_count} files (${data.duplicate_count} duplicates skipped)`)
+        notify.info(
+          `Uploaded ${data.successful_count} file${data.successful_count === 1 ? '' : 's'} (${data.duplicate_count} duplicate${data.duplicate_count === 1 ? '' : 's'} skipped).`
+        )
       } else {
-        notify.success(`Successfully uploaded ${data.successful_count} file${data.successful_count > 1 ? 's' : ''}! Ingestion started.`)
+        notify.success(`Successfully uploaded ${data.successful_count} file${data.successful_count > 1 ? 's' : ''}! Ingestion queued.`)
       }
 
       // Sync real documents and queue immediately
@@ -166,7 +188,6 @@ export default function DocumentHub() {
     } catch (err) {
       notify.error(err.message || 'Failed to upload documents')
       // Remove optimistic records
-      const optIds = new Set(optimisticDocs.map((d) => d.id))
       setDocuments((prev) => prev.filter((d) => !optIds.has(d.id)))
     } finally {
       setUploading(false)
