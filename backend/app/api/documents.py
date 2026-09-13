@@ -14,12 +14,14 @@ from app.schemas.document import (
     SparseSearchResult,
     DenseSearchResult,
     HybridSearchResult,
+    RerankResponse,
 )
 from app.db.repositories.document_repo import DocumentRepository
 from app.services.document_service import DocumentService
 from app.services.bm25_service import BM25IndexService
 from app.services.vector_store_service import VectorStoreService
 from app.services.hybrid_retriever import HybridRetriever
+from app.services.reranker_service import RerankerService
 
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -84,6 +86,43 @@ async def search_hybrid_chunks(
     retriever = HybridRetriever.get_instance()
     results = await retriever.retrieve(query=q, top_candidates=top_k, document_id=document_id)
     return results
+
+
+@router.get("/search/rerank", response_model=RerankResponse)
+async def search_rerank_chunks(
+    q: str = Query(..., min_length=1, description="Query text for hybrid retrieval and cross-encoder reranking"),
+    top_k: int = Query(5, ge=1, le=20, description="Final number of top reranked chunks to return"),
+    top_candidates: int = Query(25, ge=5, le=100, description="Number of hybrid candidates to retrieve for reranking"),
+    document_id: UUID = Query(None, description="Optional document ID filter"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ticket 12: Cross-Encoder Reranker Stage.
+    Retrieves top_candidates from Hybrid Retrieval (dense vector + sparse BM25 with RRF),
+    then applies a Cross-Encoder to compute deep all-to-all cross-attention relevance scores,
+    returning the top_k most relevant chunks alongside latency telemetry and used provider.
+    """
+    if document_id:
+        await DocumentService.get_user_document(db, current_user.id, document_id)
+
+    # 1. Stage 1: Candidate generation with Hybrid Retrieval (RRF)
+    retriever = HybridRetriever.get_instance()
+    candidates = await retriever.retrieve(
+        query=q,
+        top_candidates=top_candidates,
+        document_id=document_id,
+    )
+
+    # 2. Stage 2: High precision Cross-Encoder Reranking
+    reranker = RerankerService.get_instance()
+    rerank_result = await reranker.rerank_candidates(
+        query=q,
+        candidates=candidates,
+        top_k=top_k,
+    )
+
+    return rerank_result
 
 
 @router.get("/queue", response_model=IngestionQueueResponse)
