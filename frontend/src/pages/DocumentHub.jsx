@@ -318,7 +318,13 @@ export default function DocumentHub() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
-      const data = await res.json()
+      let data = {}
+      try {
+        data = await res.json()
+      } catch {
+        const text = await res.text().catch(() => '')
+        data = { detail: text || res.statusText || 'Server error' }
+      }
       if (!res.ok) {
         throw new Error(data.detail || 'Failed to retry ingestion')
       }
