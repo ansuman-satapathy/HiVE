@@ -26,6 +26,15 @@ class DocumentUploadResponse(BaseModel):
     is_duplicate: bool = False
     message: str
 
+
+class BatchDocumentUploadResponse(BaseModel):
+    total_uploaded: int
+    successful_count: int
+    duplicate_count: int
+    failed_count: int
+    documents: List[DocumentResponse]
+    messages: List[str]
+
 class DocumentChunkResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

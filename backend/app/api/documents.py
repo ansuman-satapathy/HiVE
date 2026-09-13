@@ -8,6 +8,7 @@ from app.models.user import User
 from app.schemas.document import (
     DocumentResponse,
     DocumentUploadResponse,
+    BatchDocumentUploadResponse,
     DocumentChunkResponse,
     IngestionQueueResponse,
     SparseSearchResult,
@@ -87,6 +88,33 @@ async def upload_document(
         document=DocumentResponse.model_validate(doc),
         is_duplicate=is_duplicate,
         message=message
+    )
+
+
+@router.post("/upload-batch", response_model=BatchDocumentUploadResponse, status_code=status.HTTP_202_ACCEPTED)
+async def upload_documents_batch(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Upload up to 10 documents simultaneously (.pdf, .md, .txt, .docx, .csv, .xlsx).
+    Validates maximum 50MB per file and kicks off parallel background ingestion.
+    """
+    res = await DocumentService.handle_batch_upload(
+        files=files,
+        user=current_user,
+        db=db,
+        background_tasks=background_tasks
+    )
+    return BatchDocumentUploadResponse(
+        total_uploaded=res["total_uploaded"],
+        successful_count=res["successful_count"],
+        duplicate_count=res["duplicate_count"],
+        failed_count=res["failed_count"],
+        documents=[DocumentResponse.model_validate(d) for d in res["documents"]],
+        messages=res["messages"],
     )
 
 
