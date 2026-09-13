@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Bot, Check, ArrowRight, Sparkles, Loader2, AlertCircle, Sun, Moon } from 'lucide-react'
+import { Check, ArrowRight, Sparkles, Loader2, AlertCircle, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import HiveLogo from '../components/HiveLogo'
 
 export default function Onboarding() {
   const [step, setStep] = useState(1)
@@ -99,9 +100,9 @@ export default function Onboarding() {
 
       <div className="w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-2xl p-8 sm:p-10 shadow-xl transition-all">
         {/* Header Badge */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center mx-auto mb-4 shadow-md shadow-blue-500/20">
-            <Bot size={24} />
+        <div className="text-center mb-8 flex flex-col items-center">
+          <div className="mb-3">
+            <HiveLogo size="lg" />
           </div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[11px] font-semibold mb-2">
             <Sparkles size={11} />

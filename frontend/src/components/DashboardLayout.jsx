@@ -6,6 +6,8 @@ import { useTaskQueue } from '../context/TaskQueueContext'
 import { LogOut, Bot, Files, Activity, Layers, Loader2, Sun, Moon } from 'lucide-react'
 import TaskQueueDrawer from './TaskQueueDrawer'
 
+import HiveLogo from './HiveLogo'
+
 export default function DashboardLayout({ children }) {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
@@ -29,14 +31,7 @@ export default function DashboardLayout({ children }) {
       <header className="sticky top-0 z-40 flex items-center justify-between px-6 lg:px-10 py-3.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)] transition-colors">
         {/* Brand & Nav */}
         <div className="flex items-center gap-8">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
-              <Bot size={18} />
-            </div>
-            <span className="font-bold text-base tracking-tight text-[var(--text-primary)]">
-              HiVE
-            </span>
-          </div>
+          <HiveLogo size="md" />
 
           {/* Navigation Links */}
           <nav className="flex items-center gap-1.5">

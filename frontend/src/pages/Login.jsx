@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertCircle, ArrowRight, Bot, Sun, Moon } from 'lucide-react'
+import { AlertCircle, ArrowRight, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import HiveLogo from '../components/HiveLogo'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -60,14 +61,11 @@ export default function Login() {
       </div>
 
       <div className="w-full max-w-md bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-2xl p-8 sm:p-10 shadow-xl transition-all">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white mx-auto mb-4 shadow-md shadow-blue-500/20">
-            <Bot size={26} />
+        <div className="text-center mb-8 flex flex-col items-center">
+          <div className="mb-3">
+            <HiveLogo size="lg" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-            HiVE
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1.5">
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
             Sign in to your document intelligence workspace
           </p>
         </div>
