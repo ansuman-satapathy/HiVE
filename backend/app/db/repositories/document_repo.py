@@ -95,17 +95,47 @@ class DocumentRepository:
         return result.all(), total
 
     @staticmethod
-    async def delete_documents_batch(db: AsyncSession, user_id: uuid.UUID, document_ids: List[uuid.UUID]) -> List[uuid.UUID]:
-        """Fetch and delete multiple documents for a user, returning deleted IDs."""
+    async def get_user_stats(db: AsyncSession, user_id: uuid.UUID) -> dict:
+        """Single-roundtrip database aggregation for document count, total sections, and total tokens."""
+        from sqlmodel import func
+
+        stmt = select(
+            func.count(Document.id),
+            func.coalesce(func.sum(Document.chunk_count), 0),
+            func.coalesce(func.sum(Document.token_count), 0),
+        ).where(Document.user_id == user_id)
+
+        res = await db.exec(stmt)
+        doc_count, total_chunks, total_tokens = res.one()
+        return {
+            "document_count": int(doc_count or 0),
+            "total_chunks": int(total_chunks or 0),
+            "total_tokens": int(total_tokens or 0),
+        }
+
+    @staticmethod
+    async def get_documents_by_ids(
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        document_ids: List[uuid.UUID]
+    ) -> List[Document]:
+        """Fetch multiple documents in a single IN (...) query for bulk operations."""
         if not document_ids:
             return []
-
         statement = select(Document).where(
             Document.user_id == user_id,
             Document.id.in_(document_ids)
         )
         res = await db.exec(statement)
-        docs = res.all()
+        return res.all()
+
+    @staticmethod
+    async def delete_documents_batch(db: AsyncSession, user_id: uuid.UUID, document_ids: List[uuid.UUID]) -> List[uuid.UUID]:
+        """Fetch and delete multiple documents for a user in a single transaction, returning deleted IDs."""
+        if not document_ids:
+            return []
+
+        docs = await DocumentRepository.get_documents_by_ids(db, user_id, document_ids)
         deleted_ids = []
         for doc in docs:
             deleted_ids.append(doc.id)

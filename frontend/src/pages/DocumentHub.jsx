@@ -27,6 +27,8 @@ export default function DocumentHub() {
   const [pageSize, setPageSize] = useState(20)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+  const [totalChunks, setTotalChunks] = useState(0)
+  const [totalTokens, setTotalTokens] = useState(0)
   const [selectedDoc, setSelectedDoc] = useState(null)
   const [docChunks, setDocChunks] = useState([])
   const [loadingChunks, setLoadingChunks] = useState(false)
@@ -74,6 +76,8 @@ export default function DocumentHub() {
         const items = data.items || []
         setTotalCount(data.total || 0)
         setTotalPages(data.total_pages || 1)
+        if (data.total_chunks !== undefined) setTotalChunks(data.total_chunks)
+        if (data.total_tokens !== undefined) setTotalTokens(data.total_tokens)
 
         setDocuments((prevDocs) => {
           const serverMap = new Map(items.map((d) => [d.id, d]))
@@ -385,9 +389,7 @@ export default function DocumentHub() {
     setTimeout(() => setCopiedChunkId(null), 1800)
   }
 
-  // Summary Metrics
-  const totalChunks = documents.reduce((acc, d) => acc + (d.chunk_count || 0), 0)
-  const totalTokens = documents.reduce((acc, d) => acc + (d.token_count || 0), 0)
+  // Summary Metrics: derived from optimized server aggregation
   const activeProcessingCount = documents.filter((d) =>
     ['pending', 'parsing', 'chunking', 'indexing'].includes(d.status)
   ).length

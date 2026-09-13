@@ -27,6 +27,8 @@ class DocumentListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+    total_chunks: int = 0
+    total_tokens: int = 0
 
 class BatchDeleteRequest(BaseModel):
     document_ids: List[UUID]

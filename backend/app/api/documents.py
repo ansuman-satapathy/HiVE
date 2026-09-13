@@ -207,6 +207,7 @@ async def list_documents(
         q=q,
         file_type=file_type
     )
+    stats = await DocumentRepository.get_user_stats(db, current_user.id)
     total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
 
     return DocumentListResponse(
@@ -214,7 +215,9 @@ async def list_documents(
         total=total,
         page=page,
         page_size=page_size,
-        total_pages=total_pages
+        total_pages=total_pages,
+        total_chunks=stats["total_chunks"],
+        total_tokens=stats["total_tokens"],
     )
 
 

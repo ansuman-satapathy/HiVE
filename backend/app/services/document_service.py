@@ -292,16 +292,20 @@ class DocumentService:
         bm25_service = BM25IndexService.get_instance()
         vector_service = VectorStoreService.get_instance()
 
+        # Bulk fetch all requested documents in single query
+        docs = await DocumentRepository.get_documents_by_ids(db, user_id, document_ids)
+        doc_map = {d.id: d for d in docs}
+
         deleted_ids = []
         failed_ids = []
 
         for doc_id in document_ids:
-            try:
-                doc = await DocumentRepository.get_by_id(db, doc_id)
-                if not doc or doc.user_id != user_id:
-                    failed_ids.append(doc_id)
-                    continue
+            doc = doc_map.get(doc_id)
+            if not doc:
+                failed_ids.append(doc_id)
+                continue
 
+            try:
                 file_path = doc.doc_metadata.get("storage_path") if doc.doc_metadata else None
                 if file_path and os.path.exists(file_path):
                     try:
@@ -309,13 +313,16 @@ class DocumentService:
                     except OSError:
                         pass
 
-                await DocumentRepository.delete_document(db, doc_id)
+                await db.delete(doc)
                 bm25_service.remove_document_chunks(doc_id)
                 vector_service.delete_document_chunks(doc_id)
                 deleted_ids.append(doc_id)
             except Exception as e:
                 logger.error(f"Failed to delete document {doc_id} in batch: {e}")
                 failed_ids.append(doc_id)
+
+        if deleted_ids:
+            await db.commit()
 
         return {
             "deleted_count": len(deleted_ids),
