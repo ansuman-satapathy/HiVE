@@ -15,9 +15,15 @@ class Settings(BaseSettings):
 
     NVIDIA_API_KEY: str = ""
     NVIDIA_MODEL: str = "meta/llama-3.1-8b-instruct"
+    EMBEDDING_PROVIDER: str = "auto"  # "auto", "nvidia", or "local"
 
+    CHROMA_PERSIST_DIR: str = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "chroma_db"
+    )
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
 
 settings = Settings()
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
 
