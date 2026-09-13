@@ -158,26 +158,33 @@ export default function DocumentHub() {
       setDocuments((prev) => prev.filter((d) => !optIds.has(d.id)))
 
       // Provide clear, specific toast feedback based on details
-      if (data.duplicate_count > 0 && data.successful_count === 0 && data.failed_count === 0) {
+      const uploadedItems = (data.details || []).filter((item) => item.status === 'uploaded')
+      const duplicateItems = (data.details || []).filter((item) => item.is_duplicate)
+      const failedItems = (data.details || []).filter((item) => item.status === 'failed')
+
+      if (duplicateItems.length > 0 && uploadedItems.length === 0 && failedItems.length === 0) {
         // All files were duplicates
-        const dupMessages = (data.details || [])
-          .filter((item) => item.is_duplicate)
-          .map((item) => item.message)
-        if (dupMessages.length === 1) {
-          notify.info(dupMessages[0])
+        if (duplicateItems.length === 1) {
+          notify.info(duplicateItems[0].message || `Skipped '${duplicateItems[0].filename}': already exists.`)
         } else {
-          notify.info(`Skipped ${data.duplicate_count} duplicate files (identical name or content already exists).`)
+          notify.info(`Skipped ${duplicateItems.length} duplicate files (identical name or content already exists).`)
         }
-      } else if (data.failed_count > 0) {
+      } else if (failedItems.length > 0) {
+        const failMsg = failedItems.map((f) => `${f.filename}: ${f.message}`).slice(0, 2).join(' | ')
         notify.warning(
-          `Uploaded ${data.successful_count} file${data.successful_count === 1 ? '' : 's'}` +
-          (data.duplicate_count > 0 ? `, ${data.duplicate_count} duplicate${data.duplicate_count === 1 ? '' : 's'} skipped` : '') +
-          `, ${data.failed_count} failed.`
+          `Uploaded ${uploadedItems.length} file${uploadedItems.length === 1 ? '' : 's'}` +
+          (duplicateItems.length > 0 ? `, ${duplicateItems.length} skipped` : '') +
+          `. ${failedItems.length} failed: ${failMsg}`
         )
-      } else if (data.duplicate_count > 0) {
-        notify.info(
-          `Uploaded ${data.successful_count} file${data.successful_count === 1 ? '' : 's'} (${data.duplicate_count} duplicate${data.duplicate_count === 1 ? '' : 's'} skipped).`
-        )
+      } else if (duplicateItems.length > 0) {
+        // Mixed: some uploaded, some skipped as duplicates
+        const uploadedNames = uploadedItems.map((u) => `'${u.filename}'`).join(', ')
+        const skippedNames = duplicateItems.map((d) => `'${d.filename}'`).join(', ')
+        if (duplicateItems.length === 1 && uploadedItems.length === 1) {
+          notify.info(`Uploaded ${uploadedNames}. Skipped duplicate ${skippedNames} (${duplicateItems[0].duplicate_type === 'content' ? 'identical content' : 'name already exists'}).`)
+        } else {
+          notify.info(`Uploaded ${uploadedItems.length} file${uploadedItems.length === 1 ? '' : 's'} (${uploadedNames}). Skipped ${duplicateItems.length} duplicate${duplicateItems.length === 1 ? '' : 's'} (${skippedNames}).`)
+        }
       } else {
         notify.success(`Successfully uploaded ${data.successful_count} file${data.successful_count > 1 ? 's' : ''}! Ingestion queued.`)
       }
