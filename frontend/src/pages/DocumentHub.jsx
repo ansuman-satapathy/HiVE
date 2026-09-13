@@ -92,6 +92,30 @@ export default function DocumentHub() {
               merged.unshift(doc)
             }
           }
+
+          // In-place diff check: avoid re-rendering entire table if data hasn't changed
+          if (prevDocs.length === merged.length) {
+            let changed = false
+            for (let i = 0; i < prevDocs.length; i++) {
+              const a = prevDocs[i]
+              const b = merged[i]
+              if (
+                a.id !== b.id ||
+                a.status !== b.status ||
+                a.chunk_count !== b.chunk_count ||
+                a.token_count !== b.token_count ||
+                a.updated_at !== b.updated_at ||
+                a.error_message !== b.error_message
+              ) {
+                changed = true
+                break
+              }
+            }
+            if (!changed) {
+              return prevDocs
+            }
+          }
+
           return merged
         })
       }
@@ -106,7 +130,10 @@ export default function DocumentHub() {
   const hasActiveDocs = documents.some((d) =>
     ['pending', 'parsing', 'chunking', 'indexing'].includes(d.status)
   )
+  const hasActiveDocsRef = useRef(hasActiveDocs)
+  hasActiveDocsRef.current = hasActiveDocs
 
+  // Polling loop with stable interval: avoids destroying and recreating timeout on every row status tick
   useEffect(() => {
     let timeoutId
     let isMounted = true
@@ -114,7 +141,7 @@ export default function DocumentHub() {
     const runPoll = async () => {
       await fetchDocuments(true)
       if (!isMounted) return
-      const interval = hasActiveDocs ? 1500 : 10000
+      const interval = hasActiveDocsRef.current ? 2000 : 10000
       timeoutId = setTimeout(runPoll, interval)
     }
 
@@ -123,7 +150,7 @@ export default function DocumentHub() {
       isMounted = false
       clearTimeout(timeoutId)
     }
-  }, [fetchDocuments, hasActiveDocs])
+  }, [fetchDocuments])
 
   const ALLOWED_EXTENSIONS = ['pdf', 'md', 'txt', 'docx', 'doc', 'csv', 'xlsx', 'xls']
   const MAX_BATCH_SIZE = 10
@@ -206,10 +233,6 @@ export default function DocumentHub() {
         throw new Error(data.detail || 'Batch upload failed')
       }
 
-      // Remove temporary optimistic records before setting real server data
-      optIds.forEach((id) => activeOptimisticIdsRef.current.delete(id))
-      setDocuments((prev) => prev.filter((d) => !optIds.has(d.id)))
-
       // Provide clear, specific toast feedback based on details
       const uploadedItems = (data.details || []).filter((item) => item.status === 'uploaded')
       const duplicateItems = (data.details || []).filter((item) => item.is_duplicate)
@@ -248,9 +271,12 @@ export default function DocumentHub() {
         notify.info('No new documents were processed.')
       }
 
-      // Sync real documents and queue immediately
+      // Sync real documents and queue immediately in background without replacing with spinner
       fetchQueue()
-      await fetchDocuments()
+      await fetchDocuments(true)
+
+      // Cleanup optimistic records now that server records are fetched
+      optIds.forEach((id) => activeOptimisticIdsRef.current.delete(id))
     } catch (err) {
       notify.error(err.message || 'Failed to upload documents')
       // Remove optimistic records
