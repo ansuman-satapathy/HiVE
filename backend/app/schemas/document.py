@@ -21,6 +21,21 @@ class DocumentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+class DocumentListResponse(BaseModel):
+    items: List[DocumentResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+class BatchDeleteRequest(BaseModel):
+    document_ids: List[UUID]
+
+class BatchDeleteResponse(BaseModel):
+    deleted_count: int
+    deleted_ids: List[UUID]
+    failed_ids: List[UUID] = []
+
 class DocumentUploadResponse(BaseModel):
     document: DocumentResponse
     is_duplicate: bool = False

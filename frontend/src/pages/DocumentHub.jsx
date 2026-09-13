@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { AlertCircle, CheckCircle2, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 import { useFeedback } from '../context/FeedbackContext'
 import { useTaskQueue } from '../context/TaskQueueContext'
@@ -14,10 +14,17 @@ export default function DocumentHub() {
   const { fetchQueue, setDrawerOpen } = useTaskQueue()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filterType, setFilterType] = useState('all')
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [selectedDoc, setSelectedDoc] = useState(null)
   const [docChunks, setDocChunks] = useState([])
   const [loadingChunks, setLoadingChunks] = useState(false)
@@ -27,17 +34,48 @@ export default function DocumentHub() {
   const fileInputRef = useRef(null)
   const activeOptimisticIdsRef = useRef(new Set())
 
+  // Debounce search query by 300ms
+  useEffect(() => {
+    setIsSearching(true)
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setPage(1)
+      setIsSearching(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Reset page to 1 when filterType changes
+  useEffect(() => {
+    setPage(1)
+  }, [filterType])
+
   const fetchDocuments = useCallback(async () => {
     try {
       const token = tokenStorage.getToken()
-      const res = await fetch('/api/documents', {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        page_size: pageSize.toString(),
+      })
+      if (debouncedSearch.trim()) {
+        params.append('q', debouncedSearch.trim())
+      }
+      if (filterType && filterType !== 'all') {
+        params.append('file_type', filterType)
+      }
+
+      const res = await fetch(`/api/documents?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
         const data = await res.json()
+        const items = data.items || []
+        setTotalCount(data.total || 0)
+        setTotalPages(data.total_pages || 1)
+
         setDocuments((prevDocs) => {
-          const serverMap = new Map(data.map((d) => [d.id, d]))
-          const merged = data.slice()
+          const serverMap = new Map(items.map((d) => [d.id, d]))
+          const merged = items.slice()
           for (const doc of prevDocs) {
             if (doc.isOptimistic && activeOptimisticIdsRef.current.has(doc.id) && !serverMap.has(doc.id)) {
               merged.unshift(doc)
@@ -51,7 +89,7 @@ export default function DocumentHub() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page, pageSize, debouncedSearch, filterType])
 
   const hasActiveDocs = documents.some((d) =>
     ['pending', 'parsing', 'chunking', 'indexing'].includes(d.status)
@@ -246,6 +284,71 @@ export default function DocumentHub() {
     }
   }
 
+  const handleToggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleToggleSelectAll = () => {
+    if (documents.length === 0) return
+    const allSelected = documents.every((d) => selectedIds.has(d.id))
+    if (allSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(documents.map((d) => d.id)))
+    }
+  }
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set())
+  }
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return
+
+    const count = selectedIds.size
+    const confirmed = await confirm({
+      title: 'Delete Selected Documents',
+      message: `Are you sure you want to permanently delete all ${count} selected document${count > 1 ? 's' : ''} and their chunks from vector & sparse search?`,
+      confirmText: `Delete ${count} Document${count > 1 ? 's' : ''}`,
+      variant: 'danger',
+    })
+
+    if (!confirmed) return
+
+    try {
+      const token = tokenStorage.getToken()
+      const res = await fetch('/api/documents/batch-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ document_ids: Array.from(selectedIds) }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        notify.success(`Successfully deleted ${data.deleted_count} document${data.deleted_count > 1 ? 's' : ''}.`)
+        setSelectedIds(new Set())
+        await fetchDocuments()
+        fetchQueue()
+      } else {
+        notify.error('Failed to batch delete documents')
+      }
+    } catch (err) {
+      console.error('Batch delete error:', err)
+      notify.error('Error executing batch delete')
+    }
+  }
+
   const handleInspectChunks = async (doc) => {
     setSelectedDoc(doc)
     setChunkSearch('')
@@ -281,23 +384,16 @@ export default function DocumentHub() {
     ['pending', 'parsing', 'chunking', 'indexing'].includes(d.status)
   ).length
 
-  // Filtered Documents
-  const filteredDocs = useMemo(() => {
-    return documents.filter((d) => {
-      const matchesSearch = d.filename.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesType = filterType === 'all' || d.file_type?.toLowerCase() === filterType
-      return matchesSearch && matchesType
-    })
-  }, [documents, searchQuery, filterType])
+  const startRecord = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
+  const endRecord = Math.min(page * pageSize, totalCount)
 
   return (
     <div className="max-w-7xl w-full mx-auto px-6 sm:px-8 py-5 sm:py-6 space-y-4 sm:space-y-5 transition-colors">
       {/* Header Bar with Metrics */}
       <DocumentStatsHeader
-        documentCount={documents.length}
+        documentCount={totalCount}
         totalChunks={totalChunks}
         totalTokens={totalTokens}
-        activeProcessingCount={activeProcessingCount}
       />
 
       {/* Hero Upload Dropzone */}
@@ -315,18 +411,79 @@ export default function DocumentHub() {
         setSearchQuery={setSearchQuery}
         filterType={filterType}
         setFilterType={setFilterType}
+        isSearching={isSearching}
+        selectedCount={selectedIds.size}
+        onBatchDelete={handleBatchDelete}
+        onClearSelection={handleClearSelection}
       />
 
       {/* Documents Master Table */}
       <DocumentTable
-        documents={filteredDocs}
+        documents={documents}
         loading={loading}
         searchQuery={searchQuery}
         filterType={filterType}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+        onToggleSelectAll={handleToggleSelectAll}
         onInspect={handleInspectChunks}
         onDelete={handleDelete}
         onUploadClick={() => fileInputRef.current?.click()}
       />
+
+      {/* Pagination Controls */}
+      {totalCount > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-2 py-2 text-xs text-[var(--text-secondary)]">
+          <div className="flex items-center gap-3">
+            <span>
+              Showing <strong className="text-[var(--text-primary)]">{startRecord}</strong> to{' '}
+              <strong className="text-[var(--text-primary)]">{endRecord}</strong> of{' '}
+              <strong className="text-[var(--text-primary)]">{totalCount}</strong> documents
+            </span>
+
+            {/* Page Size Selector */}
+            <div className="flex items-center gap-1.5 ml-2">
+              <span>Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value))
+                  setPage(1)
+                }}
+                className="px-2 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-xs focus:outline-none focus:border-blue-500/80 cursor-pointer"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-2xs cursor-pointer"
+            >
+              <ChevronLeft size={14} />
+              <span>Previous</span>
+            </button>
+
+            <div className="px-3 py-1 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-default)] font-semibold text-[var(--text-primary)]">
+              Page {page} of {totalPages}
+            </div>
+
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-2xs cursor-pointer"
+            >
+              <span>Next</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Slide-over Content Inspector Drawer */}
       <DocumentChunkInspector

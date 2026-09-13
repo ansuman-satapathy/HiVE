@@ -23,6 +23,9 @@ export default function DocumentTable({
   loading,
   searchQuery,
   filterType,
+  selectedIds = new Set(),
+  onToggleSelect,
+  onToggleSelectAll,
   onInspect,
   onDelete,
   onUploadClick
@@ -62,47 +65,77 @@ export default function DocumentTable({
     )
   }
 
+  const allSelected = documents.length > 0 && documents.every((d) => selectedIds.has(d.id))
+  const someSelected = documents.some((d) => selectedIds.has(d.id)) && !allSelected
+
   return (
     <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden shadow-xs">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
+      <div className="w-full">
+        <table className="w-full table-fixed text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)] font-semibold text-[var(--text-secondary)]">
-              <th className="px-6 py-3.5">Document</th>
-              <th className="px-4 py-3.5">Type</th>
-              <th className="px-4 py-3.5">Size</th>
-              <th className="px-4 py-3.5">Sections</th>
-              <th className="px-4 py-3.5">Tokens</th>
-              <th className="px-4 py-3.5">Status</th>
-              <th className="px-6 py-3.5 text-right">Actions</th>
+              <th className="w-[4%] px-4 py-3.5 text-center">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected
+                  }}
+                  onChange={onToggleSelectAll}
+                  className="table-checkbox"
+                  aria-label="Select all documents"
+                />
+              </th>
+              <th className="w-[34%] px-3 py-3.5">Document</th>
+              <th className="w-[7%] px-3 py-3.5">Type</th>
+              <th className="w-[9%] px-3 py-3.5">Size</th>
+              <th className="w-[10%] px-3 py-3.5">Sections</th>
+              <th className="w-[11%] px-3 py-3.5">Tokens</th>
+              <th className="w-[11%] px-3 py-3.5">Status</th>
+              <th className="w-[14%] px-4 py-3.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-default)]">
             {documents.map((doc) => {
               const isProcessing = ['pending', 'parsing', 'chunking', 'indexing'].includes(doc.status)
+              const isSelected = selectedIds.has(doc.id)
 
               return (
                 <tr
                   key={doc.id}
                   className={`transition-colors hover:bg-[var(--bg-surface-hover)] ${
-                    isProcessing ? 'bg-blue-500/5' : ''
+                    isSelected ? 'bg-blue-500/10' : isProcessing ? 'bg-blue-500/5' : ''
                   }`}
                 >
+                  {/* Row Checkbox */}
+                  <td className="px-4 py-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleSelect(doc.id)}
+                      className="table-checkbox"
+                      aria-label={`Select ${doc.filename}`}
+                    />
+                  </td>
+
                   {/* Filename & Stepper */}
-                  <td className="px-6 py-4 min-w-[280px]">
-                    <div className="flex items-center gap-3">
+                  <td className="px-3 py-4 overflow-hidden">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                         isProcessing ? 'bg-blue-500/15 text-blue-500' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
                       }`}>
                         {isProcessing ? <Loader2 size={16} className="spin-animate" /> : getFileIcon(doc.file_type)}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-[13px] text-[var(--text-primary)] truncate">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="font-semibold text-[13px] text-[var(--text-primary)] truncate block flex-1"
+                            title={doc.filename}
+                          >
                             {doc.filename}
                           </span>
                           {doc.isOptimistic && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                            <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/10 text-blue-500 border border-blue-500/20">
                               uploading
                             </span>
                           )}
@@ -171,8 +204,8 @@ export default function DocumentTable({
                   </td>
 
                   {/* Action Buttons */}
-                  <td className="px-6 py-4 text-right">
-                    <div className="inline-flex items-center gap-1.5">
+                  <td className="px-4 py-4 text-right">
+                    <div className="inline-flex items-center justify-end gap-1.5 shrink-0 whitespace-nowrap">
                       {!isProcessing && (
                         <button
                           onClick={() => onInspect(doc)}

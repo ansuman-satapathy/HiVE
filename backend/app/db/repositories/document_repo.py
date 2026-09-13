@@ -65,18 +65,53 @@ class DocumentRepository:
         db: AsyncSession,
         user_id: uuid.UUID,
         skip: int = 0,
-        limit: int = 50
-    ) -> List[Document]:
-        """List all documents for a user ordered by most recently created."""
+        limit: int = 50,
+        q: Optional[str] = None,
+        file_type: Optional[str] = None,
+    ) -> tuple[List[Document], int]:
+        """List documents for a user with optional search and format filters, returning (docs, total_count)."""
+        from sqlmodel import func
+
+        conditions = [Document.user_id == user_id]
+        if q and q.strip():
+            conditions.append(Document.filename.ilike(f"%{q.strip()}%"))
+        if file_type and file_type.lower() != "all":
+            conditions.append(Document.file_type == file_type.lower())
+
+        # Count total matching query
+        count_stmt = select(func.count(Document.id)).where(*conditions)
+        count_res = await db.exec(count_stmt)
+        total = count_res.one() or 0
+
+        # Fetch page slice
         statement = (
             select(Document)
-            .where(Document.user_id == user_id)
+            .where(*conditions)
             .order_by(Document.created_at.desc())
             .offset(skip)
             .limit(limit)
         )
         result = await db.exec(statement)
-        return result.all()
+        return result.all(), total
+
+    @staticmethod
+    async def delete_documents_batch(db: AsyncSession, user_id: uuid.UUID, document_ids: List[uuid.UUID]) -> List[uuid.UUID]:
+        """Fetch and delete multiple documents for a user, returning deleted IDs."""
+        if not document_ids:
+            return []
+
+        statement = select(Document).where(
+            Document.user_id == user_id,
+            Document.id.in_(document_ids)
+        )
+        res = await db.exec(statement)
+        docs = res.all()
+        deleted_ids = []
+        for doc in docs:
+            deleted_ids.append(doc.id)
+            await db.delete(doc)
+        await db.commit()
+        return deleted_ids
 
     @staticmethod
     async def list_active_ingestion_tasks(
@@ -153,6 +188,16 @@ class DocumentRepository:
         return doc
 
     @staticmethod
+    def _sanitize_meta_val(val: Any) -> Any:
+        if isinstance(val, str):
+            return val.replace("\x00", "")
+        elif isinstance(val, dict):
+            return {k.replace("\x00", "") if isinstance(k, str) else k: DocumentRepository._sanitize_meta_val(v) for k, v in val.items()}
+        elif isinstance(val, list):
+            return [DocumentRepository._sanitize_meta_val(item) for item in val]
+        return val
+
+    @staticmethod
     async def add_chunks(
         db: AsyncSession,
         document_id: uuid.UUID,
@@ -163,9 +208,9 @@ class DocumentRepository:
             DocumentChunk(
                 document_id=document_id,
                 chunk_index=item["chunk_index"],
-                content=item["content"],
+                content=(item["content"] or "").replace("\x00", ""),
                 token_count=item.get("token_count", 0),
-                chunk_metadata=item.get("chunk_metadata", {})
+                chunk_metadata=DocumentRepository._sanitize_meta_val(item.get("chunk_metadata", {}))
             )
             for item in chunks_data
         ]
