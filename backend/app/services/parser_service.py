@@ -3,6 +3,12 @@ import re
 from typing import Dict, Any, List
 from pypdf import PdfReader
 
+def _sanitize_text(text: str) -> str:
+    """Strip null bytes and non-printable control characters that violate Postgres UTF-8."""
+    if not text:
+        return ""
+    return text.replace("\x00", "")
+
 class DocumentParserService:
     @classmethod
     def parse_file(cls, file_path: str, file_type: str) -> Dict[str, Any]:
@@ -36,7 +42,7 @@ class DocumentParserService:
 
         total_pages = len(reader.pages)
         for idx, page in enumerate(reader.pages):
-            page_text = page.extract_text() or ""
+            page_text = _sanitize_text(page.extract_text() or "")
             normalized_text = re.sub(r'\n{3,}', '\n\n', page_text).strip()
             
             if normalized_text:
@@ -54,7 +60,7 @@ class DocumentParserService:
             "metadata": {
                 "total_pages": total_pages,
                 "parsed_pages": len(page_records),
-                "pdf_metadata": {k: str(v) for k, v in (reader.metadata or {}).items()}
+                "pdf_metadata": {_sanitize_text(str(k)): _sanitize_text(str(v)) for k, v in (reader.metadata or {}).items()}
             }
         }
 

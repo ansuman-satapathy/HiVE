@@ -16,7 +16,7 @@ class BM25IndexService:
     def __init__(self):
         self.chunk_records: List[Dict[str, Any]] = []
         self.corpus_tokens: List[List[str]] = []
-        self.bm25_index: Optional[BM25Okapi] = None
+        self.bm25_index: Optional[BM25Plus] = None
 
     @classmethod
     def get_instance(cls) -> "BM25IndexService":

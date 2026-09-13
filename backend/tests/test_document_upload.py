@@ -21,10 +21,13 @@ async def test_upload_markdown_document_and_list(client, db_session):
     assert data["document"]["file_type"] == "md"
     doc_id = data["document"]["id"]
 
-    # 2. List documents
+    # 2. List documents (paginated)
     list_resp = await client.get("/api/documents", headers=headers)
     assert list_resp.status_code == 200
-    docs = list_resp.json()
+    list_data = list_resp.json()
+    assert list_data["total"] == 1
+    assert list_data["page"] == 1
+    docs = list_data["items"]
     assert len(docs) == 1
     assert docs[0]["id"] == doc_id
 
@@ -151,3 +154,49 @@ async def test_batch_upload_multiple_formats_and_limits(client, db_session):
     # 5. Empty files batch should be rejected
     empty_response = await client.post("/api/documents/upload-batch", headers=headers, files=[])
     assert empty_response.status_code in (400, 422)
+
+
+@pytest.mark.asyncio
+async def test_batch_delete_and_search_filter(client, db_session):
+    """Test searching, format filtering, and batch deleting multiple documents."""
+    user = await create_test_user(db_session, "batchdelete@docagent.com")
+    headers = auth_header(user)
+
+    # 1. Upload 3 distinct documents
+    files = [
+        ("files", ("alpha_manual.pdf", io.BytesIO(b"%PDF-1.4 Alpha Manual Test Content"), "application/pdf")),
+        ("files", ("beta_guide.md", io.BytesIO(b"# Beta Guide\nDetailed operations."), "text/markdown")),
+        ("files", ("gamma_data.csv", io.BytesIO(b"id,col\n1,val"), "text/csv")),
+    ]
+    up_res = await client.post("/api/documents/upload-batch", headers=headers, files=files)
+    assert up_res.status_code == 202
+    up_data = up_res.json()
+    doc_ids = [d["id"] for d in up_data["documents"]]
+    assert len(doc_ids) == 3
+
+    # 2. Search filter by filename
+    search_res = await client.get("/api/documents?q=alpha", headers=headers)
+    assert search_res.status_code == 200
+    search_data = search_res.json()
+    assert search_data["total"] == 1
+    assert search_data["items"][0]["filename"] == "alpha_manual.pdf"
+
+    # 3. Filter by file_type
+    filter_res = await client.get("/api/documents?file_type=md", headers=headers)
+    assert filter_res.status_code == 200
+    filter_data = filter_res.json()
+    assert filter_data["total"] == 1
+    assert filter_data["items"][0]["filename"] == "beta_guide.md"
+
+    # 4. Batch delete two documents
+    del_res = await client.post("/api/documents/batch-delete", headers=headers, json={"document_ids": doc_ids[:2]})
+    assert del_res.status_code == 200
+    del_data = del_res.json()
+    assert del_data["deleted_count"] == 2
+
+    # 5. Verify remaining document
+    after_res = await client.get("/api/documents", headers=headers)
+    assert after_res.status_code == 200
+    after_data = after_res.json()
+    assert after_data["total"] == 1
+    assert after_data["items"][0]["id"] == doc_ids[2]

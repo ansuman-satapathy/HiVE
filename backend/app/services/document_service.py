@@ -3,7 +3,7 @@ import hashlib
 import aiofiles
 import logging
 from uuid import UUID
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List, Dict, Any
 from fastapi import UploadFile, HTTPException, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -277,6 +277,51 @@ class DocumentService:
         BM25IndexService.get_instance().remove_document_chunks(document_id)
         from app.services.vector_store_service import VectorStoreService
         VectorStoreService.get_instance().delete_document_chunks(document_id)
+
+    @classmethod
+    async def delete_user_documents_batch(
+        cls,
+        db: AsyncSession,
+        user_id: UUID,
+        document_ids: List[UUID]
+    ) -> dict:
+        """Batch delete user documents, removing local files, BM25 indices, vector embeddings, and DB rows."""
+        from app.services.bm25_service import BM25IndexService
+        from app.services.vector_store_service import VectorStoreService
+
+        bm25_service = BM25IndexService.get_instance()
+        vector_service = VectorStoreService.get_instance()
+
+        deleted_ids = []
+        failed_ids = []
+
+        for doc_id in document_ids:
+            try:
+                doc = await DocumentRepository.get_by_id(db, doc_id)
+                if not doc or doc.user_id != user_id:
+                    failed_ids.append(doc_id)
+                    continue
+
+                file_path = doc.doc_metadata.get("storage_path") if doc.doc_metadata else None
+                if file_path and os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except OSError:
+                        pass
+
+                await DocumentRepository.delete_document(db, doc_id)
+                bm25_service.remove_document_chunks(doc_id)
+                vector_service.delete_document_chunks(doc_id)
+                deleted_ids.append(doc_id)
+            except Exception as e:
+                logger.error(f"Failed to delete document {doc_id} in batch: {e}")
+                failed_ids.append(doc_id)
+
+        return {
+            "deleted_count": len(deleted_ids),
+            "deleted_ids": deleted_ids,
+            "failed_ids": failed_ids,
+        }
 
     @classmethod
     async def get_queue_status(cls, db: AsyncSession, user_id: UUID) -> dict:

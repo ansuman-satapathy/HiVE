@@ -1,10 +1,9 @@
-import { Database, Layers, Hash, Loader2 } from 'lucide-react'
+import { Database, Layers, Hash } from 'lucide-react'
 
 export default function DocumentStatsHeader({
   documentCount,
   totalChunks,
-  totalTokens,
-  activeProcessingCount
+  totalTokens
 }) {
   return (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pb-1">
@@ -35,13 +34,6 @@ export default function DocumentStatsHeader({
           <span className="text-[var(--text-secondary)]">Tokens:</span>
           <strong className="font-bold text-[var(--text-primary)]">{totalTokens.toLocaleString()}</strong>
         </div>
-
-        {activeProcessingCount > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-500 text-xs font-semibold pulse-glow">
-            <Loader2 size={13} className="spin-animate" />
-            <span>{activeProcessingCount} Ingesting...</span>
-          </div>
-        )}
       </div>
     </div>
   )

@@ -88,9 +88,16 @@ class IngestionWorker:
 
             except Exception as exc:
                 logger.exception(f"Ingestion failed for document {document_id}: {exc}")
-                await DocumentRepository.update_status(
-                    db,
-                    document_id,
-                    IngestionStatus.FAILED,
-                    error_message=str(exc)
-                )
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+                try:
+                    await DocumentRepository.update_status(
+                        db,
+                        document_id,
+                        IngestionStatus.FAILED,
+                        error_message=str(exc)
+                    )
+                except Exception as update_exc:
+                    logger.error(f"Failed to record FAILED status for document {document_id}: {update_exc}")

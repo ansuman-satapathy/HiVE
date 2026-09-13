@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useId } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useId } from 'react'
 import {
   CheckCircle2,
   AlertTriangle,
@@ -70,6 +70,20 @@ export function FeedbackProvider({ children }) {
     []
   )
 
+  // Close modal on Escape key press
+  useEffect(() => {
+    if (!confirmModal) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        confirmModal.onCancel()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [confirmModal])
+
   return (
     <FeedbackContext.Provider value={{ notify, confirm, showToast, removeToast }}>
       {children}
@@ -115,9 +129,12 @@ export function FeedbackProvider({ children }) {
 
       {/* Modal Confirmation Dialog */}
       {confirmModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 cursor-pointer"
+          onClick={confirmModal.onCancel}
+        >
           <div
-            className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-2xl animate-in zoom-in-95 duration-150 space-y-5"
+            className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-2xl animate-in zoom-in-95 duration-150 space-y-5 cursor-default"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-4">
@@ -139,21 +156,30 @@ export function FeedbackProvider({ children }) {
                 )}
               </div>
 
-              <div className="space-y-1.5 flex-1 min-w-0">
-                <h3 className="text-base font-bold text-[var(--text-primary)] tracking-tight">
-                  {confirmModal.title}
-                </h3>
-                <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+              <div className="space-y-2 flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-base font-bold text-[var(--text-primary)] tracking-tight">
+                    {confirmModal.title}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={confirmModal.onCancel}
+                    className="p-1 -mr-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed break-words">
                   {confirmModal.message}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[var(--border-default)]">
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--border-default)]">
               <button
                 type="button"
                 onClick={confirmModal.onCancel}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-default)] transition-all"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-default)] transition-all cursor-pointer"
               >
                 {confirmModal.cancelText}
               </button>
@@ -161,7 +187,7 @@ export function FeedbackProvider({ children }) {
               <button
                 type="button"
                 onClick={confirmModal.onConfirm}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all shadow-sm ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all shadow-sm cursor-pointer ${
                   confirmModal.variant === 'danger'
                     ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
                     : confirmModal.variant === 'warning'

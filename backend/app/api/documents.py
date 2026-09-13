@@ -7,6 +7,9 @@ from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.schemas.document import (
     DocumentResponse,
+    DocumentListResponse,
+    BatchDeleteRequest,
+    BatchDeleteResponse,
     DocumentUploadResponse,
     BatchDocumentUploadResponse,
     DocumentChunkResponse,
@@ -182,16 +185,58 @@ async def upload_documents_batch(
     )
 
 
-@router.get("", response_model=List[DocumentResponse])
+@router.get("", response_model=DocumentListResponse)
 async def list_documents(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    page: int = Query(1, ge=1, description="Page number starting at 1"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    q: str = Query(None, description="Search query by document filename"),
+    file_type: str = Query(None, description="Filter by file type (e.g., pdf, md, docx)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    docs = await DocumentRepository.list_documents(db, current_user.id, skip=skip, limit=limit)
-    return [DocumentResponse.model_validate(doc) for doc in docs]
+    """
+    List indexed documents with server-side pagination, search by filename, and format filtering.
+    """
+    import math
+    skip = (page - 1) * page_size
+    docs, total = await DocumentRepository.list_documents(
+        db=db,
+        user_id=current_user.id,
+        skip=skip,
+        limit=page_size,
+        q=q,
+        file_type=file_type
+    )
+    total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
 
+    return DocumentListResponse(
+        items=[DocumentResponse.model_validate(doc) for doc in docs],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages
+    )
+
+
+@router.post("/batch-delete", response_model=BatchDeleteResponse)
+async def batch_delete_documents(
+    payload: BatchDeleteRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Batch delete multiple documents and cascade remove their chunks, vector embeddings, and BM25 index.
+    """
+    res = await DocumentService.delete_user_documents_batch(
+        db=db,
+        user_id=current_user.id,
+        document_ids=payload.document_ids
+    )
+    return BatchDeleteResponse(
+        deleted_count=res["deleted_count"],
+        deleted_ids=res["deleted_ids"],
+        failed_ids=res["failed_ids"]
+    )
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
