@@ -13,11 +13,13 @@ from app.schemas.document import (
     IngestionQueueResponse,
     SparseSearchResult,
     DenseSearchResult,
+    HybridSearchResult,
 )
 from app.db.repositories.document_repo import DocumentRepository
 from app.services.document_service import DocumentService
 from app.services.bm25_service import BM25IndexService
 from app.services.vector_store_service import VectorStoreService
+from app.services.hybrid_retriever import HybridRetriever
 
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -60,6 +62,27 @@ async def search_dense_chunks(
 
     vector_store = VectorStoreService.get_instance()
     results = vector_store.search_dense(query=q, top_k=top_k, document_id=document_id)
+    return results
+
+
+@router.get("/search/hybrid", response_model=List[HybridSearchResult])
+async def search_hybrid_chunks(
+    q: str = Query(..., min_length=1, description="Query text to search using dense vector + sparse BM25 fusion"),
+    top_k: int = Query(10, ge=1, le=50),
+    document_id: UUID = Query(None, description="Optional document ID filter"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ticket 11: Hybrid retrieval engine using Reciprocal Rank Fusion (RRF).
+    Fuses dense semantic similarity (ChromaDB) and sparse lexical keywords (BM25Plus)
+    to return top candidate chunks with rrf_score and individual system ranks.
+    """
+    if document_id:
+        await DocumentService.get_user_document(db, current_user.id, document_id)
+
+    retriever = HybridRetriever.get_instance()
+    results = await retriever.retrieve(query=q, top_candidates=top_k, document_id=document_id)
     return results
 
 
