@@ -106,7 +106,11 @@ class DocumentParserService:
     @classmethod
     def _parse_docx(cls, file_path: str) -> Dict[str, Any]:
         """Parse Microsoft Word .docx documents preserving headings and paragraphs."""
-        import docx
+        try:
+            import docx  # type: ignore[import-untyped, import-not-found]
+        except ImportError:
+            raise RuntimeError("python-docx is not installed in the environment")
+
         doc = docx.Document(file_path)
         paragraphs_text = []
         headings_count = 0
