@@ -97,3 +97,17 @@ class DenseSearchResult(BaseModel):
     score: float
 
 
+class HybridSearchResult(BaseModel):
+    chunk_id: UUID
+    document_id: UUID
+    chunk_index: int
+    content: str
+    token_count: int
+    chunk_metadata: Dict[str, Any]
+    rrf_score: float
+    dense_rank: Optional[int] = None
+    sparse_rank: Optional[int] = None
+    dense_score: Optional[float] = None
+    bm25_score: Optional[float] = None
+
+
