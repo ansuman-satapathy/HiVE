@@ -27,7 +27,6 @@ class IngestionWorker:
             try:
                 logger.info(f"Starting parsing for document {document_id}")
                 await DocumentRepository.update_status(db, document_id, IngestionStatus.PARSING)
-                await asyncio.sleep(1.2)
 
                 # Run CPU-bound parsing off the event loop
                 parsed_data: Dict[str, Any] = await asyncio.to_thread(
@@ -36,7 +35,6 @@ class IngestionWorker:
                 text_content = parsed_data.get("text", "")
 
                 await DocumentRepository.update_status(db, document_id, IngestionStatus.CHUNKING)
-                await asyncio.sleep(0.3)
 
                 # Run CPU-bound chunking off the event loop
                 chunker = StructureAwareChunker()
@@ -52,7 +50,6 @@ class IngestionWorker:
 
                 # Indexing stage (Ticket 09 BM25 Indexing & Ticket 10 Dense Vector Indexing)
                 await DocumentRepository.update_status(db, document_id, IngestionStatus.INDEXING)
-                await asyncio.sleep(0.3)
 
                 if created_chunks:
                     chunk_payloads = [

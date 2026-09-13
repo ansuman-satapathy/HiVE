@@ -84,7 +84,7 @@ class DocumentService:
 
         try:
             async with aiofiles.open(temp_file_path, "wb") as out_file:
-                while chunk := await file.read(64 * 1024):
+                while chunk := await file.read(1024 * 1024):  # 1MB buffer for high-speed streaming
                     total_size += len(chunk)
                     if total_size > MAX_FILE_SIZE:
                         raise HTTPException(

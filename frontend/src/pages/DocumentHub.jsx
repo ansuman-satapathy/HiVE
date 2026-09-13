@@ -54,7 +54,12 @@ export default function DocumentHub() {
     setPage(1)
   }, [filterType])
 
-  const fetchDocuments = useCallback(async () => {
+  const isInitialLoadRef = useRef(true)
+
+  const fetchDocuments = useCallback(async (isBackground = false) => {
+    if (!isBackground && isInitialLoadRef.current) {
+      setLoading(true)
+    }
     try {
       const token = tokenStorage.getToken()
       const params = new URLSearchParams({
@@ -93,6 +98,7 @@ export default function DocumentHub() {
     } catch (err) {
       console.error('Failed to fetch documents:', err)
     } finally {
+      isInitialLoadRef.current = false
       setLoading(false)
     }
   }, [page, pageSize, debouncedSearch, filterType])
@@ -106,9 +112,9 @@ export default function DocumentHub() {
     let isMounted = true
 
     const runPoll = async () => {
-      await fetchDocuments()
+      await fetchDocuments(true)
       if (!isMounted) return
-      const interval = hasActiveDocs ? 1000 : 10000
+      const interval = hasActiveDocs ? 1500 : 10000
       timeoutId = setTimeout(runPoll, interval)
     }
 
