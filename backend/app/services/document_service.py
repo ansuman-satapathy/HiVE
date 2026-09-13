@@ -347,6 +347,65 @@ class DocumentService:
         }
 
     @classmethod
+    async def retry_document_ingestion(
+        cls,
+        db: AsyncSession,
+        user_id: UUID,
+        document_id: UUID,
+        background_tasks=None
+    ) -> Document:
+        """Retry a failed document ingestion pipeline from scratch."""
+        from app.services.bm25_service import BM25IndexService
+        from app.services.vector_store_service import VectorStoreService
+        from app.services.ingestion_worker import IngestionWorker
+
+        doc = await cls.get_user_document(db, user_id, document_id)
+        file_path = doc.doc_metadata.get("storage_path") if doc.doc_metadata else None
+
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Source file no longer exists on server storage. Please re-upload the document."
+            )
+
+        # Cancel any active running task for safety
+        IngestionWorker.cancel_document(doc.id)
+
+        # Clean up stale chunks and indices
+        await DocumentRepository.delete_chunks_for_document(db, doc.id)
+        BM25IndexService.get_instance().remove_document_chunks(doc.id)
+        VectorStoreService.get_instance().delete_document_chunks(doc.id)
+
+        # Reset document status
+        doc.status = IngestionStatus.PENDING
+        doc.error_message = None
+        doc.chunk_count = 0
+        doc.token_count = 0
+        doc.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.add(doc)
+        await db.commit()
+        await db.refresh(doc)
+
+        # Re-dispatch ingestion
+        is_testing = os.getenv("TESTING", "").lower() in ("true", "1")
+        if background_tasks is not None and is_testing:
+            background_tasks.add_task(
+                IngestionWorker.process_document,
+                document_id=doc.id,
+                file_path=file_path,
+                file_type=doc.file_type
+            )
+        else:
+            IngestionWorker.enqueue_document(
+                document_id=doc.id,
+                file_path=file_path,
+                file_type=doc.file_type
+            )
+
+        logger.info(f"Re-enqueued document {doc.id} ({doc.filename}) for retry.")
+        return doc
+
+    @classmethod
     async def get_queue_status(cls, db: AsyncSession, user_id: UUID) -> dict:
         """Fetch active ingestion queue telemetry and recent completed tasks for user."""
         from datetime import datetime, timezone

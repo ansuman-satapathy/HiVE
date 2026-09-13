@@ -265,6 +265,26 @@ async def get_document_chunks(
     return [DocumentChunkResponse.model_validate(c) for c in chunks]
 
 
+@router.post("/{document_id}/retry", response_model=DocumentResponse)
+async def retry_document(
+    document_id: UUID,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retry a failed document ingestion pipeline from scratch.
+    Purges stale chunks/indices and re-enqueues the file for background processing.
+    """
+    doc = await DocumentService.retry_document_ingestion(
+        db=db,
+        user_id=current_user.id,
+        document_id=document_id,
+        background_tasks=background_tasks
+    )
+    return DocumentResponse.model_validate(doc)
+
+
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     document_id: UUID,

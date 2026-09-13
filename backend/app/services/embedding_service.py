@@ -92,7 +92,7 @@ class NVIDIAEmbeddingProvider(EmbeddingProvider):
         self._client = NVIDIAEmbeddings(api_key=api_key, model=self._model_name)
         # nemotron-3-embed-1b produces 2048-dim vectors
         self._dim = 2048 if "nemotron" in self._model_name.lower() else 1024
-        self._fallback = LocalFeatureEmbeddingProvider()
+        self._fallback = LocalFeatureEmbeddingProvider(dimension=self._dim)
 
     @property
     def dimension(self) -> int:

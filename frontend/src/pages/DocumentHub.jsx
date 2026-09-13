@@ -22,6 +22,7 @@ export default function DocumentHub() {
   const [filterType, setFilterType] = useState('all')
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [deletingId, setDeletingId] = useState(null)
+  const [retryingId, setRetryingId] = useState(null)
   const [isBatchDeleting, setIsBatchDeleting] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -309,6 +310,33 @@ export default function DocumentHub() {
     }
   }
 
+  const handleRetry = async (docId) => {
+    setRetryingId(docId)
+    try {
+      const token = tokenStorage.getToken()
+      const res = await fetch(`/api/documents/${docId}/retry`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to retry ingestion')
+      }
+      notify.success(`Retry started for ${data.filename || 'document'}`)
+      // Update local status immediately to pending so the UI reflects it right away
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === docId ? { ...d, status: 'pending', error_message: null } : d))
+      )
+      fetchQueue()
+      await fetchDocuments(true)
+    } catch (err) {
+      console.error('Failed to retry document ingestion:', err)
+      notify.error(err.message || 'Failed to retry document ingestion')
+    } finally {
+      setRetryingId(null)
+    }
+  }
+
   const handleToggleSelect = (id) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -456,9 +484,11 @@ export default function DocumentHub() {
         filterType={filterType}
         selectedIds={selectedIds}
         deletingId={deletingId}
+        retryingId={retryingId}
         onToggleSelect={handleToggleSelect}
         onToggleSelectAll={handleToggleSelectAll}
         onInspect={handleInspectChunks}
+        onRetry={handleRetry}
         onDelete={handleDelete}
         onUploadClick={() => fileInputRef.current?.click()}
       />

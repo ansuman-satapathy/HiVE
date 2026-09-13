@@ -1,4 +1,4 @@
-import { FileText, FileCode, FileSpreadsheet, Layers, Trash2, Loader2, Check } from 'lucide-react'
+import { FileText, FileCode, FileSpreadsheet, Layers, Trash2, Loader2, Check, Info, RotateCw, AlertCircle } from 'lucide-react'
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B'
@@ -26,9 +26,11 @@ export default function DocumentTable({
   filterType,
   selectedIds = new Set(),
   deletingId = null,
+  retryingId = null,
   onToggleSelect,
   onToggleSelectAll,
   onInspect,
+  onRetry,
   onDelete,
   onUploadClick
 }) {
@@ -197,22 +199,61 @@ export default function DocumentTable({
 
                   {/* Status Badge */}
                   <td className="px-4 py-4">
-                    <span className={`badge ${
-                      doc.status === 'ready' ? 'badge-success' :
-                      doc.status === 'failed' ? 'badge-danger' :
-                      doc.status === 'indexing' ? 'badge-warning' : 'badge-info'
-                    }`}>
-                      {doc.status}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`badge ${
+                        doc.status === 'ready' ? 'badge-success' :
+                        doc.status === 'failed' ? 'badge-danger' :
+                        doc.status === 'indexing' ? 'badge-warning' : 'badge-info'
+                      }`}>
+                        {doc.status}
+                      </span>
+                      {doc.status === 'failed' && doc.error_message && (
+                        <div className="relative group/info inline-flex items-center">
+                          <button
+                            type="button"
+                            className="p-1 rounded-full text-red-500 hover:bg-red-500/10 cursor-help transition-colors"
+                            aria-label="View failure reason"
+                          >
+                            <Info size={13} />
+                          </button>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/info:block z-[9999] w-72 p-3 rounded-xl border border-red-200 dark:border-red-900/50 bg-white dark:bg-slate-900 text-xs shadow-2xl shadow-red-500/10 animate-in fade-in zoom-in-95 pointer-events-none">
+                            <div className="flex items-center gap-1.5 font-semibold text-red-600 dark:text-red-400 mb-1.5 pb-1 border-b border-red-100 dark:border-red-900/30">
+                              <AlertCircle size={13} className="shrink-0 text-red-500" />
+                              <span>Ingestion Error</span>
+                            </div>
+                            <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 break-words font-mono max-h-40 overflow-y-auto">
+                              {doc.error_message}
+                            </p>
+                            {/* Downward arrow indicator */}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-white dark:border-t-slate-900" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </td>
 
                   {/* Action Buttons */}
                   <td className="px-4 py-4 text-right">
                     <div className="inline-flex items-center justify-end gap-1.5 shrink-0 whitespace-nowrap">
-                      {!isProcessing && (
+                      {doc.status === 'failed' && onRetry && (
+                        <button
+                          onClick={() => onRetry(doc.id)}
+                          disabled={retryingId === doc.id}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium text-xs transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                          title="Retry ingestion pipeline"
+                        >
+                          {retryingId === doc.id ? (
+                            <Loader2 size={13} className="spin-animate" />
+                          ) : (
+                            <RotateCw size={13} />
+                          )}
+                          <span>{retryingId === doc.id ? 'Retrying...' : 'Retry'}</span>
+                        </button>
+                      )}
+                      {doc.status === 'ready' && (
                         <button
                           onClick={() => onInspect(doc)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] font-medium text-xs transition-all shadow-2xs"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] font-medium text-xs transition-all shadow-2xs cursor-pointer"
                         >
                           <Layers size={13} className="text-blue-500" />
                           <span>Inspect</span>
@@ -221,7 +262,7 @@ export default function DocumentTable({
                       <button
                         onClick={(e) => onDelete(doc.id, e)}
                         disabled={deletingId === doc.id}
-                        className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                         title={deletingId === doc.id ? 'Deleting...' : 'Delete file'}
                       >
                         {deletingId === doc.id ? (

@@ -268,6 +268,14 @@ class DocumentRepository:
         return result.all()
 
     @staticmethod
+    async def delete_chunks_for_document(db: AsyncSession, document_id: uuid.UUID) -> int:
+        """Purge all chunks associated with a document."""
+        statement = delete(DocumentChunk).where(DocumentChunk.document_id == document_id)
+        result = await db.exec(statement)
+        await db.commit()
+        return result.rowcount if hasattr(result, "rowcount") else 0
+
+    @staticmethod
     async def delete_document(db: AsyncSession, document_id: uuid.UUID) -> bool:
         """Delete a document and cascade delete its chunks."""
         doc = await DocumentRepository.get_by_id(db, document_id)
