@@ -24,6 +24,7 @@ export default function DocumentTable({
   searchQuery,
   filterType,
   selectedIds = new Set(),
+  deletingId = null,
   onToggleSelect,
   onToggleSelectAll,
   onInspect,
@@ -217,10 +218,15 @@ export default function DocumentTable({
                       )}
                       <button
                         onClick={(e) => onDelete(doc.id, e)}
-                        className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                        title="Delete file"
+                        disabled={deletingId === doc.id}
+                        className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title={deletingId === doc.id ? 'Deleting...' : 'Delete file'}
                       >
-                        <Trash2 size={14} />
+                        {deletingId === doc.id ? (
+                          <Loader2 size={14} className="spin-animate text-red-500" />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
                       </button>
                     </div>
                   </td>

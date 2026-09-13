@@ -21,6 +21,8 @@ export default function DocumentHub() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const [deletingId, setDeletingId] = useState(null)
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [totalCount, setTotalCount] = useState(0)
@@ -261,6 +263,7 @@ export default function DocumentHub() {
 
     if (!confirmed) return
 
+    setDeletingId(docId)
     try {
       const token = tokenStorage.getToken()
       const res = await fetch(`/api/documents/${docId}`, {
@@ -281,6 +284,8 @@ export default function DocumentHub() {
     } catch (err) {
       console.error('Failed to delete document:', err)
       notify.error('Error deleting document')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -323,6 +328,7 @@ export default function DocumentHub() {
 
     if (!confirmed) return
 
+    setIsBatchDeleting(true)
     try {
       const token = tokenStorage.getToken()
       const res = await fetch('/api/documents/batch-delete', {
@@ -346,6 +352,8 @@ export default function DocumentHub() {
     } catch (err) {
       console.error('Batch delete error:', err)
       notify.error('Error executing batch delete')
+    } finally {
+      setIsBatchDeleting(false)
     }
   }
 
@@ -413,6 +421,7 @@ export default function DocumentHub() {
         setFilterType={setFilterType}
         isSearching={isSearching}
         selectedCount={selectedIds.size}
+        isBatchDeleting={isBatchDeleting}
         onBatchDelete={handleBatchDelete}
         onClearSelection={handleClearSelection}
       />
@@ -424,6 +433,7 @@ export default function DocumentHub() {
         searchQuery={searchQuery}
         filterType={filterType}
         selectedIds={selectedIds}
+        deletingId={deletingId}
         onToggleSelect={handleToggleSelect}
         onToggleSelectAll={handleToggleSelectAll}
         onInspect={handleInspectChunks}

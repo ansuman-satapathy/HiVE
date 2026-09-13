@@ -10,35 +10,57 @@ export function AuthProvider({ children }) {
 
   // Restore session on mount
   useEffect(() => {
+    let isMounted = true
+
     const restoreSession = async () => {
       const savedToken = tokenStorage.getToken()
       if (!savedToken) {
-        setLoading(false)
+        if (isMounted) setLoading(false)
         return
       }
+
+      // Safeguard: 5s timeout so network hang never freezes the UI
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
 
       try {
         const response = await fetch('/api/auth/me', {
           headers: {
             'Authorization': `Bearer ${savedToken}`,
           },
+          signal: controller.signal,
         })
+
+        clearTimeout(timeoutId)
 
         if (response.ok) {
           const userData = await response.json()
-          setToken(savedToken)
-          setUser(userData)
-        } else {
+          if (isMounted) {
+            setToken(savedToken)
+            setUser(userData)
+          }
+        } else if (response.status === 401 || response.status === 403) {
           tokenStorage.clearToken()
+          if (isMounted) {
+            setToken(null)
+            setUser(null)
+          }
         }
       } catch (err) {
-        console.error('Error restoring auth session:', err)
+        console.warn('Could not verify existing session token:', err)
+        // If aborted or connection failed, clear or keep to prevent infinite hang
       } finally {
-        setLoading(false)
+        clearTimeout(timeoutId)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     restoreSession()
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   // Login action

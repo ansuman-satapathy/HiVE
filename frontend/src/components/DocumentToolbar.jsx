@@ -7,6 +7,7 @@ export default function DocumentToolbar({
   setFilterType,
   isSearching,
   selectedCount,
+  isBatchDeleting,
   onBatchDelete,
   onClearSelection,
 }) {
@@ -56,14 +57,20 @@ export default function DocumentToolbar({
             </span>
             <button
               onClick={onBatchDelete}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs shadow-xs transition-colors"
+              disabled={isBatchDeleting}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:pointer-events-none text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
             >
-              <Trash2 size={13} />
-              <span>Delete</span>
+              {isBatchDeleting ? (
+                <Loader2 size={13} className="spin-animate" />
+              ) : (
+                <Trash2 size={13} />
+              )}
+              <span>{isBatchDeleting ? 'Deleting...' : 'Delete'}</span>
             </button>
             <button
               onClick={onClearSelection}
-              className="px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              disabled={isBatchDeleting}
+              className="px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-50 transition-colors cursor-pointer"
             >
               Cancel
             </button>
