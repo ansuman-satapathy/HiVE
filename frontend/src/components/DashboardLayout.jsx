@@ -1,54 +1,17 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useTaskQueue } from '../context/TaskQueueContext'
 import { LogOut, Bot, Files, Activity, Layers, Loader2, Sun, Moon } from 'lucide-react'
 import TaskQueueDrawer from './TaskQueueDrawer'
-import { tokenStorage } from '../utils/storage'
 
 export default function DashboardLayout({ children }) {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { queueData, activeCount, drawerOpen, setDrawerOpen, fetchQueue } = useTaskQueue()
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [queueData, setQueueData] = useState({ active_count: 0, active_tasks: [], recent_completed: [] })
   const dropdownRef = useRef(null)
-
-  const fetchQueue = useCallback(async () => {
-    try {
-      const token = tokenStorage.getToken()
-      if (!token) return
-      const res = await fetch('/api/documents/queue', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setQueueData(data)
-      }
-    } catch (err) {
-      console.error('Queue poll error:', err)
-    }
-  }, [])
-
-  const activeCount = queueData?.active_count || 0
-
-  useEffect(() => {
-    let timeoutId
-    let isMounted = true
-
-    const runPoll = async () => {
-      await fetchQueue()
-      if (!isMounted) return
-      const interval = activeCount > 0 || drawerOpen ? 2000 : 15000
-      timeoutId = setTimeout(runPoll, interval)
-    }
-
-    runPoll()
-    return () => {
-      isMounted = false
-      clearTimeout(timeoutId)
-    }
-  }, [fetchQueue, activeCount, drawerOpen])
 
   useEffect(() => {
     function handleClickOutside(event) {

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { AlertCircle, CheckCircle2, X } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
+import { useFeedback } from '../context/FeedbackContext'
+import { useTaskQueue } from '../context/TaskQueueContext'
 import DocumentStatsHeader from '../components/DocumentStatsHeader'
 import DocumentUploadDropzone from '../components/DocumentUploadDropzone'
 import DocumentToolbar from '../components/DocumentToolbar'
@@ -8,12 +10,12 @@ import DocumentTable from '../components/DocumentTable'
 import DocumentChunkInspector from '../components/DocumentChunkInspector'
 
 export default function DocumentHub() {
+  const { notify, confirm } = useFeedback()
+  const { fetchQueue, setDrawerOpen } = useTaskQueue()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const [error, setError] = useState(null)
-  const [uploadSuccess, setUploadSuccess] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [selectedDoc, setSelectedDoc] = useState(null)
@@ -61,7 +63,7 @@ export default function DocumentHub() {
     const runPoll = async () => {
       await fetchDocuments()
       if (!isMounted) return
-      const interval = hasActiveDocs ? 1500 : 15000
+      const interval = hasActiveDocs ? 1000 : 10000
       timeoutId = setTimeout(runPoll, interval)
     }
 
@@ -76,13 +78,11 @@ export default function DocumentHub() {
     if (!file) return
     const ext = file.name.split('.').pop().toLowerCase()
     if (!['pdf', 'md', 'txt'].includes(ext)) {
-      setError(`Unsupported file type .${ext}. Only PDF, Markdown (.md), and TXT are supported.`)
+      notify.error(`Unsupported file type .${ext}. Only PDF, Markdown (.md), and TXT are supported.`)
       return
     }
 
     setUploading(true)
-    setError(null)
-    setUploadSuccess(null)
 
     const tempId = `opt-${Date.now()}`
     const optimisticDoc = {
@@ -116,16 +116,19 @@ export default function DocumentHub() {
         throw new Error(data.detail || 'Upload failed')
       }
 
-      setUploadSuccess(data.message)
+      notify.success(data.message || 'File uploaded! Ingestion pipeline started.')
       if (data.document) {
         setDocuments((prev) => [
           data.document,
           ...prev.filter((d) => d.id !== tempId && d.id !== data.document.id),
         ])
       }
+
+      // Immediately trigger live queue fetch and document sync
+      fetchQueue()
       await fetchDocuments()
     } catch (err) {
-      setError(err.message || 'Failed to upload document')
+      notify.error(err.message || 'Failed to upload document')
       setDocuments((prev) => prev.filter((d) => d.id !== tempId))
     } finally {
       setUploading(false)
@@ -134,7 +137,16 @@ export default function DocumentHub() {
 
   const handleDelete = async (docId, e) => {
     e.stopPropagation()
-    if (!window.confirm('Delete this document and all its indexed sections?')) return
+    const docToDelete = documents.find((d) => d.id === docId)
+    const confirmed = await confirm({
+      title: 'Delete Document',
+      message: `Are you sure you want to delete "${docToDelete?.filename || 'this document'}" and all its indexed chunks from vector & sparse search?`,
+      confirmText: 'Delete Document',
+      variant: 'danger',
+    })
+
+    if (!confirmed) return
+
     try {
       const token = tokenStorage.getToken()
       const res = await fetch(`/api/documents/${docId}`, {
@@ -147,9 +159,14 @@ export default function DocumentHub() {
           setSelectedDoc(null)
           setDocChunks([])
         }
+        notify.success('Document deleted successfully')
+        fetchQueue()
+      } else {
+        notify.error('Failed to delete document')
       }
     } catch (err) {
       console.error('Failed to delete document:', err)
+      notify.error('Error deleting document')
     }
   }
 
@@ -206,31 +223,6 @@ export default function DocumentHub() {
         totalTokens={totalTokens}
         activeProcessingCount={activeProcessingCount}
       />
-
-      {/* Alerts */}
-      {error && (
-        <div className="flex items-center justify-between p-3.5 rounded-xl bg-red-500/10 border border-red-500/25 text-red-500 dark:text-red-400 text-xs">
-          <div className="flex items-center gap-2">
-            <AlertCircle size={15} />
-            <span>{error}</span>
-          </div>
-          <button onClick={() => setError(null)} className="hover:opacity-75">
-            <X size={15} />
-          </button>
-        </div>
-      )}
-
-      {uploadSuccess && (
-        <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={15} />
-            <span>{uploadSuccess}</span>
-          </div>
-          <button onClick={() => setUploadSuccess(null)} className="hover:opacity-75">
-            <X size={15} />
-          </button>
-        </div>
-      )}
 
       {/* Hero Upload Dropzone */}
       <DocumentUploadDropzone

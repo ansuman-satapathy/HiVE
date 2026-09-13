@@ -4,12 +4,18 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { TaskQueueProvider } from './context/TaskQueueContext'
+import { FeedbackProvider } from './context/FeedbackContext'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
       <AuthProvider>
-        <App />
+        <TaskQueueProvider>
+          <FeedbackProvider>
+            <App />
+          </FeedbackProvider>
+        </TaskQueueProvider>
       </AuthProvider>
     </ThemeProvider>
   </StrictMode>,
