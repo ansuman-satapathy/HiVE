@@ -21,6 +21,7 @@ function getFileIcon(type) {
 export default function DocumentTable({
   documents,
   loading,
+  uploading = false,
   searchQuery,
   filterType,
   selectedIds = new Set(),
@@ -36,6 +37,22 @@ export default function DocumentTable({
       <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-20 text-center">
         <Loader2 size={26} className="spin-animate mx-auto mb-3 text-blue-500" />
         <p className="text-xs font-medium text-[var(--text-muted)]">Loading documents...</p>
+      </div>
+    )
+  }
+
+  if (uploading && documents.length === 0) {
+    return (
+      <div className="rounded-2xl border border-blue-500/20 bg-[var(--bg-surface)] p-16 text-center shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-blue-500/15 text-blue-500 flex items-center justify-center mx-auto mb-4 ring-2 ring-blue-500/20">
+          <Loader2 size={24} className="spin-animate text-blue-500" />
+        </div>
+        <h3 className="text-base font-bold text-[var(--text-primary)] mb-1">
+          Uploading Documents...
+        </h3>
+        <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto">
+          Files are uploading to your workspace. Table entries and ingestion status will display automatically once received.
+        </p>
       </div>
     )
   }

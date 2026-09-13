@@ -428,6 +428,7 @@ export default function DocumentHub() {
       <DocumentTable
         documents={documents}
         loading={loading}
+        uploading={uploading}
         searchQuery={searchQuery}
         filterType={filterType}
         selectedIds={selectedIds}
