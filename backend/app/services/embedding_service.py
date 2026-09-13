@@ -86,11 +86,12 @@ class NVIDIAEmbeddingProvider(EmbeddingProvider):
     Falls back gracefully to LocalFeatureEmbeddingProvider if API call fails or model is unavailable.
     """
 
-    def __init__(self, api_key: str, model: str = "nvidia/llama-3.2-nv-embedqa-1b-v1"):
+    def __init__(self, api_key: str, model: Optional[str] = None):
         from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
-        self._model_name = model
-        self._client = NVIDIAEmbeddings(api_key=api_key, model=model)
-        self._dim = 1024
+        self._model_name = model or settings.NVIDIA_EMBED_MODEL
+        self._client = NVIDIAEmbeddings(api_key=api_key, model=self._model_name)
+        # nemotron-3-embed-1b produces 2048-dim vectors
+        self._dim = 2048 if "nemotron" in self._model_name.lower() else 1024
         self._fallback = LocalFeatureEmbeddingProvider()
 
     @property

@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
     NVIDIA_API_KEY: str = ""
-    NVIDIA_MODEL: str = "meta/llama-3.1-8b-instruct"
+    NVIDIA_MODEL: str = "meta/llama-3.2-11b-vision-instruct"
+    NVIDIA_EMBED_MODEL: str = "nvidia/nemotron-3-embed-1b"
     EMBEDDING_PROVIDER: str = "auto"  # "auto", "nvidia", or "local"
     RERANKER_PROVIDER: str = "auto"   # "auto", "nvidia", or "local"
     NVIDIA_RERANK_MODEL: str = "nvidia/llama-nemotron-rerank-1b-v2"
