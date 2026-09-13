@@ -5,6 +5,7 @@ import Onboarding from './pages/Onboarding'
 import WorkspaceHome from './pages/WorkspaceHome'
 import DocumentHub from './pages/DocumentHub'
 import ProtectedRoute from './components/ProtectedRoute'
+import PublicOnlyRoute from './components/PublicOnlyRoute'
 import DashboardLayout from './components/DashboardLayout'
 import './App.css'
 
@@ -12,9 +13,9 @@ function App() {
   return (
     <Router>
       <Routes>
-          {/* Public auth routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          {/* Public auth routes - redirect to /workspace if already logged in */}
+          <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+          <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
           <Route path="/onboarding" element={<Onboarding />} />
           
           {/* Protected workspace */}
