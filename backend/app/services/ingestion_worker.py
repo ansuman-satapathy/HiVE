@@ -29,14 +29,19 @@ class IngestionWorker:
                 await DocumentRepository.update_status(db, document_id, IngestionStatus.PARSING)
                 await asyncio.sleep(1.2)
 
-                parsed_data: Dict[str, Any] = DocumentParserService.parse_file(file_path, file_type)
+                # Run CPU-bound parsing off the event loop
+                parsed_data: Dict[str, Any] = await asyncio.to_thread(
+                    DocumentParserService.parse_file, file_path, file_type
+                )
                 text_content = parsed_data.get("text", "")
 
                 await DocumentRepository.update_status(db, document_id, IngestionStatus.CHUNKING)
-                await asyncio.sleep(1.2)
+                await asyncio.sleep(0.3)
 
+                # Run CPU-bound chunking off the event loop
                 chunker = StructureAwareChunker()
-                chunks_data = chunker.chunk_document(
+                chunks_data = await asyncio.to_thread(
+                    chunker.chunk_document,
                     text=text_content,
                     document_title=parsed_data.get("metadata", {}).get("detected_title")
                 )
@@ -47,7 +52,7 @@ class IngestionWorker:
 
                 # Indexing stage (Ticket 09 BM25 Indexing & Ticket 10 Dense Vector Indexing)
                 await DocumentRepository.update_status(db, document_id, IngestionStatus.INDEXING)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.3)
 
                 if created_chunks:
                     chunk_payloads = [
@@ -62,13 +67,17 @@ class IngestionWorker:
                         for chunk in created_chunks
                     ]
 
-                    # 1. Sparse lexical index
+                    # 1. Sparse lexical index (run in thread pool)
                     from app.services.bm25_service import BM25IndexService
-                    BM25IndexService.get_instance().index_chunks(chunk_payloads)
+                    await asyncio.to_thread(
+                        BM25IndexService.get_instance().index_chunks, chunk_payloads
+                    )
 
-                    # 2. Dense vector index
+                    # 2. Dense vector index (network/CPU embedding - run in thread pool)
                     from app.services.vector_store_service import VectorStoreService
-                    VectorStoreService.get_instance().add_chunks(chunk_payloads)
+                    await asyncio.to_thread(
+                        VectorStoreService.get_instance().add_chunks, chunk_payloads
+                    )
 
                 total_tokens = sum(c["token_count"] for c in chunks_data)
                 doc = await DocumentRepository.get_by_id(db, document_id)

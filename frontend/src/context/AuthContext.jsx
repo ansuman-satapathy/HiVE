@@ -39,7 +39,8 @@ export function AuthProvider({ children }) {
             setToken(savedToken)
             setUser(userData)
           }
-        } else if (response.status === 401 || response.status === 403) {
+        } else {
+          // Token is invalid, expired, or rejected
           tokenStorage.clearToken()
           if (isMounted) {
             setToken(null)
