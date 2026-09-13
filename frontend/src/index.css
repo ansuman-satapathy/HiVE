@@ -148,6 +148,34 @@ html.dark, :root.dark, .dark {
   code, pre, .font-mono {
     font-family: var(--font-mono);
   }
+
+  /* Global Interactive Cursor Pointer */
+  button,
+  a,
+  select,
+  summary,
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role="checkbox"],
+  [role="menuitem"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  label[for],
+  .clickable {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 /* Component Layer */
