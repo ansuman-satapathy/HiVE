@@ -34,16 +34,21 @@ class VectorStoreService:
             path=self.persist_directory,
             settings=ChromaSettings(anonymized_telemetry=False),
         )
-
-        # Cosine distance collection
-        self.collection = self.client.get_or_create_collection(
-            name=COLLECTION_NAME,
-            metadata={"hnsw:space": "cosine"},
-        )
         logger.info(
             f"ChromaDB VectorStore initialized at '{self.persist_directory}'. "
             f"Collection items: {self.collection.count()}"
         )
+
+    @property
+    def collection(self):
+        """Safely return ChromaDB collection, auto-recreating if missing/deleted."""
+        try:
+            return self.client.get_collection(name=COLLECTION_NAME)
+        except Exception:
+            return self.client.get_or_create_collection(
+                name=COLLECTION_NAME,
+                metadata={"hnsw:space": "cosine"},
+            )
 
     @classmethod
     def get_instance(cls) -> "VectorStoreService":
@@ -97,17 +102,18 @@ class VectorStoreService:
         return len(ids)
 
     def delete_document_chunks(self, document_id: uuid.UUID | str) -> int:
-        """Purge all vectors corresponding to a deleted document."""
+        """Purge all vectors corresponding to a deleted document safely."""
         doc_id_str = str(document_id)
-        count_before = self.collection.count()
         try:
-            self.collection.delete(where={"document_id": doc_id_str})
-            count_after = self.collection.count()
+            coll = self.collection
+            count_before = coll.count()
+            coll.delete(where={"document_id": doc_id_str})
+            count_after = coll.count()
             deleted = count_before - count_after
             logger.info(f"Deleted {deleted} vectors for document '{doc_id_str}' from ChromaDB.")
             return deleted
         except Exception as exc:
-            logger.warning(f"Error deleting chunks for document {doc_id_str}: {exc}")
+            logger.warning(f"ChromaDB error deleting chunks for document {doc_id_str}: {exc}")
             return 0
 
     def search_dense(
@@ -168,7 +174,7 @@ class VectorStoreService:
             self.client.delete_collection(name=COLLECTION_NAME)
         except Exception:
             pass
-        self.collection = self.client.get_or_create_collection(
+        self.client.get_or_create_collection(
             name=COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"},
         )
