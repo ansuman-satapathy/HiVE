@@ -289,6 +289,8 @@ html.dark, :root.dark, .dark {
     text-transform: none;
   }
 
+}
+
 /* Drawer Component Styles */
 .drawer-overlay {
   position: fixed;
@@ -345,92 +347,6 @@ html.dark, :root.dark, .dark {
 
 .pulse-glow {
   animation: pulseGlow 2s infinite ease-in-out;
-}
-
-/* Stage Step Badges */
-.stage-step {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  transition: all 0.2s ease;
-}
-
-.stage-step.active {
-  background-color: var(--primary-subtle);
-  color: var(--primary);
-  border: 1px solid var(--primary-border);
-}
-
-.stage-step.done {
-  background-color: var(--success-bg);
-  color: var(--success);
-  border: 1px solid var(--success-border);
-}
-
-.stage-step.waiting {
-  background-color: var(--bg-subtle);
-  color: var(--text-muted);
-  border: 1px solid var(--border-default);
-}
-
-/* Stats Chip */
-.stat-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-full);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.stat-chip strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-/* Chunk Inspector Cards & Code Block */
-.chunk-item-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xs);
-  overflow: hidden;
-  transition: all 0.15s ease-in-out;
-}
-
-.chunk-item-card:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
-}
-
-.code-chunk-body {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.65;
-  color: #0f172a;
-  background-color: #ffffff;
-  padding: 14px 18px;
-  border-top: 1px solid var(--border-default);
-  white-space: pre-wrap;
-  word-break: break-word;
-  user-select: text;
-  min-height: 50px;
-  max-height: 280px;
-  overflow-y: auto;
-}
-
-.dark .code-chunk-body {
-  color: #e2e8f0;
-  background-color: #0b1120;
-}
 }
 
 /* Custom Scrollbars */
