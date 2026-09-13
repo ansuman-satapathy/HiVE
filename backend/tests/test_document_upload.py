@@ -112,7 +112,21 @@ async def test_batch_upload_multiple_formats_and_limits(client, db_session):
     assert data["failed_count"] == 0
     assert len(data["documents"]) == 3
 
-    # 2. Exceeding 10 files batch limit should return 400
+    # 2. Upload duplicate files: one with same content, one with duplicate name
+    dup_files = [
+        ("files", ("guide_copy.md", io.BytesIO(b"# User Guide\n\nWelcome to HiVE platform.\n"), "text/markdown")),
+        ("files", ("guide.md", io.BytesIO(b"Different content under existing name"), "text/markdown")),
+    ]
+    dup_response = await client.post("/api/documents/upload-batch", headers=headers, files=dup_files)
+    assert dup_response.status_code == 202
+    dup_data = dup_response.json()
+    assert dup_data["duplicate_count"] == 2
+    assert dup_data["successful_count"] == 0
+    assert len(dup_data["details"]) == 2
+    assert any(d["duplicate_type"] == "content" for d in dup_data["details"])
+    assert any(d["duplicate_type"] == "name" for d in dup_data["details"])
+
+    # 3. Exceeding 10 files batch limit should return 400
     too_many_files = [
         ("files", (f"file_{i}.txt", io.BytesIO(b"Sample text"), "text/plain"))
         for i in range(11)

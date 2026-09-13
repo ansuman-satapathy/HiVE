@@ -50,6 +50,17 @@ class DocumentRepository:
         return result.first()
 
     @staticmethod
+    async def get_by_filename(db: AsyncSession, user_id: uuid.UUID, filename: str) -> Optional[Document]:
+        """Fetch an existing document by filename to prevent duplicate filename collisions."""
+        statement = select(Document).where(
+            Document.user_id == user_id,
+            Document.filename == filename,
+            Document.status != IngestionStatus.FAILED
+        )
+        result = await db.exec(statement)
+        return result.first()
+
+    @staticmethod
     async def list_documents(
         db: AsyncSession,
         user_id: uuid.UUID,

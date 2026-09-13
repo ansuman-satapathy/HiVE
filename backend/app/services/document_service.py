@@ -1,6 +1,7 @@
 import os
 import hashlib
 import aiofiles
+import logging
 from uuid import UUID
 from typing import Tuple, Optional
 from fastapi import UploadFile, HTTPException, status
@@ -11,6 +12,8 @@ from app.models.document import Document, IngestionStatus
 from app.db.repositories.document_repo import DocumentRepository
 from app.services.ingestion_worker import IngestionWorker
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = {".pdf", ".md", ".txt", ".docx", ".doc", ".csv", ".xlsx", ".xls"}
 MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -35,10 +38,42 @@ class DocumentService:
         file: UploadFile,
         user: User,
         db: AsyncSession,
-        background_tasks
-    ) -> Tuple[Document, bool, str]:
+        background_tasks,
+        seen_filenames: Optional[set] = None,
+        seen_hashes: Optional[set] = None,
+    ) -> Tuple[Document, bool, Optional[str], str]:
+        """
+        Handle a single file upload with comprehensive duplicate validation:
+        1. Name duplicates (exact filename already in user's workspace or earlier in this batch)
+        2. Content duplicates (sha256 hash matches an existing processed document or earlier in this batch)
+        Returns: (doc, is_duplicate, duplicate_type, message)
+        """
         filename = file.filename or "unnamed_document"
         file_type = cls.validate_file_extension(filename)
+
+        # In-batch duplicate filename check
+        if seen_filenames is not None:
+            if filename in seen_filenames:
+                logger.info(f"Duplicate filename detected in batch for user {user.id}: {filename}")
+                existing = await DocumentRepository.get_by_filename(db, user.id, filename)
+                return (
+                    existing,
+                    True,
+                    "name",
+                    f"'{filename}' was duplicated within this upload batch."
+                )
+            seen_filenames.add(filename)
+
+        # Existing workspace filename check
+        existing_by_name = await DocumentRepository.get_by_filename(db, user.id, filename)
+        if existing_by_name:
+            logger.info(f"Document with identical filename already exists for user {user.id}: {filename}")
+            return (
+                existing_by_name,
+                True,
+                "name",
+                f"A document named '{filename}' already exists in your workspace."
+            )
 
         user_upload_dir = os.path.join(settings.UPLOAD_DIR, str(user.id))
         os.makedirs(user_upload_dir, exist_ok=True)
@@ -67,11 +102,34 @@ class DocumentService:
 
         sha256_hash = hasher.hexdigest()
 
+        # In-batch duplicate content check
+        if seen_hashes is not None:
+            if sha256_hash in seen_hashes:
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
+                logger.info(f"Duplicate content detected in batch for user {user.id}: {filename} (hash {sha256_hash[:8]})")
+                existing = await DocumentRepository.get_by_hash(db, user.id, sha256_hash)
+                matched_name = existing.filename if existing else filename
+                return (
+                    existing,
+                    True,
+                    "content",
+                    f"Content of '{filename}' is identical to '{matched_name}' uploaded in this batch."
+                )
+            seen_hashes.add(sha256_hash)
+
+        # Existing workspace content check
         existing_doc = await DocumentRepository.get_by_hash(db, user.id, sha256_hash)
         if existing_doc:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
-            return existing_doc, True, "Document with identical content already exists in workspace."
+            logger.info(f"Document with identical content already exists for user {user.id}: {filename} matches {existing_doc.filename}")
+            return (
+                existing_doc,
+                True,
+                "content",
+                f"Content is identical to existing document '{existing_doc.filename}' (SHA256: {sha256_hash[:8]})."
+            )
 
         permanent_filename = f"{sha256_hash[:12]}_{filename}"
         permanent_file_path = os.path.join(user_upload_dir, permanent_filename)
@@ -94,7 +152,8 @@ class DocumentService:
             file_type=file_type
         )
 
-        return doc, False, "Document uploaded successfully. Background processing started."
+        logger.info(f"Successfully accepted new document {doc.id} ({filename}, {total_size} bytes) for ingestion.")
+        return doc, False, None, "Document uploaded successfully. Background processing started."
 
     @classmethod
     async def handle_batch_upload(
@@ -104,7 +163,7 @@ class DocumentService:
         db: AsyncSession,
         background_tasks
     ) -> dict:
-        """Process up to MAX_FILES_PER_BATCH documents concurrently."""
+        """Process up to MAX_FILES_PER_BATCH documents concurrently with duplicate reporting."""
         if not files:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -118,28 +177,72 @@ class DocumentService:
             )
 
         successful_docs = []
+        details = []
         messages = []
         dup_count = 0
         failed_count = 0
+        seen_filenames: set[str] = set()
+        seen_hashes: set[str] = set()
 
         for upload_file in files:
+            fname = upload_file.filename or "unnamed_document"
             try:
-                doc, is_dup, msg = await cls.handle_upload(
+                doc, is_dup, dup_type, msg = await cls.handle_upload(
                     file=upload_file,
                     user=user,
                     db=db,
-                    background_tasks=background_tasks
+                    background_tasks=background_tasks,
+                    seen_filenames=seen_filenames,
+                    seen_hashes=seen_hashes,
                 )
                 if is_dup:
                     dup_count += 1
-                successful_docs.append(doc)
-                messages.append(f"{upload_file.filename}: {msg}")
+                    details.append({
+                        "filename": fname,
+                        "status": "duplicate",
+                        "is_duplicate": True,
+                        "duplicate_type": dup_type,
+                        "message": msg,
+                        "document_id": doc.id if doc else None,
+                    })
+                else:
+                    successful_docs.append(doc)
+                    details.append({
+                        "filename": fname,
+                        "status": "uploaded",
+                        "is_duplicate": False,
+                        "duplicate_type": None,
+                        "message": msg,
+                        "document_id": doc.id,
+                    })
+                messages.append(f"{fname}: {msg}")
             except HTTPException as h_err:
                 failed_count += 1
-                messages.append(f"{upload_file.filename}: {h_err.detail}")
+                details.append({
+                    "filename": fname,
+                    "status": "failed",
+                    "is_duplicate": False,
+                    "duplicate_type": None,
+                    "message": h_err.detail,
+                    "document_id": None,
+                })
+                messages.append(f"{fname}: {h_err.detail}")
             except Exception as exc:
                 failed_count += 1
-                messages.append(f"{upload_file.filename}: Error - {str(exc)}")
+                details.append({
+                    "filename": fname,
+                    "status": "failed",
+                    "is_duplicate": False,
+                    "duplicate_type": None,
+                    "message": str(exc),
+                    "document_id": None,
+                })
+                messages.append(f"{fname}: Error - {str(exc)}")
+
+        logger.info(
+            f"Batch upload summary for user {user.id}: {len(successful_docs)} uploaded, "
+            f"{dup_count} duplicates skipped, {failed_count} failed."
+        )
 
         return {
             "total_uploaded": len(files),
@@ -147,6 +250,7 @@ class DocumentService:
             "duplicate_count": dup_count,
             "failed_count": failed_count,
             "documents": successful_docs,
+            "details": details,
             "messages": messages,
         }
 

@@ -24,7 +24,17 @@ class DocumentResponse(BaseModel):
 class DocumentUploadResponse(BaseModel):
     document: DocumentResponse
     is_duplicate: bool = False
+    duplicate_type: Optional[str] = None  # "content" | "name" | None
     message: str
+
+
+class BatchUploadItemDetail(BaseModel):
+    filename: str
+    status: str  # "uploaded" | "duplicate" | "failed"
+    is_duplicate: bool = False
+    duplicate_type: Optional[str] = None  # "content" | "name" | None
+    message: str
+    document_id: Optional[UUID] = None
 
 
 class BatchDocumentUploadResponse(BaseModel):
@@ -33,6 +43,7 @@ class BatchDocumentUploadResponse(BaseModel):
     duplicate_count: int
     failed_count: int
     documents: List[DocumentResponse]
+    details: List[BatchUploadItemDetail] = []
     messages: List[str]
 
 class DocumentChunkResponse(BaseModel):
