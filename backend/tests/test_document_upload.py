@@ -62,7 +62,16 @@ async def test_upload_markdown_document_and_list(client, db_session):
     assert dup_data["is_duplicate"] is True
     assert dup_data["document"]["id"] == doc_id
 
-    # 7. Delete document
+    # 7. Sparse lexical search via API
+    search_resp = await client.get("/api/documents/search/sparse?q=Architecture&top_k=3", headers=headers)
+    assert search_resp.status_code == 200
+    search_results = search_resp.json()
+    assert len(search_results) >= 1
+    assert search_results[0]["document_id"] == doc_id
+    assert "Architecture Overview" in search_results[0]["content"]
+    assert search_results[0]["bm25_score"] > 0
+
+    # 8. Delete document
     del_resp = await client.delete(f"/api/documents/{doc_id}", headers=headers)
     assert del_resp.status_code == 204
 

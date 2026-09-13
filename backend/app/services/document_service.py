@@ -114,6 +114,8 @@ class DocumentService:
                 pass
 
         await DocumentRepository.delete_document(db, document_id)
+        from app.services.bm25_service import BM25IndexService
+        BM25IndexService.get_instance().remove_document_chunks(document_id)
 
     @classmethod
     async def get_queue_status(cls, db: AsyncSession, user_id: UUID) -> dict:
