@@ -15,7 +15,7 @@ export default function DocumentUploadDropzone({
         onDrop={(e) => {
           e.preventDefault()
           setDragOver(false)
-          if (e.dataTransfer.files?.[0]) onFileSelect(e.dataTransfer.files[0])
+          if (e.dataTransfer.files?.length) onFileSelect(Array.from(e.dataTransfer.files))
         }}
         onClick={() => fileInputRef.current?.click()}
         className={`relative overflow-hidden cursor-pointer rounded-2xl border border-dashed transition-all duration-200 py-3 px-4 sm:py-3.5 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 ${
@@ -41,10 +41,10 @@ export default function DocumentUploadDropzone({
 
           <div className="min-w-0">
             <h3 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] leading-tight truncate">
-              {uploading ? 'Processing & Ingesting File...' : 'Drop file here or click to browse'}
+              {uploading ? 'Processing & Ingesting Files...' : 'Drop files here or click to browse'}
             </h3>
             <p className="text-[11px] sm:text-xs text-[var(--text-secondary)] mt-0.5 truncate">
-              Upload PDF manuals, Markdown (.md), or raw TXT <span className="text-[var(--text-muted)]">• Max 50MB</span>
+              Upload PDF, Markdown, TXT, DOCX, CSV, Excel (.xlsx) <span className="text-[var(--text-muted)]">• Max 10 files, 50MB each</span>
             </p>
           </div>
         </div>
@@ -53,17 +53,19 @@ export default function DocumentUploadDropzone({
         <div className="relative z-10 shrink-0">
           <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs group-hover:shadow-sm transition-all select-none">
             <FileUp size={13} />
-            <span>Select File</span>
+            <span>Select Files</span>
           </div>
         </div>
 
         <input
           type="file"
           ref={fileInputRef}
+          multiple
           className="hidden"
-          accept=".pdf,.md,.txt"
+          accept=".pdf,.md,.txt,.docx,.doc,.csv,.xlsx,.xls"
           onChange={(e) => {
-            if (e.target.files?.[0]) onFileSelect(e.target.files[0])
+            if (e.target.files?.length) onFileSelect(Array.from(e.target.files))
+            e.target.value = ''
           }}
         />
       </div>

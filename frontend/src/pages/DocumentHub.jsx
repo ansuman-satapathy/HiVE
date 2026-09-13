@@ -74,38 +74,74 @@ export default function DocumentHub() {
     }
   }, [fetchDocuments, hasActiveDocs])
 
-  const handleFileUpload = async (file) => {
-    if (!file) return
-    const ext = file.name.split('.').pop().toLowerCase()
-    if (!['pdf', 'md', 'txt'].includes(ext)) {
-      notify.error(`Unsupported file type .${ext}. Only PDF, Markdown (.md), and TXT are supported.`)
+  const ALLOWED_EXTENSIONS = ['pdf', 'md', 'txt', 'docx', 'doc', 'csv', 'xlsx', 'xls']
+  const MAX_BATCH_SIZE = 10
+  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+
+  const handleFileUpload = async (filesInput) => {
+    if (!filesInput) return
+    const fileList = Array.isArray(filesInput) ? filesInput : [filesInput]
+    if (fileList.length === 0) return
+
+    // 1. Validate batch count
+    if (fileList.length > MAX_BATCH_SIZE) {
+      notify.error(`Maximum ${MAX_BATCH_SIZE} files can be uploaded at a time. You selected ${fileList.length} files.`)
+      return
+    }
+
+    // 2. Validate format & size of each file
+    const invalidFormatFiles = []
+    const oversizedFiles = []
+
+    for (const file of fileList) {
+      const ext = file.name.split('.').pop().toLowerCase()
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        invalidFormatFiles.push(file.name)
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        oversizedFiles.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`)
+      }
+    }
+
+    if (invalidFormatFiles.length > 0) {
+      notify.error(`Unsupported format: ${invalidFormatFiles.join(', ')}. Allowed: PDF, Markdown, TXT, DOCX, CSV, Excel.`)
+      return
+    }
+
+    if (oversizedFiles.length > 0) {
+      notify.error(`Files exceed 50MB limit: ${oversizedFiles.join(', ')}`)
       return
     }
 
     setUploading(true)
 
-    const tempId = `opt-${Date.now()}`
-    const optimisticDoc = {
-      id: tempId,
-      filename: file.name,
-      file_type: ext,
-      file_size_bytes: file.size,
-      status: 'pending',
-      chunk_count: 0,
-      token_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      isOptimistic: true,
-    }
+    // Create optimistic entries in UI
+    const optimisticDocs = fileList.map((file, idx) => {
+      const ext = file.name.split('.').pop().toLowerCase()
+      return {
+        id: `opt-${Date.now()}-${idx}`,
+        filename: file.name,
+        file_type: ext,
+        file_size_bytes: file.size,
+        status: 'pending',
+        chunk_count: 0,
+        token_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        isOptimistic: true,
+      }
+    })
 
-    setDocuments((prev) => [optimisticDoc, ...prev.filter((d) => d.id !== tempId)])
+    setDocuments((prev) => [...optimisticDocs, ...prev])
 
     const formData = new FormData()
-    formData.append('file', file)
+    fileList.forEach((file) => {
+      formData.append('files', file)
+    })
 
     try {
       const token = tokenStorage.getToken()
-      const res = await fetch('/api/documents/upload', {
+      const res = await fetch('/api/documents/upload-batch', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -113,23 +149,25 @@ export default function DocumentHub() {
 
       const data = await res.json()
       if (!res.ok) {
-        throw new Error(data.detail || 'Upload failed')
+        throw new Error(data.detail || 'Batch upload failed')
       }
 
-      notify.success(data.message || 'File uploaded! Ingestion pipeline started.')
-      if (data.document) {
-        setDocuments((prev) => [
-          data.document,
-          ...prev.filter((d) => d.id !== tempId && d.id !== data.document.id),
-        ])
+      if (data.failed_count > 0) {
+        notify.warning(`Uploaded ${data.successful_count} files (${data.failed_count} failed)`)
+      } else if (data.duplicate_count > 0) {
+        notify.info(`Uploaded ${data.successful_count} files (${data.duplicate_count} duplicates skipped)`)
+      } else {
+        notify.success(`Successfully uploaded ${data.successful_count} file${data.successful_count > 1 ? 's' : ''}! Ingestion started.`)
       }
 
-      // Immediately trigger live queue fetch and document sync
+      // Sync real documents and queue immediately
       fetchQueue()
       await fetchDocuments()
     } catch (err) {
-      notify.error(err.message || 'Failed to upload document')
-      setDocuments((prev) => prev.filter((d) => d.id !== tempId))
+      notify.error(err.message || 'Failed to upload documents')
+      // Remove optimistic records
+      const optIds = new Set(optimisticDocs.map((d) => d.id))
+      setDocuments((prev) => prev.filter((d) => !optIds.has(d.id)))
     } finally {
       setUploading(false)
     }

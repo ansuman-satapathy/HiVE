@@ -10,8 +10,11 @@ export default function DocumentToolbar({
   const filterOptions = [
     { key: 'all', label: 'All' },
     { key: 'pdf', label: 'PDF' },
+    { key: 'docx', label: 'DOCX' },
     { key: 'md', label: 'MD' },
     { key: 'txt', label: 'TXT' },
+    { key: 'csv', label: 'CSV' },
+    { key: 'xlsx', label: 'XLSX' },
   ]
 
   return (

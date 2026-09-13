@@ -12,8 +12,9 @@ from app.db.repositories.document_repo import DocumentRepository
 from app.services.ingestion_worker import IngestionWorker
 from app.core.config import settings
 
-SUPPORTED_EXTENSIONS = {".pdf", ".md", ".txt"}
+SUPPORTED_EXTENSIONS = {".pdf", ".md", ".txt", ".docx", ".doc", ".csv", ".xlsx", ".xls"}
 MAX_FILE_SIZE = 50 * 1024 * 1024
+MAX_FILES_PER_BATCH = 10
 
 
 class DocumentService:
@@ -94,6 +95,60 @@ class DocumentService:
         )
 
         return doc, False, "Document uploaded successfully. Background processing started."
+
+    @classmethod
+    async def handle_batch_upload(
+        cls,
+        files: list[UploadFile],
+        user: User,
+        db: AsyncSession,
+        background_tasks
+    ) -> dict:
+        """Process up to MAX_FILES_PER_BATCH documents concurrently."""
+        if not files:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No files provided for upload."
+            )
+
+        if len(files) > MAX_FILES_PER_BATCH:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum {MAX_FILES_PER_BATCH} files can be uploaded at a time. Selected: {len(files)}."
+            )
+
+        successful_docs = []
+        messages = []
+        dup_count = 0
+        failed_count = 0
+
+        for upload_file in files:
+            try:
+                doc, is_dup, msg = await cls.handle_upload(
+                    file=upload_file,
+                    user=user,
+                    db=db,
+                    background_tasks=background_tasks
+                )
+                if is_dup:
+                    dup_count += 1
+                successful_docs.append(doc)
+                messages.append(f"{upload_file.filename}: {msg}")
+            except HTTPException as h_err:
+                failed_count += 1
+                messages.append(f"{upload_file.filename}: {h_err.detail}")
+            except Exception as exc:
+                failed_count += 1
+                messages.append(f"{upload_file.filename}: Error - {str(exc)}")
+
+        return {
+            "total_uploaded": len(files),
+            "successful_count": len(successful_docs),
+            "duplicate_count": dup_count,
+            "failed_count": failed_count,
+            "documents": successful_docs,
+            "messages": messages,
+        }
 
     @staticmethod
     async def get_user_document(db: AsyncSession, user_id: UUID, document_id: UUID) -> Document:
