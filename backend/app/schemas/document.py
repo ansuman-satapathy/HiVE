@@ -57,3 +57,13 @@ class IngestionQueueResponse(BaseModel):
     active_tasks: List[IngestionTaskItem]
     recent_completed: List[IngestionTaskItem]
 
+class SparseSearchResult(BaseModel):
+    chunk_id: UUID
+    document_id: UUID
+    chunk_index: int
+    content: str
+    token_count: int
+    chunk_metadata: Dict[str, Any]
+    bm25_score: float
+
+

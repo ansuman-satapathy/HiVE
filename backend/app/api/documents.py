@@ -10,12 +10,34 @@ from app.schemas.document import (
     DocumentUploadResponse,
     DocumentChunkResponse,
     IngestionQueueResponse,
+    SparseSearchResult,
 )
 from app.db.repositories.document_repo import DocumentRepository
 from app.services.document_service import DocumentService
+from app.services.bm25_service import BM25IndexService
 
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
+
+
+@router.get("/search/sparse", response_model=List[SparseSearchResult])
+async def search_sparse_chunks(
+    q: str = Query(..., min_length=1, description="Keywords or error code to search"),
+    top_k: int = Query(5, ge=1, le=50),
+    document_id: UUID = Query(None, description="Optional document ID filter"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ticket 09: Lexical keyword search over indexed chunks using BM25.
+    Returns top matching chunks with exact BM25 scores.
+    """
+    if document_id:
+        await DocumentService.get_user_document(db, current_user.id, document_id)
+
+    bm25_service = BM25IndexService.get_instance()
+    results = bm25_service.search_sparse(query=q, top_k=top_k, document_id=document_id)
+    return results
 
 
 @router.get("/queue", response_model=IngestionQueueResponse)

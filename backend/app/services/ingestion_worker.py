@@ -41,8 +41,28 @@ class IngestionWorker:
                     document_title=parsed_data.get("metadata", {}).get("detected_title")
                 )
 
+                created_chunks = []
                 if chunks_data:
-                    await DocumentRepository.add_chunks(db, document_id, chunks_data)
+                    created_chunks = await DocumentRepository.add_chunks(db, document_id, chunks_data)
+
+                # Indexing stage (Ticket 09 BM25 Indexing)
+                await DocumentRepository.update_status(db, document_id, IngestionStatus.INDEXING)
+                await asyncio.sleep(0.5)
+
+                if created_chunks:
+                    from app.services.bm25_service import BM25IndexService
+                    bm25_service = BM25IndexService.get_instance()
+                    bm25_service.index_chunks([
+                        {
+                            "id": chunk.id,
+                            "document_id": chunk.document_id,
+                            "chunk_index": chunk.chunk_index,
+                            "content": chunk.content,
+                            "token_count": chunk.token_count,
+                            "chunk_metadata": chunk.chunk_metadata,
+                        }
+                        for chunk in created_chunks
+                    ])
 
                 total_tokens = sum(c["token_count"] for c in chunks_data)
                 doc = await DocumentRepository.get_by_id(db, document_id)
