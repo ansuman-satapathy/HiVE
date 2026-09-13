@@ -241,7 +241,20 @@ export default function DocumentHub() {
         notify.info('No new documents were processed.')
       }
 
-      // Sync real documents and queue immediately in background without replacing with spinner
+      // Immediately display real server documents returned from upload response
+      if (data.documents && data.documents.length > 0) {
+        setDocuments((prev) => {
+          const existingIds = new Set(prev.map((d) => d.id))
+          const newItems = data.documents.filter((d) => !existingIds.has(d.id))
+          return [...newItems, ...prev]
+        })
+        setTotalCount((c) => c + (data.documents?.length || 0))
+      }
+
+      // Turn off dropzone uploading state immediately so UI is responsive
+      setUploading(false)
+
+      // Sync real documents and queue in background
       fetchQueue()
       await fetchDocuments(true)
     } catch (err) {
