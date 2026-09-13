@@ -85,12 +85,18 @@ export default function DocumentHub() {
         if (data.total_tokens !== undefined) setTotalTokens(data.total_tokens)
 
         setDocuments((prevDocs) => {
+          // If there are optimistic files currently uploading, preserve them at the head of the table
+          const activeOptimistics = prevDocs.filter((d) => d.id && String(d.id).startsWith('temp-'))
+          const finalItems = activeOptimistics.length > 0
+            ? [...activeOptimistics, ...items.filter((item) => !activeOptimistics.some((opt) => opt.filename === item.filename))]
+            : items
+
           // In-place diff check: avoid re-rendering entire table if data hasn't changed
-          if (prevDocs.length === items.length) {
+          if (prevDocs.length === finalItems.length) {
             let changed = false
             for (let i = 0; i < prevDocs.length; i++) {
               const a = prevDocs[i]
-              const b = items[i]
+              const b = finalItems[i]
               if (
                 a.id !== b.id ||
                 a.status !== b.status ||
@@ -108,7 +114,7 @@ export default function DocumentHub() {
             }
           }
 
-          return items
+          return finalItems
         })
       }
     } catch (err) {
@@ -125,7 +131,7 @@ export default function DocumentHub() {
   const hasActiveDocsRef = useRef(hasActiveDocs)
   hasActiveDocsRef.current = hasActiveDocs
 
-  // Polling loop with stable interval: avoids destroying and recreating timeout on every row status tick
+  // Polling loop with dynamic interval: polls aggressively (1s) during active ingestion/upload
   useEffect(() => {
     let timeoutId
     let isMounted = true
@@ -133,7 +139,7 @@ export default function DocumentHub() {
     const runPoll = async () => {
       await fetchDocuments(true)
       if (!isMounted) return
-      const interval = hasActiveDocsRef.current ? 2000 : 10000
+      const interval = (hasActiveDocsRef.current || uploading) ? 1000 : 8000
       timeoutId = setTimeout(runPoll, interval)
     }
 
@@ -187,6 +193,29 @@ export default function DocumentHub() {
       return
     }
 
+    // Step 1: Immediately render optimistic placeholder rows in the table with status='pending' and isOptimistic=true
+    const tempDocs = fileList.map((file) => {
+      const ext = file.name.split('.').pop().toLowerCase()
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      return {
+        id: tempId,
+        filename: file.name,
+        file_type: ext,
+        file_size_bytes: file.size,
+        status: 'pending',
+        chunk_count: 0,
+        token_count: 0,
+        created_at: new Date().toISOString(),
+        isOptimistic: true,
+      }
+    })
+
+    const tempDocIds = new Set(tempDocs.map((d) => d.id))
+    tempDocs.forEach((d) => activeOptimisticIdsRef.current.add(d.id))
+
+    // Prepend to table immediately so user sees files before upload/ingestion starts
+    setDocuments((prev) => [...tempDocs, ...prev])
+    setTotalCount((c) => c + tempDocs.length)
     setUploading(true)
 
     const formData = new FormData()
@@ -207,6 +236,9 @@ export default function DocumentHub() {
         throw new Error(data.detail || 'Batch upload failed')
       }
 
+      // Clean up optimistic tracking IDs
+      tempDocs.forEach((d) => activeOptimisticIdsRef.current.delete(d.id))
+
       // Provide clear, specific toast feedback based on details
       const uploadedItems = (data.details || []).filter((item) => item.status === 'uploaded')
       const duplicateItems = (data.details || []).filter((item) => item.is_duplicate)
@@ -217,7 +249,6 @@ export default function DocumentHub() {
       const failCount = data.failed_count ?? failedItems.length
 
       if (successCount === 0 && dupCount > 0 && failCount === 0) {
-        // All files were duplicates - display explicit duplicate warning
         if (duplicateItems.length === 1) {
           notify.warning(duplicateItems[0].message || `Skipped duplicate '${duplicateItems[0].filename}': already exists in workspace.`, 'Duplicate Skipped')
         } else {
@@ -231,7 +262,6 @@ export default function DocumentHub() {
           `. ${failCount} failed: ${failMsg}`
         )
       } else if (dupCount > 0) {
-        // Mixed: some uploaded, some skipped as duplicates
         const uploadedNames = uploadedItems.map((u) => `'${u.filename}'`).join(', ')
         const skippedNames = duplicateItems.map((d) => `'${d.filename}'`).join(', ')
         if (duplicateItems.length === 1 && uploadedItems.length === 1) {
@@ -245,23 +275,26 @@ export default function DocumentHub() {
         notify.info('No new documents were processed.')
       }
 
-      // Immediately display real server documents returned from upload response
-      if (data.documents && data.documents.length > 0) {
-        setDocuments((prev) => {
-          const existingIds = new Set(prev.map((d) => d.id))
-          const newItems = data.documents.filter((d) => !existingIds.has(d.id))
-          return [...newItems, ...prev]
-        })
-        setTotalCount((c) => c + (data.documents?.length || 0))
-      }
+      // Reconcile table: remove the temporary optimistic items and insert the confirmed server documents
+      const serverDocs = data.documents || []
+      setDocuments((prev) => {
+        const withoutTemp = prev.filter((d) => !tempDocIds.has(d.id))
+        const existingIds = new Set(withoutTemp.map((d) => d.id))
+        const newItems = serverDocs.filter((d) => !existingIds.has(d.id))
+        return [...newItems, ...withoutTemp]
+      })
 
       // Turn off dropzone uploading state immediately so UI is responsive
       setUploading(false)
 
-      // Sync real documents and queue in background
+      // Sync queue telemetry and documents in background
       fetchQueue()
       await fetchDocuments(true)
     } catch (err) {
+      // Remove optimistic rows on failure
+      tempDocs.forEach((d) => activeOptimisticIdsRef.current.delete(d.id))
+      setDocuments((prev) => prev.filter((d) => !tempDocIds.has(d.id)))
+      setTotalCount((c) => Math.max(0, c - tempDocs.length))
       notify.error(err.message || 'Failed to upload documents')
     } finally {
       setUploading(false)
@@ -423,7 +456,7 @@ export default function DocumentHub() {
       <DocumentUploadDropzone
         uploading={uploading}
         hasActiveDocs={hasActiveDocs}
-        activeCount={activeCount}
+        activeCount={Math.max(activeCount, activeProcessingCount)}
         dragOver={dragOver}
         setDragOver={setDragOver}
         onFileSelect={handleFileUpload}
