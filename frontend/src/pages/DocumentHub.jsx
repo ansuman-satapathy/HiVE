@@ -85,20 +85,12 @@ export default function DocumentHub() {
         if (data.total_tokens !== undefined) setTotalTokens(data.total_tokens)
 
         setDocuments((prevDocs) => {
-          const serverMap = new Map(items.map((d) => [d.id, d]))
-          const merged = items.slice()
-          for (const doc of prevDocs) {
-            if (doc.isOptimistic && activeOptimisticIdsRef.current.has(doc.id) && !serverMap.has(doc.id)) {
-              merged.unshift(doc)
-            }
-          }
-
           // In-place diff check: avoid re-rendering entire table if data hasn't changed
-          if (prevDocs.length === merged.length) {
+          if (prevDocs.length === items.length) {
             let changed = false
             for (let i = 0; i < prevDocs.length; i++) {
               const a = prevDocs[i]
-              const b = merged[i]
+              const b = items[i]
               if (
                 a.id !== b.id ||
                 a.status !== b.status ||
@@ -116,7 +108,7 @@ export default function DocumentHub() {
             }
           }
 
-          return merged
+          return items
         })
       }
     } catch (err) {
@@ -193,28 +185,6 @@ export default function DocumentHub() {
 
     setUploading(true)
 
-    // Create optimistic entries in UI and register in ref
-    const optimisticDocs = fileList.map((file, idx) => {
-      const ext = file.name.split('.').pop().toLowerCase()
-      return {
-        id: `opt-${Date.now()}-${idx}`,
-        filename: file.name,
-        file_type: ext,
-        file_size_bytes: file.size,
-        status: 'pending',
-        chunk_count: 0,
-        token_count: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        isOptimistic: true,
-      }
-    })
-
-    const optIds = new Set(optimisticDocs.map((d) => d.id))
-    optIds.forEach((id) => activeOptimisticIdsRef.current.add(id))
-
-    setDocuments((prev) => [...optimisticDocs, ...prev])
-
     const formData = new FormData()
     fileList.forEach((file) => {
       formData.append('files', file)
@@ -274,14 +244,8 @@ export default function DocumentHub() {
       // Sync real documents and queue immediately in background without replacing with spinner
       fetchQueue()
       await fetchDocuments(true)
-
-      // Cleanup optimistic records now that server records are fetched
-      optIds.forEach((id) => activeOptimisticIdsRef.current.delete(id))
     } catch (err) {
       notify.error(err.message || 'Failed to upload documents')
-      // Remove optimistic records
-      optIds.forEach((id) => activeOptimisticIdsRef.current.delete(id))
-      setDocuments((prev) => prev.filter((d) => !optIds.has(d.id)))
     } finally {
       setUploading(false)
     }

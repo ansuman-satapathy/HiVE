@@ -19,6 +19,7 @@ MAX_CONCURRENT_INGESTION = 4
 
 class IngestionWorker:
     _semaphore: Optional[asyncio.Semaphore] = None
+    _active_tasks: Dict[uuid.UUID, asyncio.Task] = {}
 
     @classmethod
     def get_semaphore(cls) -> asyncio.Semaphore:
@@ -38,7 +39,7 @@ class IngestionWorker:
         Dispatches document ingestion to run concurrently in parallel queues.
         Uses asyncio.create_task bounded by a concurrency semaphore.
         """
-        return asyncio.create_task(
+        task = asyncio.create_task(
             cls.process_document(
                 document_id=document_id,
                 file_path=file_path,
@@ -46,6 +47,23 @@ class IngestionWorker:
                 session_factory=session_factory
             )
         )
+        cls._active_tasks[document_id] = task
+
+        def _cleanup(t):
+            cls._active_tasks.pop(document_id, None)
+
+        task.add_done_callback(_cleanup)
+        return task
+
+    @classmethod
+    def cancel_document(cls, document_id: uuid.UUID) -> bool:
+        """Cancel an in-flight ingestion worker task gracefully if document was deleted."""
+        task = cls._active_tasks.pop(document_id, None)
+        if task and not task.done():
+            task.cancel()
+            logger.info(f"Cancelled in-flight ingestion task for deleted document {document_id}")
+            return True
+        return False
 
     @classmethod
     async def process_document(
@@ -124,10 +142,37 @@ class IngestionWorker:
                         doc.doc_metadata = merged_meta
                         db.add(doc)
                         await db.commit()
+                        logger.info(f"Ingestion completed for document {document_id}: {len(chunks_data)} chunks, {total_tokens} tokens")
+                    else:
+                        # Document was deleted while worker was processing - clean up any chunks added to indices
+                        logger.info(f"Document {document_id} was deleted during ingestion; discarding chunk indices.")
+                        from app.services.bm25_service import BM25IndexService
+                        from app.services.vector_store_service import VectorStoreService
+                        BM25IndexService.get_instance().remove_document_chunks(document_id)
+                        VectorStoreService.get_instance().delete_document_chunks(document_id)
 
-                    logger.info(f"Ingestion completed for document {document_id}: {len(chunks_data)} chunks, {total_tokens} tokens")
+                except asyncio.CancelledError:
+                    logger.info(f"Ingestion worker for document {document_id} was cancelled gracefully.")
+                    try:
+                        from app.services.bm25_service import BM25IndexService
+                        from app.services.vector_store_service import VectorStoreService
+                        BM25IndexService.get_instance().remove_document_chunks(document_id)
+                        VectorStoreService.get_instance().delete_document_chunks(document_id)
+                    except Exception:
+                        pass
+                    raise
 
                 except Exception as exc:
+                    # Check if document was deleted in database
+                    try:
+                        doc_exists = await DocumentRepository.get_by_id(db, document_id)
+                    except Exception:
+                        doc_exists = None
+
+                    if not doc_exists:
+                        logger.info(f"Document {document_id} was deleted during ingestion; ignoring error: {exc}")
+                        return
+
                     logger.exception(f"Ingestion failed for document {document_id}: {exc}")
                     try:
                         await db.rollback()

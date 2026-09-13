@@ -318,6 +318,10 @@ class DocumentService:
                 continue
 
             try:
+                # Abort in-flight background ingestion worker if actively processing
+                from app.services.ingestion_worker import IngestionWorker
+                IngestionWorker.cancel_document(doc_id)
+
                 file_path = doc.doc_metadata.get("storage_path") if doc.doc_metadata else None
                 if file_path and os.path.exists(file_path):
                     try:

@@ -41,10 +41,12 @@ export default function DocumentUploadDropzone({
 
           <div className="min-w-0">
             <h3 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] leading-tight truncate">
-              {uploading ? 'Processing & Ingesting Files...' : 'Drop files here or click to browse'}
+              {uploading ? 'Uploading files to workspace...' : 'Drop files here or click to browse'}
             </h3>
             <p className="text-[11px] sm:text-xs text-[var(--text-secondary)] mt-0.5 truncate">
-              Upload PDF, Markdown, TXT, DOCX, CSV, Excel (.xlsx) <span className="text-[var(--text-muted)]">• Max 10 files, 50MB each</span>
+              {uploading
+                ? 'Sending payload to server. Ingestion will begin immediately...'
+                : 'Upload PDF, Markdown, TXT, DOCX, CSV, Excel (.xlsx)'} <span className="text-[var(--text-muted)]">• Max 10 files, 50MB each</span>
             </p>
           </div>
         </div>
