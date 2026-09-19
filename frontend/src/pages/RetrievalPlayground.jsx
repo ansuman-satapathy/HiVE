@@ -21,6 +21,8 @@ import {
   Info,
   ExternalLink,
   SplitSquareVertical,
+  HelpCircle,
+  BookOpen,
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 import { useFeedback } from '../context/FeedbackContext'
@@ -48,17 +50,21 @@ export default function RetrievalPlayground() {
   const [loadingExpansion, setLoadingExpansion] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  // Close modal on Escape key press
+  // Plain-Language Guide Modal State
+  const [showGuide, setShowGuide] = useState(false)
+
+  // Close modals on Escape key press
   useEffect(() => {
-    if (!expansionModal) return
+    if (!expansionModal && !showGuide) return
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         setExpansionModal(null)
+        setShowGuide(false)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [expansionModal])
+  }, [expansionModal, showGuide])
 
   // Fetch document list for document filter dropdown
   useEffect(() => {
@@ -155,7 +161,7 @@ export default function RetrievalPlayground() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -174,23 +180,35 @@ export default function RetrievalPlayground() {
           </div>
         </div>
 
-        {/* Config Toggle Button */}
-        <button
-          onClick={() => setShowConfig(!showConfig)}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
-            showConfig
-              ? 'bg-blue-500/10 border-blue-500/30 text-blue-500'
-              : 'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]'
-          }`}
-        >
-          <SlidersHorizontal size={14} />
-          <span>Pipeline Parameters</span>
-          {showConfig ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Plain-language explanation guide modal trigger */}
+          <button
+            onClick={() => setShowGuide(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-blue-500 hover:border-blue-500/40 transition-all cursor-pointer shadow-2xs"
+            title="What do these values and stages mean?"
+          >
+            <HelpCircle size={14} className="text-blue-500" />
+            <span>How It Works</span>
+          </button>
+
+          {/* Config Toggle Button */}
+          <button
+            onClick={() => setShowConfig(!showConfig)}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+              showConfig
+                ? 'bg-blue-500/10 border-blue-500/30 text-blue-500'
+                : 'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]'
+            }`}
+          >
+            <SlidersHorizontal size={14} />
+            <span>Pipeline Parameters</span>
+            {showConfig ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+        </div>
       </div>
 
       {/* Query Search Bar */}
-      <div className="p-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs space-y-3">
+      <div className="w-full p-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs space-y-3">
         <form onSubmit={handleExecuteSearch} className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={16} />
@@ -215,7 +233,7 @@ export default function RetrievalPlayground() {
         {/* Collapsible Tuning Panel */}
         {showConfig && (
           <div className="pt-3.5 mt-3 border-t border-[var(--border-default)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-medium text-[var(--text-secondary)]">Top Candidates (top_k)</span>
                 <span className="text-blue-500 font-bold font-mono">{topK}</span>
@@ -230,7 +248,7 @@ export default function RetrievalPlayground() {
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-medium text-[var(--text-secondary)]">RRF Constant (k)</span>
                 <span className="text-blue-500 font-bold font-mono">{rrfK}</span>
@@ -246,7 +264,7 @@ export default function RetrievalPlayground() {
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-medium text-[var(--text-secondary)]">Context Window (±chunks)</span>
                 <span className="text-blue-500 font-bold font-mono">{windowSize}</span>
@@ -261,7 +279,7 @@ export default function RetrievalPlayground() {
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <label className="text-[11px] font-medium text-[var(--text-secondary)] block">
                 Document Scope
               </label>
@@ -653,6 +671,148 @@ export default function RetrievalPlayground() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plain-Language Beginner's Retrieval Guide Modal */}
+      {showGuide && (
+        <div
+          onClick={() => setShowGuide(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-[var(--border-default)] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500">
+                  <BookOpen size={18} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                    Retrieval & Parameters: Plain English Guide
+                  </h3>
+                  <p className="text-[11px] text-[var(--text-secondary)]">
+                    How each search stage works and how to tune the sliders for your questions
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowGuide(false)}
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs text-[var(--text-secondary)]">
+              {/* Pipeline Overview */}
+              <div>
+                <h4 className="text-xs font-bold text-[var(--text-primary)] mb-2 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  The 4 Search Stages Explained
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] space-y-1">
+                    <span className="font-bold text-[var(--text-primary)] block">1. Sparse BM25 (Exact Match)</span>
+                    <p className="text-[11px] leading-relaxed">
+                      Like a traditional search engine. Looks for your <em>exact</em> words, product names, error codes, and technical phrases.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] space-y-1">
+                    <span className="font-bold text-[var(--text-primary)] block">2. Dense Vector (Concept Match)</span>
+                    <p className="text-[11px] leading-relaxed">
+                      Understands the <em>meaning</em> behind your query. Finds relevant answers even if you used completely different words or synonyms.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] space-y-1">
+                    <span className="font-bold text-[var(--text-primary)] block">3. Hybrid RRF (Best of Both)</span>
+                    <p className="text-[11px] leading-relaxed">
+                      Combines the keyword search and concept search so you don't have to choose between exact words and smart concepts.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] space-y-1">
+                    <span className="font-bold text-[var(--text-primary)] block">4. Final Rerank (Deep Scorer)</span>
+                    <p className="text-[11px] leading-relaxed">
+                      An AI reading model examines the top finalists carefully side-by-side and puts the single most helpful chunk at #1.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tuning Parameters */}
+              <div className="pt-3 border-t border-[var(--border-default)]">
+                <h4 className="text-xs font-bold text-[var(--text-primary)] mb-2.5 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  How to Adjust the Sliders
+                </h4>
+                <div className="space-y-3">
+                  <div className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]">
+                    <div className="flex items-center justify-between mb-1">
+                      <strong className="text-[var(--text-primary)]">Top Candidates (top_k)</strong>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-mono">Default: 6</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      <strong>What it means:</strong> How many chunks each search engine gathers before sending them to the final reranker.
+                    </p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                      💡 <em>Tip: Increase if your documents are large or if you feel the answer might be buried deep.</em>
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]">
+                    <div className="flex items-center justify-between mb-1">
+                      <strong className="text-[var(--text-primary)]">RRF Constant (k)</strong>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-mono">Default: 60</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      <strong>What it means:</strong> Controls how generously high-ranking items from one search method are rewarded when merged with the other.
+                    </p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                      💡 <em>Tip: Standard value of 60 offers the best overall balance between exact keywords and semantic meaning.</em>
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]">
+                    <div className="flex items-center justify-between mb-1">
+                      <strong className="text-[var(--text-primary)]">Context Window (±chunks)</strong>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-mono">Default: 1</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      <strong>What it means:</strong> When clicking "Expand", how many preceding and following paragraphs from the original document are stitched together with your match.
+                    </p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                      💡 <em>Tip: Set to 1 or 2 so AI models receive the full surrounding story without cutting off midway through a sentence.</em>
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]">
+                    <div className="flex items-center justify-between mb-1">
+                      <strong className="text-[var(--text-primary)]">Document Scope</strong>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-mono">Global or Multi-file</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      <strong>What it means:</strong> Search across all documents in your company, or narrow it down to one or more specific manuals by checking their names.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 border-t border-[var(--border-default)] bg-[var(--bg-surface)] flex items-center justify-end">
+              <button
+                onClick={() => setShowGuide(false)}
+                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-all cursor-pointer"
+              >
+                Got It
+              </button>
             </div>
           </div>
         </div>
