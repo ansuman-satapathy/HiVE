@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 import { useFeedback } from '../context/FeedbackContext'
+import CustomSelect from '../components/CustomSelect'
 
 export default function RetrievalPlayground() {
   const { notify } = useFeedback()
@@ -213,25 +214,27 @@ export default function RetrievalPlayground() {
 
         {/* Collapsible Tuning Panel */}
         {showConfig && (
-          <div className="pt-3 mt-3 border-t border-[var(--border-default)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
-            <div>
-              <label className="text-[11px] font-medium text-[var(--text-secondary)] block mb-1">
-                Top Candidates (top_k): <span className="text-blue-500 font-bold">{topK}</span>
-              </label>
+          <div className="pt-3.5 mt-3 border-t border-[var(--border-default)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-[var(--text-secondary)]">Top Candidates (top_k)</span>
+                <span className="text-blue-500 font-bold font-mono">{topK}</span>
+              </div>
               <input
                 type="range"
                 min={2}
                 max={20}
                 value={topK}
                 onChange={(e) => setTopK(Number(e.target.value))}
-                className="w-full accent-blue-500 cursor-pointer"
+                className="theme-slider cursor-pointer"
               />
             </div>
 
-            <div>
-              <label className="text-[11px] font-medium text-[var(--text-secondary)] block mb-1">
-                RRF Constant (k): <span className="text-blue-500 font-bold">{rrfK}</span>
-              </label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-[var(--text-secondary)]">RRF Constant (k)</span>
+                <span className="text-blue-500 font-bold font-mono">{rrfK}</span>
+              </div>
               <input
                 type="range"
                 min={10}
@@ -239,48 +242,38 @@ export default function RetrievalPlayground() {
                 step={5}
                 value={rrfK}
                 onChange={(e) => setRrfK(Number(e.target.value))}
-                className="w-full accent-blue-500 cursor-pointer"
+                className="theme-slider cursor-pointer"
               />
             </div>
 
-            <div>
-              <label className="text-[11px] font-medium text-[var(--text-secondary)] block mb-1">
-                Context Window (±chunks): <span className="text-blue-500 font-bold">{windowSize}</span>
-              </label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-[var(--text-secondary)]">Context Window (±chunks)</span>
+                <span className="text-blue-500 font-bold font-mono">{windowSize}</span>
+              </div>
               <input
                 type="range"
                 min={0}
                 max={4}
                 value={windowSize}
                 onChange={(e) => setWindowSize(Number(e.target.value))}
-                className="w-full accent-blue-500 cursor-pointer"
+                className="theme-slider cursor-pointer"
               />
             </div>
 
-            <div>
-              <label className="text-[11px] font-medium text-[var(--text-secondary)] block mb-1">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-[var(--text-secondary)] block">
                 Document Scope
               </label>
-              <div className="relative">
-                <select
-                  value={selectedDocId}
-                  onChange={(e) => setSelectedDocId(e.target.value)}
-                  className="w-full pl-2.5 pr-8 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] text-xs text-[var(--text-primary)] focus:outline-hidden focus:border-blue-500 appearance-none cursor-pointer transition-colors"
-                >
-                  <option value="" className="bg-slate-900 text-slate-100 py-1">
-                    All Documents (Global)
-                  </option>
-                  {documents.map((d) => (
-                    <option key={d.id} value={d.id} className="bg-slate-900 text-slate-100 py-1">
-                      {d.filename}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={13}
-                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
-                />
-              </div>
+              <CustomSelect
+                value={selectedDocId}
+                onChange={setSelectedDocId}
+                placeholder="All Documents (Global)"
+                options={[
+                  { value: '', label: 'All Documents (Global)' },
+                  ...documents.map((d) => ({ value: d.id, label: d.filename })),
+                ]}
+              />
             </div>
           </div>
         )}
