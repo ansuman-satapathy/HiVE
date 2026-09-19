@@ -27,6 +27,7 @@ import { tokenStorage } from '../utils/storage'
 import { useEventStream } from '../hooks/useEventStream'
 import CustomSelect from '../components/CustomSelect'
 import StreamingMarkdown from '../components/StreamingMarkdown'
+import { HiveLogoIcon } from '../components/HiveLogo'
 
 const STORAGE_KEY = 'quickdesk_chat_sessions_v1'
 
@@ -871,10 +872,10 @@ export default function ChatWorkspace() {
 
               // Assistant Message: Open Editorial Flow
               return (
-                <div key={msg.id} className="flex gap-4 w-full group animate-in fade-in">
-                  {/* Subtle Assistant Avatar */}
-                  <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                    <Sparkles size={14} />
+                <div key={msg.id} className="flex gap-3.5 sm:gap-4 w-full group animate-in fade-in">
+                  {/* HiVE Brand Assistant Avatar */}
+                  <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs overflow-hidden">
+                    <HiveLogoIcon size={18} />
                   </div>
 
                   {/* Open Reading Column */}
@@ -950,9 +951,9 @@ export default function ChatWorkspace() {
 
             {/* ── Active Streaming Turn ──────────────────────────────────── */}
             {isStreaming && (
-              <div className="flex gap-4 w-full animate-in fade-in">
-                <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                  <Sparkles size={14} />
+              <div className="flex gap-3.5 sm:gap-4 w-full animate-in fade-in">
+                <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs overflow-hidden">
+                  <HiveLogoIcon size={18} className="animate-pulse" />
                 </div>
 
                 <div className="flex-1 min-w-0 space-y-3">
