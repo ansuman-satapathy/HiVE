@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, UploadFile, File, status, BackgroundTasks, Query
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -18,6 +18,7 @@ from app.schemas.document import (
     DenseSearchResult,
     HybridSearchResult,
     RerankResponse,
+    ExpandedContextResult,
 )
 from app.db.repositories.document_repo import DocumentRepository
 from app.services.document_service import DocumentService
@@ -263,6 +264,29 @@ async def get_document_chunks(
     await DocumentService.get_user_document(db, current_user.id, document_id)
     chunks = await DocumentRepository.get_chunks_for_document(db, document_id, skip=skip, limit=limit)
     return [DocumentChunkResponse.model_validate(c) for c in chunks]
+
+
+@router.post("/chunks/{chunk_id}/expand", response_model=ExpandedContextResult)
+async def expand_chunk_context(
+    chunk_id: UUID,
+    window_size: int = Query(1, ge=0, le=5, description="Number of sibling chunks to expand on left and right"),
+    max_tokens: Optional[int] = Query(None, ge=50, le=8000, description="Optional token budget ceiling"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ticket 13: Context Expansion & Parent Document Enrichment.
+    Expands a granular chunk's context window by fetching adjacent sibling chunks
+    and merging them into a seamless, deduplicated text payload for LLM prompts.
+    """
+    from app.services.context_expansion_service import ContextExpansionService
+    return await ContextExpansionService.expand_chunk_context(
+        db=db,
+        chunk_id=chunk_id,
+        window_size=window_size,
+        max_tokens=max_tokens,
+        user_id=current_user.id
+    )
 
 
 @router.post("/{document_id}/retry", response_model=DocumentResponse)
