@@ -549,10 +549,10 @@ export default function ChatWorkspace() {
       {/* ── 1. Serene Conversation Sidebar ──────────────────────────────── */}
       <aside
         className={`${
-          sidebarOpen ? 'w-64 sm:w-72 border-r' : 'w-0 border-r-0'
+          sidebarOpen ? 'w-60 sm:w-64 border-r' : 'w-0 border-r-0'
         } transition-all duration-300 ease-in-out border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col shrink-0 overflow-hidden z-20`}
       >
-        <div className="w-64 sm:w-72 flex flex-col h-full shrink-0">
+        <div className="w-60 sm:w-64 flex flex-col h-full shrink-0">
           {/* Sidebar Header - exactly h-13 to align seamlessly with main header */}
           <div className="h-13 px-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2 shrink-0">
             <button
@@ -667,7 +667,10 @@ export default function ChatWorkspace() {
 
             <div className="flex items-center justify-between text-[10.5px] text-[var(--text-muted)] pt-0.5">
               <span>{sessions.length} {sessions.length === 1 ? 'conversation' : 'conversations'}</span>
-              <span className="text-blue-500/80 font-medium">Llama-3.2 RAG</span>
+              <span className="flex items-center gap-1 text-emerald-500 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                <span>Ready</span>
+              </span>
             </div>
           </div>
         </div>
@@ -752,12 +755,6 @@ export default function ChatWorkspace() {
                 <span className="hidden sm:inline">Export</span>
               </button>
             )}
-
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-default)] text-[11px] text-[var(--text-secondary)]">
-              <Sparkles size={11} className="text-blue-500" />
-              <span className="hidden sm:inline">Model:</span>
-              <span className="font-mono text-[10px] text-[var(--text-primary)] font-medium">llama-3.2-11b</span>
-            </span>
           </div>
         </header>
 
@@ -1038,7 +1035,14 @@ export default function ChatWorkspace() {
 
               {/* Bottom Toolbar inside the Island */}
               <div className="px-3.5 pb-2.5 pt-1.5 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)]/60 bg-[var(--bg-canvas)]/30">
+                {/* Active Scope & Model in Composer Toolbar */}
                 <div className="flex items-center gap-2 truncate">
+                  {/* Model Selector Pill (Ready for custom API models) */}
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-default)] text-[11px] text-[var(--text-secondary)] shadow-2xs shrink-0 cursor-default select-none" title="Current Active Model (Custom API models coming soon)">
+                    <Sparkles size={11} className="text-blue-500" />
+                    <span className="font-mono text-[10px] text-[var(--text-primary)] font-semibold">Llama 3.2 11B</span>
+                  </div>
+
                   {/* Active Scope Pill */}
                   {selectedDocIds.length > 0 ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-600 dark:text-blue-400 font-medium shadow-2xs">
@@ -1052,15 +1056,15 @@ export default function ChatWorkspace() {
                         type="button"
                         onClick={() => setSelectedDocIds([])}
                         className="hover:text-rose-500 cursor-pointer p-0.5 rounded-full"
-                        title="Remove filter"
+                        title="Search all documents"
                       >
                         <X size={10} />
                       </button>
                     </span>
                   ) : (
-                    <span className="text-[11px] text-[var(--text-muted)] hidden sm:flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500/60" />
-                      <span>Scoped to all indexed repository documents</span>
+                    <span className="text-[11px] text-[var(--text-muted)] hidden sm:flex items-center gap-1.5 truncate">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
+                      <span>All Documents</span>
                     </span>
                   )}
                 </div>
