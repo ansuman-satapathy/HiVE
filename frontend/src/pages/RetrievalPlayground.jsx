@@ -57,7 +57,7 @@ export default function RetrievalPlayground() {
         })
         if (res.ok) {
           const json = await res.json()
-          setDocuments(json.documents || [])
+          setDocuments(json.items || json.documents || [])
         }
       } catch (err) {
         console.error('Failed to load documents filter list:', err)
@@ -249,18 +249,26 @@ export default function RetrievalPlayground() {
               <label className="text-[11px] font-medium text-[var(--text-secondary)] block mb-1">
                 Document Scope
               </label>
-              <select
-                value={selectedDocId}
-                onChange={(e) => setSelectedDocId(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] text-xs text-[var(--text-primary)]"
-              >
-                <option value="">All Documents (Global)</option>
-                {documents.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.filename}
+              <div className="relative">
+                <select
+                  value={selectedDocId}
+                  onChange={(e) => setSelectedDocId(e.target.value)}
+                  className="w-full pl-2.5 pr-8 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] text-xs text-[var(--text-primary)] focus:outline-hidden focus:border-blue-500 appearance-none cursor-pointer transition-colors"
+                >
+                  <option value="" className="bg-slate-900 text-slate-100 py-1">
+                    All Documents (Global)
                   </option>
-                ))}
-              </select>
+                  {documents.map((d) => (
+                    <option key={d.id} value={d.id} className="bg-slate-900 text-slate-100 py-1">
+                      {d.filename}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={13}
+                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+                />
+              </div>
             </div>
           </div>
         )}
