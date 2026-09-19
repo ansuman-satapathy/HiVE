@@ -47,6 +47,18 @@ export default function RetrievalPlayground() {
   const [loadingExpansion, setLoadingExpansion] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  // Close modal on Escape key press
+  useEffect(() => {
+    if (!expansionModal) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setExpansionModal(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [expansionModal])
+
   // Fetch document list for document filter dropdown
   useEffect(() => {
     async function loadDocs() {
@@ -562,8 +574,14 @@ export default function RetrievalPlayground() {
 
       {/* Context Window Preview Drawer/Modal */}
       {expansionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-2xl rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div
+          onClick={() => setExpansionModal(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+          >
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-[var(--border-default)] flex items-center justify-between">
               <div className="flex items-center gap-2">
