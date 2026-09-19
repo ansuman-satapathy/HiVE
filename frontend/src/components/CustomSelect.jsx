@@ -144,7 +144,7 @@ export default function CustomSelect({
 
       {/* Dropdown Menu */}
       {open && (
-        <div className="absolute right-0 z-50 mt-1.5 w-full min-w-[280px] max-w-md rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+        <div className="absolute right-0 z-50 mt-1.5 w-full min-w-[240px] max-w-[320px] rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 flex flex-col">
           {/* Quick Search Filter */}
           {options.length > 4 && (
             <div className="p-1 pb-1.5 mb-1 border-b border-[var(--border-subtle)]">
