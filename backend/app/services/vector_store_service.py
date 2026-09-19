@@ -138,7 +138,16 @@ class VectorStoreService:
             return []
 
         query_embedding = self.embedding_provider.embed_query(query)
-        where_clause = {"document_id": str(document_id)} if document_id else None
+        where_clause = None
+        if document_id:
+            if isinstance(document_id, (list, set, tuple)):
+                clean_ids = [str(d) for d in document_id if d]
+                if len(clean_ids) == 1:
+                    where_clause = {"document_id": clean_ids[0]}
+                elif len(clean_ids) > 1:
+                    where_clause = {"document_id": {"$in": clean_ids}}
+            else:
+                where_clause = {"document_id": str(document_id)}
 
         results = self.collection.query(
             query_embeddings=[query_embedding],

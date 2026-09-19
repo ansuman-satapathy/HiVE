@@ -24,7 +24,8 @@ class RetrievalDebugRequest(BaseModel):
     query: str = Field(..., min_length=1, description="Search query string")
     top_k: int = Field(10, ge=1, le=50, description="Max candidates to retrieve per stage")
     rrf_k: int = Field(60, ge=1, le=200, description="RRF fusion smoothing constant")
-    document_id: Optional[UUID] = Field(None, description="Optional document filter")
+    document_id: Optional[UUID] = Field(None, description="Optional single document filter")
+    document_ids: Optional[List[UUID]] = Field(None, description="Optional multiple document filters")
     expand_top_k: int = Field(1, ge=0, le=5, description="Number of top candidates to expand context for")
     window_size: int = Field(1, ge=0, le=5, description="Context expansion window size (chunks before/after)")
 
@@ -83,13 +84,20 @@ async def debug_retrieval_pipeline(
     """
     overall_start = time.perf_counter()
 
+    # Determine document scope filter
+    target_docs = None
+    if req.document_ids:
+        target_docs = [str(d) for d in req.document_ids if d]
+    elif req.document_id:
+        target_docs = [str(req.document_id)]
+
     # ── Stage 1: Sparse BM25 Search ──────────────────────────────────────────
     sparse_start = time.perf_counter()
     bm25 = BM25IndexService.get_instance()
     sparse_raw = bm25.search_sparse(
         query=req.query,
         top_k=req.top_k,
-        document_id=req.document_id
+        document_id=target_docs
     )
     sparse_latency = (time.perf_counter() - sparse_start) * 1000.0
 
@@ -113,7 +121,7 @@ async def debug_retrieval_pipeline(
     dense_raw = vstore.search_dense(
         query=req.query,
         top_k=req.top_k,
-        document_id=req.document_id
+        document_id=target_docs
     )
     dense_latency = (time.perf_counter() - dense_start) * 1000.0
 

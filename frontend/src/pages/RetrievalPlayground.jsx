@@ -34,7 +34,7 @@ export default function RetrievalPlayground() {
   const [topK, setTopK] = useState(6)
   const [rrfK, setRrfK] = useState(60)
   const [windowSize, setWindowSize] = useState(1)
-  const [selectedDocId, setSelectedDocId] = useState('')
+  const [selectedDocIds, setSelectedDocIds] = useState([])
   const [documents, setDocuments] = useState([])
   const [showConfig, setShowConfig] = useState(false)
 
@@ -99,7 +99,7 @@ export default function RetrievalPlayground() {
           rrf_k: Number(rrfK),
           window_size: Number(windowSize),
           expand_top_k: 1,
-          document_id: selectedDocId || null,
+          document_ids: selectedDocIds.length > 0 ? selectedDocIds : null,
         }),
       })
 
@@ -266,8 +266,9 @@ export default function RetrievalPlayground() {
                 Document Scope
               </label>
               <CustomSelect
-                value={selectedDocId}
-                onChange={setSelectedDocId}
+                isMulti={true}
+                value={selectedDocIds}
+                onChange={setSelectedDocIds}
                 placeholder="All Documents (Global)"
                 options={[
                   { value: '', label: 'All Documents (Global)' },
