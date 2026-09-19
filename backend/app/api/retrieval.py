@@ -86,10 +86,14 @@ async def debug_retrieval_pipeline(
 
     # Determine document scope filter
     target_docs = None
-    if req.document_ids:
-        target_docs = [str(d) for d in req.document_ids if d]
+    if req.document_ids is not None:
+        clean = [str(d).strip() for d in req.document_ids if str(d).strip()]
+        if clean:
+            target_docs = clean
     elif req.document_id:
-        target_docs = [str(req.document_id)]
+        s = str(req.document_id).strip()
+        if s:
+            target_docs = [s]
 
     # ── Stage 1: Sparse BM25 Search ──────────────────────────────────────────
     sparse_start = time.perf_counter()

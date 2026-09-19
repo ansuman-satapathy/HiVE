@@ -104,8 +104,14 @@ export default function RetrievalPlayground() {
           top_k: Number(topK),
           rrf_k: Number(rrfK),
           window_size: Number(windowSize),
-          expand_top_k: 1,
-          document_ids: selectedDocIds.length > 0 ? selectedDocIds : null,
+          document_ids:
+            selectedDocIds.filter(Boolean).length > 0
+              ? selectedDocIds.filter(Boolean)
+              : null,
+          document_id:
+            selectedDocIds.filter(Boolean).length === 1
+              ? selectedDocIds.filter(Boolean)[0]
+              : null,
         }),
       })
 

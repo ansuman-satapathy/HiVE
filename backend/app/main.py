@@ -41,28 +41,40 @@ async def lifespan(app: FastAPI):
                     for c in chunks
                 ])
 
-                # Also verify ChromaDB collection has vectors indexed
+                # Warm up ChromaDB collection in background without blocking server startup
+                import asyncio
                 from app.services.vector_store_service import VectorStoreService
-                vstore = VectorStoreService.get_instance()
-                if vstore.collection.count() < len(chunks):
-                    logger.info(
-                        f"Warming up ChromaDB vector store: {vstore.collection.count()} current vs {len(chunks)} expected chunks."
-                    )
-                    batch_size = 200
-                    for i in range(0, len(chunks), batch_size):
-                        batch = chunks[i:i+batch_size]
-                        vstore.add_chunks([
-                            {
-                                "id": c.id,
-                                "document_id": c.document_id,
-                                "chunk_index": c.chunk_index,
-                                "content": c.content,
-                                "token_count": c.token_count,
-                                "chunk_metadata": c.chunk_metadata,
-                            }
-                            for c in batch
-                        ])
-                    logger.info(f"ChromaDB warmup complete. Total vectors: {vstore.collection.count()}")
+
+                async def warmup_vector_store(chunks_to_warm):
+                    try:
+                        vstore = VectorStoreService.get_instance()
+                        curr_count = vstore.collection.count()
+                        if curr_count < len(chunks_to_warm):
+                            logger.info(
+                                f"Warming up ChromaDB vector store in background: {curr_count} current vs {len(chunks_to_warm)} expected chunks."
+                            )
+                            loop = asyncio.get_running_loop()
+                            batch_size = 100
+                            for i in range(0, len(chunks_to_warm), batch_size):
+                                batch = chunks_to_warm[i:i+batch_size]
+                                chunk_dicts = [
+                                    {
+                                        "id": c.id,
+                                        "document_id": c.document_id,
+                                        "chunk_index": c.chunk_index,
+                                        "content": c.content,
+                                        "token_count": c.token_count,
+                                        "chunk_metadata": c.chunk_metadata,
+                                    }
+                                    for c in batch
+                                ]
+                                await loop.run_in_executor(None, vstore.add_chunks, chunk_dicts)
+                                await asyncio.sleep(0.05)
+                            logger.info(f"Background ChromaDB warmup complete. Total vectors: {vstore.collection.count()}")
+                    except Exception as warm_err:
+                        logger.warning(f"Background ChromaDB warmup error: {warm_err}")
+
+                asyncio.create_task(warmup_vector_store(chunks))
         # Resume any documents that were interrupted mid-ingestion
         import asyncio
         from app.services.ingestion_worker import IngestionWorker

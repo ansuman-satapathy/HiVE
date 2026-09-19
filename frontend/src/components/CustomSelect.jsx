@@ -52,7 +52,7 @@ export default function CustomSelect({
   // Handle selection in multi vs single mode
   const handleSelect = (val) => {
     if (isMulti) {
-      const currentValues = Array.isArray(value) ? value : []
+      const currentValues = (Array.isArray(value) ? value : []).filter(Boolean)
       if (!val) {
         // Empty value represents "All Documents (Global)" -> reset to empty array
         onChange([])
@@ -63,7 +63,7 @@ export default function CustomSelect({
         onChange(next)
       }
     } else {
-      onChange(val)
+      onChange(val || '')
       setOpen(false)
       setFilter('')
     }

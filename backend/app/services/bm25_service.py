@@ -119,11 +119,17 @@ class BM25IndexService:
 
         # Filter and rank candidates: support single ID, list of IDs, or None
         target_doc_ids: Optional[set] = None
-        if document_id:
+        if document_id is not None:
             if isinstance(document_id, (list, set, tuple)):
-                target_doc_ids = {str(d) for d in document_id if d}
+                clean_ids = {str(d).strip() for d in document_id if str(d).strip()}
+                if clean_ids:
+                    target_doc_ids = clean_ids
+                elif len(document_id) > 0:
+                    return []
             else:
-                target_doc_ids = {str(document_id)}
+                s = str(document_id).strip()
+                if s:
+                    target_doc_ids = {s}
 
         results = []
 
@@ -132,7 +138,7 @@ class BM25IndexService:
                 continue
 
             record = records_snapshot[idx]
-            if target_doc_ids and record["document_id"] not in target_doc_ids:
+            if target_doc_ids is not None and record["document_id"] not in target_doc_ids:
                 continue
 
             item = dict(record)
