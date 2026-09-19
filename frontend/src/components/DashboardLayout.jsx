@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useTaskQueue } from '../context/TaskQueueContext'
-import { LogOut, Bot, Files, Activity, Layers, Loader2, Sun, Moon } from 'lucide-react'
+import { LogOut, Bot, Files, Activity, Layers, Loader2, Sun, Moon, MessageSquare } from 'lucide-react'
 import TaskQueueDrawer from './TaskQueueDrawer'
 
 import HiveLogo from './HiveLogo'
@@ -48,6 +48,20 @@ export default function DashboardLayout({ children }) {
             >
               <Files size={15} />
               <span>Workspace</span>
+            </NavLink>
+
+            <NavLink
+              to="/workspace/chat"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-blue-500/10 text-blue-500 font-semibold dark:bg-blue-500/15'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
+                }`
+              }
+            >
+              <MessageSquare size={15} />
+              <span>Chat</span>
             </NavLink>
 
             <NavLink
