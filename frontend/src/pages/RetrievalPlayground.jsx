@@ -176,7 +176,7 @@ export default function RetrievalPlayground() {
               <SplitSquareVertical size={20} />
             </span>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-0.5">
                 Retrieval Funnel Playground
               </h1>
               <p className="text-xs text-[var(--text-secondary)]">
