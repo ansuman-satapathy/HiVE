@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { tokenStorage } from '../services/api'
+import { tokenStorage } from '../utils/storage'
 
 /**
  * Custom React hook for consuming Server-Sent Events (SSE) streaming APIs via POST requests.

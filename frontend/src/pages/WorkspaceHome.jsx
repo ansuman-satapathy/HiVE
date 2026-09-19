@@ -59,9 +59,16 @@ export default function WorkspaceHome() {
             </p>
           </div>
           <div className="flex items-center justify-between pt-4 border-t border-[var(--border-default)]">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border-default)]">
-              Next Phase
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 uppercase tracking-wide">
+              Live
             </span>
+            <Link
+              to="/workspace/chat"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 hover:text-blue-400 transition-colors"
+            >
+              <span>Launch Chat</span>
+              <ArrowUpRight size={14} />
+            </Link>
           </div>
         </div>
 
