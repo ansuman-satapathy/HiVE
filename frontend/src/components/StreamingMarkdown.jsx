@@ -218,7 +218,9 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
     <div className={`streaming-markdown ${className}`}>
       {renderBlocks()}
       {isStreaming && (
-        <span className="inline-block w-1.5 h-4 ml-1 bg-blue-500/80 animate-pulse align-middle rounded-xs" />
+        <span className="inline-flex items-center ml-1 align-baseline">
+          <span className="inline-block w-1.5 h-3.5 bg-blue-500 rounded-xs animate-pulse opacity-80" />
+        </span>
       )}
     </div>
   )
