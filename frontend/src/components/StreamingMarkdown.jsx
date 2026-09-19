@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 
 /**
- * High-performance streaming markdown and code block renderer with zero external dependencies.
- * Formats headings, lists, blockquotes, inline tags, and fenced code blocks with 1-click copy.
+ * Editorial-grade streaming markdown and code block renderer.
+ * Designed with Claude-inspired typography, open reading rhythm, and zero external dependencies.
  */
 export default function StreamingMarkdown({ content = '', isStreaming = false, className = '' }) {
   const [copiedCodeId, setCopiedCodeId] = useState(null)
@@ -28,7 +28,7 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
         return (
           <code
             key={i}
-            className="px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono text-[11px] border border-blue-500/20"
+            className="px-1.5 py-0.5 rounded-md bg-[var(--bg-subtle)] text-blue-600 dark:text-blue-400 font-mono text-[12px] border border-[var(--border-default)]"
           >
             {part.slice(1, -1)}
           </code>
@@ -101,17 +101,17 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
         return (
           <div
             key={bIdx}
-            className="my-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] overflow-hidden shadow-xs"
+            className="my-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] overflow-hidden shadow-xs"
           >
             {/* Code Block Header */}
-            <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[11px] text-[var(--text-muted)]">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[11px] text-[var(--text-muted)]">
               <span className="font-mono uppercase font-semibold text-[10px] tracking-wider text-[var(--text-secondary)]">
                 {block.language || 'code'}
               </span>
               <button
                 type="button"
                 onClick={() => handleCopyCode(block.code, block.id)}
-                className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer text-[11px]"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer text-[11px]"
               >
                 {isCopied ? (
                   <>
@@ -127,7 +127,7 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
               </button>
             </div>
             {/* Code Content */}
-            <pre className="p-3.5 text-xs font-mono overflow-x-auto leading-relaxed text-[var(--text-primary)] select-text">
+            <pre className="p-4 text-[12.5px] font-mono overflow-x-auto leading-relaxed text-[var(--text-primary)] select-text">
               <code>{block.code}</code>
             </pre>
           </div>
@@ -137,7 +137,7 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
       // Render markdown paragraph lines
       const lines = block.text.split('\n')
       return (
-        <div key={bIdx} className="space-y-2">
+        <div key={bIdx} className="space-y-3">
           {lines.map((line, lIdx) => {
             const trimmed = line.trim()
             if (!trimmed) {
@@ -147,21 +147,21 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
             // Headings
             if (trimmed.startsWith('### ')) {
               return (
-                <h4 key={lIdx} className="text-xs font-bold text-[var(--text-primary)] mt-3 mb-1">
+                <h4 key={lIdx} className="text-[15px] font-semibold text-[var(--text-primary)] tracking-tight mt-5 mb-2">
                   {renderInline(trimmed.slice(4))}
                 </h4>
               )
             }
             if (trimmed.startsWith('## ')) {
               return (
-                <h3 key={lIdx} className="text-sm font-bold text-[var(--text-primary)] mt-3.5 mb-1.5">
+                <h3 key={lIdx} className="text-lg font-bold text-[var(--text-primary)] tracking-tight mt-6 mb-2.5">
                   {renderInline(trimmed.slice(3))}
                 </h3>
               )
             }
             if (trimmed.startsWith('# ')) {
               return (
-                <h2 key={lIdx} className="text-base font-bold text-[var(--text-primary)] mt-4 mb-2">
+                <h2 key={lIdx} className="text-xl font-bold text-[var(--text-primary)] tracking-tight mt-7 mb-3">
                   {renderInline(trimmed.slice(2))}
                 </h2>
               )
@@ -172,7 +172,7 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
               return (
                 <blockquote
                   key={lIdx}
-                  className="pl-3 py-1 my-1 border-l-2 border-blue-500/60 bg-blue-500/5 rounded-r text-[11px] text-[var(--text-secondary)] italic"
+                  className="pl-4 py-1.5 my-2.5 border-l-2 border-blue-500/60 bg-blue-500/[0.04] rounded-r-lg text-[13.5px] text-[var(--text-secondary)] italic leading-relaxed"
                 >
                   {renderInline(trimmed.slice(2))}
                 </blockquote>
@@ -182,9 +182,9 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
             // Bullet Lists
             if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
               return (
-                <div key={lIdx} className="flex items-start gap-2 pl-2 my-0.5 text-xs">
-                  <span className="text-blue-500 font-bold select-none leading-relaxed">•</span>
-                  <span className="flex-1 leading-relaxed">{renderInline(trimmed.slice(2))}</span>
+                <div key={lIdx} className="flex items-start gap-2.5 pl-1 my-1 text-[14px]">
+                  <span className="text-blue-500 select-none leading-[1.7] text-base">•</span>
+                  <span className="flex-1 leading-[1.7] text-[var(--text-primary)]">{renderInline(trimmed.slice(2))}</span>
                 </div>
               )
             }
@@ -193,18 +193,18 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
             const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/)
             if (numMatch) {
               return (
-                <div key={lIdx} className="flex items-start gap-2 pl-2 my-0.5 text-xs">
-                  <span className="font-mono text-[11px] font-semibold text-blue-500 select-none leading-relaxed">
+                <div key={lIdx} className="flex items-start gap-2.5 pl-1 my-1 text-[14px]">
+                  <span className="font-mono text-[12px] font-semibold text-blue-500 select-none leading-[1.7] pt-0.5">
                     {numMatch[1]}.
                   </span>
-                  <span className="flex-1 leading-relaxed">{renderInline(numMatch[2])}</span>
+                  <span className="flex-1 leading-[1.7] text-[var(--text-primary)]">{renderInline(numMatch[2])}</span>
                 </div>
               )
             }
 
             // Standard Paragraph
             return (
-              <p key={lIdx} className="text-xs leading-relaxed text-[var(--text-primary)]">
+              <p key={lIdx} className="text-[14.5px] leading-[1.75] text-[var(--text-primary)]">
                 {renderInline(line)}
               </p>
             )
@@ -215,10 +215,10 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
   }
 
   return (
-    <div className={`streaming-markdown leading-relaxed ${className}`}>
+    <div className={`streaming-markdown ${className}`}>
       {renderBlocks()}
       {isStreaming && (
-        <span className="inline-block w-1.5 h-3.5 ml-1 bg-blue-500 animate-pulse align-middle rounded-xs" />
+        <span className="inline-block w-1.5 h-4 ml-1 bg-blue-500/80 animate-pulse align-middle rounded-xs" />
       )}
     </div>
   )
