@@ -136,9 +136,12 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
 
       // Render markdown paragraph lines
       const lines = block.text.split('\n')
+      const isLastBlock = bIdx === blocks.length - 1
+
       return (
         <div key={bIdx} className="space-y-3">
           {lines.map((line, lIdx) => {
+            const isLastLine = isLastBlock && lIdx === lines.length - 1
             const trimmed = line.trim()
             if (!trimmed) {
               return <div key={lIdx} className="h-2" />
@@ -149,6 +152,9 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
               return (
                 <h4 key={lIdx} className="text-[15px] font-semibold text-[var(--text-primary)] tracking-tight mt-5 mb-2">
                   {renderInline(trimmed.slice(4))}
+                  {isStreaming && isLastLine && (
+                    <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                  )}
                 </h4>
               )
             }
@@ -156,6 +162,9 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
               return (
                 <h3 key={lIdx} className="text-lg font-bold text-[var(--text-primary)] tracking-tight mt-6 mb-2.5">
                   {renderInline(trimmed.slice(3))}
+                  {isStreaming && isLastLine && (
+                    <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                  )}
                 </h3>
               )
             }
@@ -163,6 +172,9 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
               return (
                 <h2 key={lIdx} className="text-xl font-bold text-[var(--text-primary)] tracking-tight mt-7 mb-3">
                   {renderInline(trimmed.slice(2))}
+                  {isStreaming && isLastLine && (
+                    <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                  )}
                 </h2>
               )
             }
@@ -175,6 +187,9 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
                   className="pl-4 py-1.5 my-2.5 border-l-2 border-blue-500/60 bg-blue-500/[0.04] rounded-r-lg text-[13.5px] text-[var(--text-secondary)] italic leading-relaxed"
                 >
                   {renderInline(trimmed.slice(2))}
+                  {isStreaming && isLastLine && (
+                    <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                  )}
                 </blockquote>
               )
             }
@@ -184,7 +199,12 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
               return (
                 <div key={lIdx} className="flex items-start gap-2.5 pl-1 my-1 text-[14px]">
                   <span className="text-blue-500 select-none leading-[1.7] text-base">•</span>
-                  <span className="flex-1 leading-[1.7] text-[var(--text-primary)]">{renderInline(trimmed.slice(2))}</span>
+                  <span className="flex-1 leading-[1.7] text-[var(--text-primary)]">
+                    {renderInline(trimmed.slice(2))}
+                    {isStreaming && isLastLine && (
+                      <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                    )}
+                  </span>
                 </div>
               )
             }
@@ -197,7 +217,12 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
                   <span className="font-mono text-[12px] font-semibold text-blue-500 select-none leading-[1.7] pt-0.5">
                     {numMatch[1]}.
                   </span>
-                  <span className="flex-1 leading-[1.7] text-[var(--text-primary)]">{renderInline(numMatch[2])}</span>
+                  <span className="flex-1 leading-[1.7] text-[var(--text-primary)]">
+                    {renderInline(numMatch[2])}
+                    {isStreaming && isLastLine && (
+                      <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                    )}
+                  </span>
                 </div>
               )
             }
@@ -206,6 +231,9 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
             return (
               <p key={lIdx} className="text-[14.5px] leading-[1.75] text-[var(--text-primary)]">
                 {renderInline(line)}
+                {isStreaming && isLastLine && (
+                  <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                )}
               </p>
             )
           })}
@@ -217,11 +245,6 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
   return (
     <div className={`streaming-markdown ${className}`}>
       {renderBlocks()}
-      {isStreaming && (
-        <span className="inline-flex items-center ml-1 align-baseline">
-          <span className="inline-block w-1.5 h-3.5 bg-blue-500 rounded-xs animate-pulse opacity-80" />
-        </span>
-      )}
     </div>
   )
 }
