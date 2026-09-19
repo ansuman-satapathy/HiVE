@@ -40,6 +40,29 @@ async def lifespan(app: FastAPI):
                     }
                     for c in chunks
                 ])
+
+                # Also verify ChromaDB collection has vectors indexed
+                from app.services.vector_store_service import VectorStoreService
+                vstore = VectorStoreService.get_instance()
+                if vstore.collection.count() < len(chunks):
+                    logger.info(
+                        f"Warming up ChromaDB vector store: {vstore.collection.count()} current vs {len(chunks)} expected chunks."
+                    )
+                    batch_size = 200
+                    for i in range(0, len(chunks), batch_size):
+                        batch = chunks[i:i+batch_size]
+                        vstore.add_chunks([
+                            {
+                                "id": c.id,
+                                "document_id": c.document_id,
+                                "chunk_index": c.chunk_index,
+                                "content": c.content,
+                                "token_count": c.token_count,
+                                "chunk_metadata": c.chunk_metadata,
+                            }
+                            for c in batch
+                        ])
+                    logger.info(f"ChromaDB warmup complete. Total vectors: {vstore.collection.count()}")
         # Resume any documents that were interrupted mid-ingestion
         import asyncio
         from app.services.ingestion_worker import IngestionWorker
