@@ -19,6 +19,7 @@ import {
   Clock,
   ChevronDown,
   ArrowDown,
+  ArrowUp,
   Edit2,
   RefreshCw,
   Download,
@@ -1086,12 +1087,12 @@ export default function ChatWorkspace() {
                       disabled={!inputPrompt.trim()}
                       className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all cursor-pointer ${
                         inputPrompt.trim()
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs scale-100'
-                          : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] opacity-40 cursor-not-allowed scale-95'
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                          : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] opacity-40 cursor-not-allowed'
                       }`}
                       title="Send message (Enter)"
                     >
-                      <Send size={13} className={inputPrompt.trim() ? 'translate-x-0.5 -translate-y-0.5' : ''} />
+                      <ArrowUp size={15} strokeWidth={2.5} />
                     </button>
                   )}
                 </div>
