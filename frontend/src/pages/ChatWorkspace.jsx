@@ -159,6 +159,15 @@ export default function ChatWorkspace() {
   // Create new session
   const handleCreateNewChat = () => {
     if (isStreaming) abortStream()
+    // If an empty new conversation already exists, just switch to it
+    const existingEmpty = sessions.find((s) => !s.messages || s.messages.length === 0)
+    if (existingEmpty) {
+      setActiveSessionId(existingEmpty.id)
+      resetStream()
+      userHasScrolledUp.current = false
+      return
+    }
+
     const newSession = {
       id: `chat_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       title: 'New Conversation',
@@ -174,6 +183,10 @@ export default function ChatWorkspace() {
   // Request delete session (opens confirmation dialog)
   const handleRequestDeleteSession = (session, e) => {
     e.stopPropagation()
+    // Do not allow deleting a new conversation with no messages
+    if (!session || !session.messages || session.messages.length === 0) {
+      return
+    }
     setSessionToDelete(session)
   }
 
@@ -380,14 +393,16 @@ export default function ChatWorkspace() {
                     <span className="truncate">{session.title || 'New Conversation'}</span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={(e) => handleRequestDeleteSession(session, e)}
-                    title="Delete conversation"
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shrink-0"
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                  {session.messages && session.messages.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleRequestDeleteSession(session, e)}
+                      title="Delete conversation"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shrink-0"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
                 </div>
               )
             })}
