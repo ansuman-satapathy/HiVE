@@ -549,21 +549,21 @@ export default function ChatWorkspace() {
       <aside
         className={`${
           sidebarOpen ? 'w-64 sm:w-72 border-r' : 'w-0 border-r-0'
-        } transition-all duration-300 ease-in-out border-[var(--border-default)] bg-[var(--bg-surface)] flex flex-col shrink-0 overflow-hidden z-20`}
+        } transition-all duration-300 ease-in-out border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col shrink-0 overflow-hidden z-20`}
       >
         <div className="w-64 sm:w-72 flex flex-col h-full shrink-0">
-          {/* Sidebar Header */}
-          <div className="p-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2">
+          {/* Sidebar Header - exactly h-13 to align seamlessly with main header */}
+          <div className="h-13 px-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2 shrink-0">
             <button
               onClick={handleCreateNewChat}
-              className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group"
             >
               <Plus size={14} className="text-blue-500 group-hover:rotate-90 transition-transform duration-200" />
               <span>New Conversation</span>
             </button>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer"
+              className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer"
               title="Close sidebar"
             >
               <PanelLeftClose size={16} />
