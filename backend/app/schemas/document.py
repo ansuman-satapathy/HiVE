@@ -151,3 +151,20 @@ class RerankResponse(BaseModel):
     fallback_triggered: bool
 
 
+class ContextExpansionRequest(BaseModel):
+    window_size: int = 1
+    max_tokens: Optional[int] = None
+
+
+class ExpandedContextResult(BaseModel):
+    anchor_chunk_id: UUID
+    document_id: UUID
+    document_filename: str
+    included_chunk_indices: List[int]
+    included_chunk_ids: List[UUID]
+    expanded_text: str
+    token_count: int
+    section_breadcrumbs: List[str]
+    metadata: Dict[str, Any]
+
+

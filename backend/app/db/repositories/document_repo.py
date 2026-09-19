@@ -268,6 +268,33 @@ class DocumentRepository:
         return result.all()
 
     @staticmethod
+    async def get_chunk_by_id(db: AsyncSession, chunk_id: uuid.UUID) -> Optional[DocumentChunk]:
+        """Fetch a single document chunk by its unique ID."""
+        statement = select(DocumentChunk).where(DocumentChunk.id == chunk_id)
+        result = await db.exec(statement)
+        return result.first()
+
+    @staticmethod
+    async def get_sibling_chunks(
+        db: AsyncSession,
+        document_id: uuid.UUID,
+        start_index: int,
+        end_index: int
+    ) -> List[DocumentChunk]:
+        """Fetch a consecutive window of sibling chunks ordered by chunk_index."""
+        statement = (
+            select(DocumentChunk)
+            .where(
+                DocumentChunk.document_id == document_id,
+                DocumentChunk.chunk_index >= start_index,
+                DocumentChunk.chunk_index <= end_index
+            )
+            .order_by(DocumentChunk.chunk_index.asc())
+        )
+        result = await db.exec(statement)
+        return result.all()
+
+    @staticmethod
     async def delete_chunks_for_document(db: AsyncSession, document_id: uuid.UUID) -> int:
         """Purge all chunks associated with a document."""
         statement = delete(DocumentChunk).where(DocumentChunk.document_id == document_id)
