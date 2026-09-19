@@ -20,7 +20,6 @@ import {
   Sparkles,
   Info,
   ExternalLink,
-  SplitSquareVertical,
   HelpCircle,
   BookOpen,
 } from 'lucide-react'
@@ -171,19 +170,12 @@ export default function RetrievalPlayground() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
-              <SplitSquareVertical size={20} />
-            </span>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-0.5">
-                Retrieval Funnel Playground
-              </h1>
-              <p className="text-xs text-[var(--text-secondary)]">
-                Side-by-side diagnostic visualization for Sparse BM25, Dense Vector, RRF Hybrid, and Cross-Encoder Reranker
-              </p>
-            </div>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-0.5">
+            Retrieval Funnel Playground
+          </h1>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Side-by-side diagnostic visualization for Sparse BM25, Dense Vector, RRF Hybrid, and Cross-Encoder Reranker
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
