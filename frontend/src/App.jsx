@@ -4,6 +4,7 @@ import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import WorkspaceHome from './pages/WorkspaceHome'
 import DocumentHub from './pages/DocumentHub'
+import RetrievalPlayground from './pages/RetrievalPlayground'
 import ProtectedRoute from './components/ProtectedRoute'
 import PublicOnlyRoute from './components/PublicOnlyRoute'
 import DashboardLayout from './components/DashboardLayout'
@@ -36,6 +37,17 @@ function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <DocumentHub />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/workspace/retrieval" 
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <RetrievalPlayground />
                 </DashboardLayout>
               </ProtectedRoute>
             } 

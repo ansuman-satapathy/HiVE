@@ -63,6 +63,20 @@ export default function DashboardLayout({ children }) {
               <Layers size={15} />
               <span>Documents</span>
             </NavLink>
+
+            <NavLink
+              to="/workspace/retrieval"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-blue-500/10 text-blue-500 font-semibold dark:bg-blue-500/15'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
+                }`
+              }
+            >
+              <Activity size={15} />
+              <span>Playground</span>
+            </NavLink>
           </nav>
         </div>
 
