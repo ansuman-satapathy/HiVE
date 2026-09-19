@@ -285,10 +285,11 @@ export default function ChatWorkspace() {
       {/* ── 1. Conversation History Sidebar ────────────────────────────── */}
       <aside
         className={`${
-          sidebarOpen ? 'w-64 sm:w-72' : 'w-0 -ml-72 sm:-ml-72'
-        } transition-all duration-300 ease-in-out border-r border-[var(--border-default)] bg-[var(--bg-surface)] flex flex-col shrink-0 z-20`}
+          sidebarOpen ? 'w-64 sm:w-72 border-r' : 'w-0 border-r-0'
+        } transition-all duration-300 ease-in-out border-[var(--border-default)] bg-[var(--bg-surface)] flex flex-col shrink-0 overflow-hidden z-20`}
       >
-        {/* Sidebar Header */}
+        <div className="w-64 sm:w-72 flex flex-col h-full shrink-0">
+          {/* Sidebar Header */}
         <div className="p-3 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2">
           <button
             onClick={handleCreateNewChat}
@@ -368,6 +369,7 @@ export default function ChatWorkspace() {
         <div className="p-3 border-t border-[var(--border-subtle)] text-[11px] text-[var(--text-muted)] flex items-center justify-between">
           <span>RAG Chat Engine</span>
           <span className="font-mono text-[10px] text-blue-500 font-bold">SSE v1.0</span>
+        </div>
         </div>
       </aside>
 
