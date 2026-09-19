@@ -73,6 +73,7 @@ export function useEventStream() {
       setError(null)
 
       let accumulated = ''
+      let capturedCitations = []
 
       try {
         const token = tokenStorage.getToken()
@@ -88,11 +89,14 @@ export function useEventStream() {
           },
           body: JSON.stringify({
             query: query.trim(),
-            messages,
             document_ids: cleanDocIds && cleanDocIds.length > 0 ? cleanDocIds : null,
-            top_k: Number(topK),
-            window_size: Number(windowSize),
-            temperature: Number(temperature),
+            messages: messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            top_k: topK,
+            window_size: windowSize,
+            temperature,
           }),
           signal: controller.signal,
         })
@@ -142,6 +146,7 @@ export function useEventStream() {
                 setStatus({ stage: data.stage, message: data.message })
               } else if (eventType === 'context') {
                 if (Array.isArray(data.citations)) {
+                  capturedCitations = data.citations
                   setCitations(data.citations)
                 }
               } else if (eventType === 'token') {
@@ -152,7 +157,13 @@ export function useEventStream() {
               } else if (eventType === 'done') {
                 setStatus(null)
                 setIsStreaming(false)
-                if (onDone) onDone({ text: accumulated, finishReason: data.finish_reason })
+                if (onDone) {
+                  onDone({
+                    text: accumulated,
+                    finishReason: data.finish_reason,
+                    citations: capturedCitations,
+                  })
+                }
               } else if (eventType === 'error') {
                 const errMsg = data.error || data.message || 'Stream encountered an error.'
                 setError(errMsg)

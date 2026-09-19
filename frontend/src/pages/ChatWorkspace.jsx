@@ -192,9 +192,8 @@ export default function ChatWorkspace() {
   // Detect any user intent to scroll up (wheel or touch)
   const handleUserWheel = (e) => {
     if (e.deltaY < 0) {
-      // User is scrolling UP
+      // User is scrolling UP: disarm forced auto-scroll
       userHasScrolledUp.current = true
-      setShowScrollBottom(true)
     }
   }
 
@@ -208,9 +207,8 @@ export default function ChatWorkspace() {
     if (e.touches.length > 0) {
       const delta = e.touches[0].clientY - handleTouchStart.current.y
       if (delta > 10) {
-        // Dragging downwards = scrolling UP
+        // Dragging downwards = scrolling UP: disarm forced auto-scroll
         userHasScrolledUp.current = true
-        setShowScrollBottom(true)
       }
     }
   }
@@ -219,12 +217,12 @@ export default function ChatWorkspace() {
     if (!chatContainerRef.current) return
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current
     const distanceToBottom = scrollHeight - scrollTop - clientHeight
-    const isAtBottom = distanceToBottom < 60
 
-    if (isAtBottom) {
+    // Only show pill if content is actually scrolled away / cropped (>220px, beyond the composer island height)
+    if (distanceToBottom < 80) {
       userHasScrolledUp.current = false
       setShowScrollBottom(false)
-    } else if (distanceToBottom > 150) {
+    } else if (distanceToBottom > 220) {
       userHasScrolledUp.current = true
       setShowScrollBottom(true)
     }
@@ -312,12 +310,12 @@ export default function ChatWorkspace() {
       topK: 5,
       windowSize: 1,
       temperature: 0.2,
-      onDone: ({ text: fullAssistantText }) => {
+      onDone: ({ text: fullAssistantText, citations: doneCitations }) => {
         const assistantMessage = {
           id: `msg_asst_${Date.now()}`,
           role: 'assistant',
           content: fullAssistantText,
-          citations: citations,
+          citations: doneCitations && doneCitations.length > 0 ? doneCitations : citations,
           timestamp: new Date().toISOString(),
         }
 
@@ -694,7 +692,7 @@ export default function ChatWorkspace() {
                   title="Start a new conversation"
                 >
                   <Plus size={13} className="text-blue-500 group-hover:rotate-90 transition-transform duration-200" />
-                  <span className="hidden sm:inline">New Chat</span>
+                  <span className="hidden sm:inline">New</span>
                 </button>
               </div>
             )}
