@@ -6,17 +6,18 @@ import {
   Send,
   Square,
   Sparkles,
-  Bot,
   User,
   PanelLeftClose,
   PanelLeft,
-  ChevronRight,
   FileText,
   Copy,
   Check,
-  ExternalLink,
   Layers,
   Search,
+  BookOpen,
+  X,
+  Clock,
+  ChevronDown,
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 import { useEventStream } from '../hooks/useEventStream'
@@ -130,7 +131,7 @@ export default function ChatWorkspace() {
   const handleScroll = () => {
     if (!chatContainerRef.current) return
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 120
     userHasScrolledUp.current = !isAtBottom
   }
 
@@ -225,7 +226,6 @@ export default function ChatWorkspace() {
       windowSize: 1,
       temperature: 0.2,
       onDone: ({ text: fullAssistantText }) => {
-        // Save completed assistant message into session
         const assistantMessage = {
           id: `msg_asst_${Date.now()}`,
           role: 'assistant',
@@ -280,9 +280,11 @@ export default function ChatWorkspace() {
     setTimeout(() => setCopiedMessageId(null), 2000)
   }
 
+  const hasMessages = activeSession.messages.length > 0 || isStreaming
+
   return (
     <div className="flex h-[calc(100vh-65px)] w-full overflow-hidden bg-[var(--bg-canvas)]">
-      {/* ── 1. Conversation History Sidebar ────────────────────────────── */}
+      {/* ── 1. Serene Conversation Sidebar ──────────────────────────────── */}
       <aside
         className={`${
           sidebarOpen ? 'w-64 sm:w-72 border-r' : 'w-0 border-r-0'
@@ -290,388 +292,376 @@ export default function ChatWorkspace() {
       >
         <div className="w-64 sm:w-72 flex flex-col h-full shrink-0">
           {/* Sidebar Header */}
-        <div className="p-3 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2">
-          <button
-            onClick={handleCreateNewChat}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
-          >
-            <Plus size={14} />
-            <span>New Chat</span>
-          </button>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer"
-            title="Collapse sidebar"
-          >
-            <PanelLeftClose size={16} />
-          </button>
-        </div>
-
-        {/* Document Scope Filter inside Sidebar */}
-        <div className="p-3 border-b border-[var(--border-subtle)] space-y-1.5">
-          <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
-            <Layers size={13} className="text-blue-500" />
-            <span>Document Scope</span>
-          </span>
-          <CustomSelect
-            isMulti={true}
-            value={selectedDocIds}
-            onChange={setSelectedDocIds}
-            placeholder="All Documents (Global)"
-            options={[
-              { value: '', label: 'All Documents (Global)' },
-              ...documents.map((d) => ({ value: d.id, label: d.filename })),
-            ]}
-          />
-        </div>
-
-        {/* Sessions List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-            Conversations ({sessions.length})
+          <div className="p-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2">
+            <button
+              onClick={handleCreateNewChat}
+              className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group"
+            >
+              <Plus size={14} className="text-blue-500 group-hover:rotate-90 transition-transform duration-200" />
+              <span>New Thread</span>
+            </button>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer"
+              title="Close sidebar"
+            >
+              <PanelLeftClose size={16} />
+            </button>
           </div>
-          {sessions.map((session) => {
-            const isActive = session.id === activeSessionId
-            return (
-              <div
-                key={session.id}
-                onClick={() => {
-                  if (isStreaming) abortStream()
-                  setActiveSessionId(session.id)
-                  resetStream()
-                  userHasScrolledUp.current = false
-                }}
-                className={`group flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
-                }`}
-              >
-                <div className="flex items-center gap-2 truncate flex-1">
-                  <MessageSquare size={13} className={isActive ? 'text-blue-500 shrink-0' : 'text-[var(--text-muted)] shrink-0'} />
-                  <span className="truncate">{session.title || 'New Conversation'}</span>
-                </div>
 
-                <button
-                  type="button"
-                  onClick={(e) => handleDeleteSession(session.id, e)}
-                  title="Delete chat"
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shrink-0"
+          {/* Scope Selector in Sidebar */}
+          <div className="p-3.5 border-b border-[var(--border-subtle)] space-y-1.5">
+            <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
+              <Layers size={13} className="text-blue-500" />
+              <span>Filter Documents</span>
+            </span>
+            <CustomSelect
+              isMulti={true}
+              value={selectedDocIds}
+              onChange={setSelectedDocIds}
+              placeholder="All Documents (Global)"
+              options={[
+                { value: '', label: 'All Documents (Global)' },
+                ...documents.map((d) => ({ value: d.id, label: d.filename })),
+              ]}
+            />
+          </div>
+
+          {/* Conversations List */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <Clock size={11} />
+              <span>Recent Conversations</span>
+            </div>
+
+            {sessions.map((session) => {
+              const isActive = session.id === activeSessionId
+              return (
+                <div
+                  key={session.id}
+                  onClick={() => {
+                    if (isStreaming) abortStream()
+                    setActiveSessionId(session.id)
+                    resetStream()
+                    userHasScrolledUp.current = false
+                  }}
+                  className={`group flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-[var(--bg-surface-hover)] text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20 shadow-2xs'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
+                  }`}
                 >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            )
-          })}
-        </div>
+                  <div className="flex items-center gap-2 truncate flex-1">
+                    <MessageSquare
+                      size={13}
+                      className={isActive ? 'text-blue-500 shrink-0' : 'text-[var(--text-muted)] shrink-0'}
+                    />
+                    <span className="truncate">{session.title || 'New Conversation'}</span>
+                  </div>
 
-        {/* Sidebar Footer */}
-        <div className="p-3 border-t border-[var(--border-subtle)] text-[11px] text-[var(--text-muted)] flex items-center justify-between">
-          <span>RAG Chat Engine</span>
-          <span className="font-mono text-[10px] text-blue-500 font-bold">SSE v1.0</span>
-        </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteSession(session.id, e)}
+                    title="Delete conversation"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shrink-0"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Sidebar Footer */}
+          <div className="p-3 border-t border-[var(--border-subtle)] text-[11px] text-[var(--text-muted)] flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>RAG Engine Ready</span>
+            </span>
+            <span className="font-mono text-[10px] text-blue-500 font-bold">SSE v1</span>
+          </div>
         </div>
       </aside>
 
-      {/* ── 2. Main Chat Area ──────────────────────────────────────────── */}
+      {/* ── 2. Editorial Central Chat Column ────────────────────────────── */}
       <main className="flex-1 flex flex-col h-full min-w-0 relative">
-        {/* Chat Header Bar */}
-        <header className="h-14 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-4 sm:px-6 flex items-center justify-between gap-4 shrink-0 z-10">
-          <div className="flex items-center gap-2.5 truncate">
+        {/* Minimalist Header Bar */}
+        <header className="h-13 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 sm:px-8 flex items-center justify-between gap-4 shrink-0 z-10">
+          <div className="flex items-center gap-3 truncate">
             {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="p-1.5 rounded-lg border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] transition-colors cursor-pointer mr-1"
+                className="p-1.5 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] transition-colors cursor-pointer"
                 title="Open sidebar"
               >
                 <PanelLeft size={16} />
               </button>
             )}
             <div className="truncate">
-              <h2 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] truncate">
+              <h2 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] truncate">
                 {activeSession.title}
               </h2>
-              <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]">
-                <span className="inline-flex items-center gap-1 text-blue-500 font-medium">
-                  <Sparkles size={11} />
-                  <span>meta/llama-3.2-11b-vision-instruct</span>
-                </span>
-                <span>•</span>
-                <span className="truncate">
-                  {selectedDocIds.length === 0
-                    ? 'Scope: Global (All Documents)'
-                    : `Scope: ${selectedDocIds.length} document${selectedDocIds.length > 1 ? 's' : ''}`}
-                </span>
-              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {selectedDocIds.length > 0 && (
-              <button
-                onClick={() => setSelectedDocIds([])}
-                className="text-[10px] font-medium text-blue-500 hover:text-blue-600 cursor-pointer bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20"
-              >
-                Reset Scope
-              </button>
-            )}
+          <div className="flex items-center gap-2 shrink-0 text-xs">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-default)] text-[11px] text-[var(--text-secondary)]">
+              <Sparkles size={11} className="text-blue-500" />
+              <span className="hidden sm:inline">Model:</span>
+              <span className="font-mono text-[10px] text-[var(--text-primary)] font-medium">llama-3.2-11b</span>
+            </span>
           </div>
         </header>
 
-        {/* Message Thread Scroll Container */}
+        {/* Scrollable Conversation Stream */}
         <div
           ref={chatContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6"
+          className="flex-1 overflow-y-auto px-4 sm:px-6 pb-36 pt-6"
         >
-          {/* Welcome Screen when Conversation is Empty */}
-          {activeSession.messages.length === 0 && !isStreaming && (
-            <div className="max-w-xl mx-auto py-12 text-center space-y-6 animate-in fade-in zoom-in-95">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center mx-auto shadow-sm">
-                <Bot size={24} />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                  What would you like to explore?
-                </h3>
-                <p className="text-xs text-[var(--text-secondary)] max-w-md mx-auto leading-relaxed">
-                  Ask questions across all indexed documents or scope specifically to a technical volume. Responses are grounded with exact citations and token streaming.
-                </p>
-              </div>
-
-              {/* Starter Prompt Chips */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 text-left">
-                {SUGGESTED_PROMPTS.map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSendMessage(prompt)}
-                    className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-2xs group flex items-start gap-2.5"
-                  >
-                    <Search size={13} className="text-blue-500 shrink-0 mt-0.5" />
-                    <span className="line-clamp-2 leading-relaxed">{prompt}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Render Completed Messages */}
-          {activeSession.messages.map((msg) => {
-            const isUser = msg.role === 'user'
-            const isCopied = copiedMessageId === msg.id
-
-            return (
-              <div
-                key={msg.id}
-                className={`flex gap-3 max-w-3xl ${isUser ? 'ml-auto justify-end' : 'mr-auto justify-start'} w-full`}
-              >
-                {/* Assistant Avatar */}
-                {!isUser && (
-                  <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0 mt-1 shadow-2xs">
-                    <Bot size={15} />
+          <div className="max-w-3xl mx-auto space-y-8">
+            {/* ── Welcome State (When No Messages) ────────────────────────── */}
+            {!hasMessages && (
+              <div className="py-16 sm:py-24 text-center space-y-8 animate-in fade-in zoom-in-95">
+                <div className="space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center mx-auto shadow-xs">
+                    <BookOpen size={24} />
                   </div>
-                )}
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+                    What would you like to know?
+                  </h1>
+                  <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-lg mx-auto leading-relaxed">
+                    Ask questions across your entire document repository. All answers are synthesized with verified citations and live streaming.
+                  </p>
+                </div>
 
-                {/* Message Bubble Container */}
-                <div
-                  className={`flex flex-col gap-2 ${
-                    isUser ? 'items-end max-w-[85%] sm:max-w-[75%]' : 'items-start max-w-full flex-1'
-                  }`}
-                >
-                  <div
-                    className={`p-4 rounded-2xl text-xs leading-relaxed transition-colors ${
-                      isUser
-                        ? 'bg-blue-600 text-white rounded-br-xs shadow-sm font-medium'
-                        : msg.isError
-                        ? 'bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 rounded-bl-xs'
-                        : 'bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-primary)] rounded-bl-xs shadow-2xs'
-                    }`}
-                  >
-                    {isUser ? (
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                {/* Inspiration Prompt Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left pt-2">
+                  {SUGGESTED_PROMPTS.map((prompt, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSendMessage(prompt)}
+                      className="p-3.5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/40 hover:bg-blue-500/[0.03] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-2xs group flex items-start gap-3"
+                    >
+                      <Search size={14} className="text-blue-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <span className="line-clamp-2 leading-relaxed font-medium">{prompt}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Message History Stream ─────────────────────────────────── */}
+            {activeSession.messages.map((msg) => {
+              const isUser = msg.role === 'user'
+              const isCopied = copiedMessageId === msg.id
+
+              if (isUser) {
+                return (
+                  <div key={msg.id} className="flex justify-end w-full animate-in fade-in">
+                    <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs px-4 py-2.5 bg-[var(--bg-surface-elevated)] border border-[var(--border-default)] shadow-xs">
+                      <p className="text-[14px] leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap select-text font-normal">
+                        {msg.content}
+                      </p>
+                    </div>
+                  </div>
+                )
+              }
+
+              // Assistant Message: Open Editorial Flow
+              return (
+                <div key={msg.id} className="flex gap-4 w-full group animate-in fade-in">
+                  {/* Subtle Assistant Avatar */}
+                  <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                    <Sparkles size={14} />
+                  </div>
+
+                  {/* Open Reading Column */}
+                  <div className="flex-1 min-w-0 space-y-3">
+                    {msg.isError ? (
+                      <div className="p-3.5 rounded-xl border border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-medium">
+                        {msg.content}
+                      </div>
                     ) : (
                       <StreamingMarkdown content={msg.content} isStreaming={false} />
                     )}
-                  </div>
 
-                  {/* Grounding Citations strip if assistant message has citations */}
-                  {!isUser && msg.citations && msg.citations.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1 pl-1">
-                      <span className="text-[10px] font-bold text-[var(--text-muted)] flex items-center gap-1">
-                        <Layers size={11} /> Sources:
+                    {/* Citations Grounding Strip */}
+                    {msg.citations && msg.citations.length > 0 && (
+                      <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1 mr-1">
+                          <Layers size={12} /> Sources:
+                        </span>
+                        {msg.citations.map((cite, cIdx) => (
+                          <button
+                            key={cIdx}
+                            type="button"
+                            onClick={() => setActiveCitationModal(cite)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/5 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
+                          >
+                            <FileText size={11} className="text-blue-500" />
+                            <span className="truncate max-w-[140px] font-medium">{cite.document_title || 'Document'}</span>
+                            <span className="font-mono text-[10px] text-blue-500 font-bold">#{cite.chunk_index}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Action Bar */}
+                    {!msg.isError && (
+                      <div className="flex items-center gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-[var(--text-muted)]">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyMessage(msg.content, msg.id)}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer text-[11px]"
+                        >
+                          {isCopied ? (
+                            <>
+                              <Check size={11} className="text-emerald-500" />
+                              <span className="text-emerald-500 font-medium">Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={11} />
+                              <span>Copy response</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* ── Active Streaming Turn ──────────────────────────────────── */}
+            {isStreaming && (
+              <div className="flex gap-4 w-full animate-in fade-in">
+                <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                  <Sparkles size={14} />
+                </div>
+
+                <div className="flex-1 min-w-0 space-y-3">
+                  {/* Status Indicator Pill */}
+                  {status && (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/25 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-xs font-medium w-fit">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                      <span>{status.message}</span>
+                    </div>
+                  )}
+
+                  {/* Streaming Markdown Content */}
+                  {streamedText && (
+                    <StreamingMarkdown content={streamedText} isStreaming={true} />
+                  )}
+
+                  {/* Citations Found Live */}
+                  {citations && citations.length > 0 && (
+                    <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1 mr-1">
+                        <Layers size={12} /> Found Sources:
                       </span>
-                      {msg.citations.map((cite, cIdx) => (
+                      {citations.map((cite, cIdx) => (
                         <button
                           key={cIdx}
                           type="button"
                           onClick={() => setActiveCitationModal(cite)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/10 text-[10px] font-mono text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/5 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
                         >
-                          <FileText size={10} className="text-blue-500" />
-                          <span className="truncate max-w-[130px]">{cite.document_title || 'Document'}</span>
-                          <span className="text-blue-500 font-bold">#{cite.chunk_index}</span>
+                          <FileText size={11} className="text-blue-500" />
+                          <span className="truncate max-w-[140px] font-medium">{cite.document_title || 'Document'}</span>
+                          <span className="font-mono text-[10px] text-blue-500 font-bold">#{cite.chunk_index}</span>
                         </button>
                       ))}
                     </div>
                   )}
-
-                  {/* Actions Bar (Copy message) */}
-                  {!isUser && !msg.isError && (
-                    <div className="flex items-center gap-2 pl-1 text-[10px] text-[var(--text-muted)]">
-                      <button
-                        type="button"
-                        onClick={() => handleCopyMessage(msg.content, msg.id)}
-                        className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-                      >
-                        {isCopied ? (
-                          <>
-                            <Check size={11} className="text-emerald-500" />
-                            <span className="text-emerald-500 font-medium">Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={11} />
-                            <span>Copy</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
                 </div>
-
-                {/* User Avatar */}
-                {isUser && (
-                  <div className="w-7 h-7 rounded-lg bg-[var(--border-default)] text-[var(--text-secondary)] flex items-center justify-center shrink-0 mt-1 shadow-2xs">
-                    <User size={15} />
-                  </div>
-                )}
               </div>
-            )
-          })}
+            )}
 
-          {/* ── Active Streaming Bubble ──────────────────────────────────── */}
-          {isStreaming && (
-            <div className="flex gap-3 max-w-3xl mr-auto justify-start w-full animate-in fade-in">
-              <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0 mt-1 shadow-2xs">
-                <Bot size={15} />
-              </div>
-
-              <div className="flex flex-col gap-2 flex-1 max-w-full">
-                {/* Live Status Phase Indicator */}
-                {status && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-blue-500/25 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-xs font-medium w-fit animate-pulse">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    <span>{status.message}</span>
-                  </div>
-                )}
-
-                {/* Live Streamed Markdown Content */}
-                {streamedText && (
-                  <div className="p-4 rounded-2xl text-xs leading-relaxed bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-primary)] rounded-bl-xs shadow-2xs">
-                    <StreamingMarkdown content={streamedText} isStreaming={true} />
-                  </div>
-                )}
-
-                {/* Live Citations Strip */}
-                {citations && citations.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1 pl-1">
-                    <span className="text-[10px] font-bold text-[var(--text-muted)] flex items-center gap-1">
-                      <Layers size={11} /> Found Sources:
-                    </span>
-                    {citations.map((cite, cIdx) => (
-                      <button
-                        key={cIdx}
-                        type="button"
-                        onClick={() => setActiveCitationModal(cite)}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/10 text-[10px] font-mono text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer"
-                      >
-                        <FileText size={10} className="text-blue-500" />
-                        <span className="truncate max-w-[130px]">{cite.document_title || 'Document'}</span>
-                        <span className="text-blue-500 font-bold">#{cite.chunk_index}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Anchor for auto-scrolling */}
-          <div ref={messagesEndRef} className="h-2" />
+            <div ref={messagesEndRef} className="h-4" />
+          </div>
         </div>
 
-        {/* ── 3. Chat Input Composer ────────────────────────────────────── */}
-        <div className="p-4 border-t border-[var(--border-default)] bg-[var(--bg-surface)] shrink-0">
+        {/* ── 3. Floating Input Island ──────────────────────────────────── */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none pb-4 pt-10 bg-gradient-to-t from-[var(--bg-canvas)] via-[var(--bg-canvas)]/90 to-transparent flex flex-col items-center justify-end px-4 z-20">
           <form
             onSubmit={(e) => {
               e.preventDefault()
               handleSendMessage()
             }}
-            className="max-w-3xl mx-auto space-y-2"
+            className="pointer-events-auto max-w-3xl w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-lg transition-all focus-within:border-blue-500/60 focus-within:shadow-xl focus-within:ring-2 focus-within:ring-blue-500/10 overflow-hidden"
           >
-            {/* Scoped Document Pill if active */}
-            {selectedDocIds.length > 0 && (
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
-                <span className="text-[var(--text-muted)]">Scoped to:</span>
-                <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-500 border border-blue-500/20 font-medium">
-                  {selectedDocIds.length} document{selectedDocIds.length > 1 ? 's' : ''}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDocIds([])}
-                  className="text-[10px] text-[var(--text-muted)] hover:text-rose-500 cursor-pointer underline ml-1"
-                >
-                  Clear filter
-                </button>
-              </div>
-            )}
+            {/* Input Textarea */}
+            <textarea
+              ref={textareaRef}
+              value={inputPrompt}
+              onChange={(e) => setInputPrompt(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask a question about your documents... (Shift+Enter for newline)"
+              rows={1}
+              className="w-full resize-none px-4 pt-3.5 pb-2 text-[14px] leading-relaxed bg-transparent text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-hidden max-h-48"
+            />
 
-            {/* Input Textarea Container */}
-            <div className="relative rounded-2xl border border-[var(--border-default)] bg-[var(--bg-canvas)] focus-within:border-blue-500/80 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all shadow-xs overflow-hidden">
-              <textarea
-                ref={textareaRef}
-                value={inputPrompt}
-                onChange={(e) => setInputPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask questions across your documents... (Shift+Enter for newline)"
-                rows={1}
-                className="w-full resize-none px-4 py-3 text-xs sm:text-sm bg-transparent text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-hidden leading-relaxed max-h-48"
-              />
-
-              {/* Action Buttons Row inside Input Container */}
-              <div className="px-3 pb-2.5 flex items-center justify-between">
-                <span className="text-[10px] text-[var(--text-muted)] hidden sm:inline">
-                  Enter to send, Shift+Enter for new line
-                </span>
-
-                <div className="flex items-center gap-2 ml-auto">
-                  {isStreaming ? (
+            {/* Bottom Toolbar inside the Island */}
+            <div className="px-3.5 pb-2.5 pt-1 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 truncate">
+                {/* Active Scope Pill */}
+                {selectedDocIds.length > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                    <FileText size={11} />
+                    <span className="truncate max-w-[150px]">
+                      {selectedDocIds.length === 1
+                        ? documents.find((d) => d.id === selectedDocIds[0])?.filename || '1 document'
+                        : `${selectedDocIds.length} documents`}
+                    </span>
                     <button
                       type="button"
-                      onClick={abortStream}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                      onClick={() => setSelectedDocIds([])}
+                      className="hover:text-rose-500 cursor-pointer p-0.5 rounded-full"
                     >
-                      <Square size={12} fill="currentColor" />
-                      <span>Stop</span>
+                      <X size={10} />
                     </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={!inputPrompt.trim()}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
-                    >
-                      <span>Send</span>
-                      <Send size={12} />
-                    </button>
-                  )}
-                </div>
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-[var(--text-muted)] hidden sm:inline">
+                    Searching across all indexed documents
+                  </span>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 shrink-0">
+                {isStreaming ? (
+                  <button
+                    type="button"
+                    onClick={abortStream}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                  >
+                    <Square size={12} fill="currentColor" />
+                    <span>Stop</span>
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!inputPrompt.trim()}
+                    className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all cursor-pointer ${
+                      inputPrompt.trim()
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                        : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] opacity-50 cursor-not-allowed'
+                    }`}
+                    title="Send message (Enter)"
+                  >
+                    <Send size={13} className={inputPrompt.trim() ? 'translate-x-0.5 -translate-y-0.5' : ''} />
+                  </button>
+                )}
               </div>
             </div>
           </form>
         </div>
 
-        {/* ── 4. Citation Excerpt Modal ─────────────────────────────────── */}
+        {/* ── 4. Excerpt Preview Modal ──────────────────────────────────── */}
         {activeCitationModal && (
           <div
             onClick={() => setActiveCitationModal(null)}
@@ -684,8 +674,8 @@ export default function ChatWorkspace() {
               <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
                 <div className="flex items-center gap-2">
                   <FileText size={16} className="text-blue-500" />
-                  <h4 className="text-xs font-bold text-[var(--text-primary)]">
-                    {activeCitationModal.document_title || 'Document Chunk'}
+                  <h4 className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[280px]">
+                    {activeCitationModal.document_title || 'Document Excerpt'}
                   </h4>
                 </div>
                 <span className="text-[11px] font-mono text-blue-500 font-bold">
@@ -693,7 +683,7 @@ export default function ChatWorkspace() {
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] text-xs text-[var(--text-primary)] font-mono whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed select-text">
+              <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] text-xs text-[var(--text-primary)] font-mono whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed select-text">
                 {activeCitationModal.content}
               </div>
 
