@@ -997,7 +997,7 @@ export default function ChatWorkspace() {
         </div>
 
         {/* ── Feature 4: Floating "Scroll to Bottom" Pill ──────────────── */}
-        {showScrollBottom && (
+        {showScrollBottom && (hasMessages || isStreaming) && (
           <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 animate-in fade-in slide-in-from-bottom-2">
             <button
               onClick={() => {
