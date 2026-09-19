@@ -156,21 +156,33 @@ export default function ChatWorkspace() {
     messages: [],
   }
 
-  // Auto-scroll anchoring
+  // Auto-scroll anchoring: directly scroll container so bottom padding is respected
   const scrollToBottom = (behavior = 'smooth') => {
-    if (!userHasScrolledUp.current && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior, block: 'end' })
+    if (!chatContainerRef.current) return
+    if (!userHasScrolledUp.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior,
+      })
     }
   }
 
+  // Force scroll whenever activeSession messages change or streaming starts
   useEffect(() => {
-    scrollToBottom()
-  }, [activeSession.messages, streamedText, status])
+    scrollToBottom('smooth')
+  }, [activeSession.messages.length])
+
+  // Stream text & status streaming auto-scroll
+  useEffect(() => {
+    if (isStreaming) {
+      scrollToBottom('auto')
+    }
+  }, [streamedText, status, isStreaming])
 
   const handleScroll = () => {
     if (!chatContainerRef.current) return
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 120
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 140
     userHasScrolledUp.current = !isAtBottom
     setShowScrollBottom(!isAtBottom)
   }
@@ -242,6 +254,7 @@ export default function ChatWorkspace() {
   const executeStreamTurn = async (queryText, priorMessages, sessionToUpdateId) => {
     userHasScrolledUp.current = false
     setShowScrollBottom(false)
+    setTimeout(() => scrollToBottom('smooth'), 50)
 
     // Build history for backend multi-turn context
     const previousTurns = priorMessages.map((m) => ({
@@ -676,7 +689,7 @@ export default function ChatWorkspace() {
         <div
           ref={chatContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-4 sm:px-6 pb-36 pt-6"
+          className="flex-1 overflow-y-auto px-4 sm:px-6 pb-56 pt-6 scroll-smooth"
         >
           <div className="max-w-3xl mx-auto space-y-8">
             {/* ── Welcome State (When No Messages) ────────────────────────── */}
@@ -902,7 +915,7 @@ export default function ChatWorkspace() {
               </div>
             )}
 
-            <div ref={messagesEndRef} className="h-4" />
+            <div ref={messagesEndRef} className="h-16" />
           </div>
         </div>
 
