@@ -18,6 +18,10 @@ import {
   X,
   Clock,
   ChevronDown,
+  ArrowDown,
+  Edit2,
+  RefreshCw,
+  Download,
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 import { useEventStream } from '../hooks/useEventStream'
@@ -57,22 +61,44 @@ export default function ChatWorkspace() {
   const [activeCitationModal, setActiveCitationModal] = useState(null)
   const [sessionToDelete, setSessionToDelete] = useState(null)
 
+  // Feature 1: Editing User Message State
+  const [editingMessageId, setEditingMessageId] = useState(null)
+  const [editPromptText, setEditPromptText] = useState('')
+
+  // Feature 3: Inline Renaming State
+  const [isRenamingTitle, setIsRenamingTitle] = useState(false)
+  const [renamingTitleText, setRenamingTitleText] = useState('')
+  const renameInputRef = useRef(null)
+
+  // Feature 4: Scroll State
+  const [showScrollBottom, setShowScrollBottom] = useState(false)
+
   const textareaRef = useRef(null)
   const messagesEndRef = useRef(null)
   const chatContainerRef = useRef(null)
   const userHasScrolledUp = useRef(false)
 
-  // Close modals on Escape key
+  // Close modals or cancel edit on Escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         if (sessionToDelete) setSessionToDelete(null)
         if (activeCitationModal) setActiveCitationModal(null)
+        if (editingMessageId) setEditingMessageId(null)
+        if (isRenamingTitle) setIsRenamingTitle(false)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [sessionToDelete, activeCitationModal])
+  }, [sessionToDelete, activeCitationModal, editingMessageId, isRenamingTitle])
+
+  // Focus rename input when editing starts
+  useEffect(() => {
+    if (isRenamingTitle && renameInputRef.current) {
+      renameInputRef.current.focus()
+      renameInputRef.current.select()
+    }
+  }, [isRenamingTitle])
 
   // SSE Hook
   const {
@@ -146,6 +172,7 @@ export default function ChatWorkspace() {
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 120
     userHasScrolledUp.current = !isAtBottom
+    setShowScrollBottom(!isAtBottom)
   }
 
   // Auto-resize textarea
@@ -165,6 +192,8 @@ export default function ChatWorkspace() {
       setActiveSessionId(existingEmpty.id)
       resetStream()
       userHasScrolledUp.current = false
+      setShowScrollBottom(false)
+      setEditingMessageId(null)
       return
     }
 
@@ -178,6 +207,8 @@ export default function ChatWorkspace() {
     setActiveSessionId(newSession.id)
     resetStream()
     userHasScrolledUp.current = false
+    setShowScrollBottom(false)
+    setEditingMessageId(null)
   }
 
   // Request delete session (opens confirmation dialog)
@@ -207,53 +238,19 @@ export default function ChatWorkspace() {
     setSessionToDelete(null)
   }
 
-  // Send message
-  const handleSendMessage = async (promptToSend = null) => {
-    const text = (promptToSend || inputPrompt).trim()
-    if (!text || isStreaming) return
-
-    setInputPrompt('')
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
+  // ── Core Stream Execution Function ─────────────────────────────────────
+  const executeStreamTurn = async (queryText, priorMessages, sessionToUpdateId) => {
     userHasScrolledUp.current = false
-
-    const userMessage = {
-      id: `msg_user_${Date.now()}`,
-      role: 'user',
-      content: text,
-      timestamp: new Date().toISOString(),
-    }
-
-    // Update session title if it's the first message
-    const updatedTitle =
-      activeSession.messages.length === 0
-        ? text.slice(0, 36) + (text.length > 36 ? '...' : '')
-        : activeSession.title
-
-    // Append user message immediately (optimistic UI)
-    setSessions((prev) =>
-      prev.map((s) => {
-        if (s.id === activeSessionId) {
-          return {
-            ...s,
-            title: updatedTitle,
-            messages: [...s.messages, userMessage],
-          }
-        }
-        return s
-      })
-    )
+    setShowScrollBottom(false)
 
     // Build history for backend multi-turn context
-    const previousTurns = activeSession.messages.map((m) => ({
+    const previousTurns = priorMessages.map((m) => ({
       role: m.role,
       content: m.content,
     }))
 
-    // Start SSE stream
     await startStream({
-      query: text,
+      query: queryText,
       documentIds: selectedDocIds,
       messages: previousTurns,
       topK: 5,
@@ -270,7 +267,7 @@ export default function ChatWorkspace() {
 
         setSessions((prev) =>
           prev.map((s) => {
-            if (s.id === activeSessionId) {
+            if (s.id === sessionToUpdateId) {
               return {
                 ...s,
                 messages: [...s.messages, assistantMessage],
@@ -290,7 +287,7 @@ export default function ChatWorkspace() {
         }
         setSessions((prev) =>
           prev.map((s) => {
-            if (s.id === activeSessionId) {
+            if (s.id === sessionToUpdateId) {
               return { ...s, messages: [...s.messages, errorMsg] }
             }
             return s
@@ -298,6 +295,182 @@ export default function ChatWorkspace() {
         )
       },
     })
+  }
+
+  // Send message
+  const handleSendMessage = async (promptToSend = null) => {
+    const text = (promptToSend || inputPrompt).trim()
+    if (!text || isStreaming) return
+
+    setInputPrompt('')
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+
+    const userMessage = {
+      id: `msg_user_${Date.now()}`,
+      role: 'user',
+      content: text,
+      timestamp: new Date().toISOString(),
+    }
+
+    // Update session title if it's the first message
+    const updatedTitle =
+      activeSession.messages.length === 0
+        ? text.slice(0, 36) + (text.length > 36 ? '...' : '')
+        : activeSession.title
+
+    // Append user message immediately
+    const nextMessages = [...activeSession.messages, userMessage]
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === activeSessionId) {
+          return {
+            ...s,
+            title: updatedTitle,
+            messages: nextMessages,
+          }
+        }
+        return s
+      })
+    )
+
+    await executeStreamTurn(text, activeSession.messages, activeSessionId)
+  }
+
+  // ── Feature 1: Edit & Re-run ──────────────────────────────────────────
+  const handleStartEditMessage = (msg) => {
+    if (isStreaming) abortStream()
+    setEditingMessageId(msg.id)
+    setEditPromptText(msg.content)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null)
+    setEditPromptText('')
+  }
+
+  const handleConfirmEditAndRerun = async (msgId) => {
+    const text = editPromptText.trim()
+    if (!text || isStreaming) return
+
+    const msgIndex = activeSession.messages.findIndex((m) => m.id === msgId)
+    if (msgIndex === -1) return
+
+    // Truncate everything after this message (branching from this turn)
+    const priorTurns = activeSession.messages.slice(0, msgIndex)
+    const editedUserMessage = {
+      id: `msg_user_${Date.now()}`,
+      role: 'user',
+      content: text,
+      timestamp: new Date().toISOString(),
+    }
+
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === activeSessionId) {
+          return {
+            ...s,
+            messages: [...priorTurns, editedUserMessage],
+          }
+        }
+        return s
+      })
+    )
+
+    setEditingMessageId(null)
+    setEditPromptText('')
+    await executeStreamTurn(text, priorTurns, activeSessionId)
+  }
+
+  // ── Feature 2: Regenerate Response ────────────────────────────────────
+  const handleRegenerateLastResponse = async () => {
+    if (isStreaming || activeSession.messages.length === 0) return
+
+    // Find the last assistant message and the preceding user query
+    const msgs = [...activeSession.messages]
+    const lastMsg = msgs[msgs.length - 1]
+
+    let priorTurns = []
+    let queryToRerun = ''
+
+    if (lastMsg.role === 'assistant') {
+      // Pop the assistant message
+      const withoutLastAssistant = msgs.slice(0, -1)
+      const lastUserMsg = withoutLastAssistant[withoutLastAssistant.length - 1]
+      if (!lastUserMsg || lastUserMsg.role !== 'user') return
+
+      queryToRerun = lastUserMsg.content
+      priorTurns = withoutLastAssistant.slice(0, -1)
+
+      // Update state without the old assistant message
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id === activeSessionId) {
+            return { ...s, messages: withoutLastAssistant }
+          }
+          return s
+        })
+      )
+    } else if (lastMsg.role === 'user') {
+      queryToRerun = lastMsg.content
+      priorTurns = msgs.slice(0, -1)
+    }
+
+    if (queryToRerun) {
+      await executeStreamTurn(queryToRerun, priorTurns, activeSessionId)
+    }
+  }
+
+  // ── Feature 3: Inline Renaming ─────────────────────────────────────────
+  const handleStartRename = () => {
+    setRenamingTitleText(activeSession.title)
+    setIsRenamingTitle(true)
+  }
+
+  const handleSaveRename = () => {
+    const trimmed = renamingTitleText.trim()
+    if (trimmed && trimmed !== activeSession.title) {
+      setSessions((prev) =>
+        prev.map((s) => (s.id === activeSessionId ? { ...s, title: trimmed } : s))
+      )
+    }
+    setIsRenamingTitle(false)
+  }
+
+  // ── Feature 5: Export Conversation to Markdown ─────────────────────────
+  const handleExportMarkdown = () => {
+    if (!activeSession || activeSession.messages.length === 0) return
+
+    let md = `# ${activeSession.title || 'QuickDesk Conversation'}\n`
+    md += `*Exported on ${new Date().toLocaleString()}*\n\n---\n\n`
+
+    activeSession.messages.forEach((msg) => {
+      const roleName = msg.role === 'user' ? '### 👤 User' : '### ✨ Assistant'
+      md += `${roleName}\n\n${msg.content}\n\n`
+
+      if (msg.citations && msg.citations.length > 0) {
+        md += `**Sources Cited:**\n`
+        msg.citations.forEach((c) => {
+          md += `- **${c.document_title || 'Document'}** (Chunk #${c.chunk_index})\n`
+          if (c.content) {
+            md += `  > ${c.content.replace(/\n/g, ' ')}\n`
+          }
+        })
+        md += `\n`
+      }
+      md += `---\n\n`
+    })
+
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${(activeSession.title || 'chat').replace(/[^a-zA-Z0-9_-]/g, '_')}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   // Handle textarea Enter vs Shift+Enter
@@ -378,6 +551,8 @@ export default function ChatWorkspace() {
                     setActiveSessionId(session.id)
                     resetStream()
                     userHasScrolledUp.current = false
+                    setShowScrollBottom(false)
+                    setEditingMessageId(null)
                   }}
                   className={`group flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
                     isActive
@@ -423,24 +598,72 @@ export default function ChatWorkspace() {
       <main className="flex-1 flex flex-col h-full min-w-0 relative">
         {/* Minimalist Header Bar */}
         <header className="h-13 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 sm:px-8 flex items-center justify-between gap-4 shrink-0 z-10">
-          <div className="flex items-center gap-3 truncate">
+          <div className="flex items-center gap-3 truncate flex-1 min-w-0">
             {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="p-1.5 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] transition-colors cursor-pointer shrink-0"
                 title="Open sidebar"
               >
                 <PanelLeft size={16} />
               </button>
             )}
-            <div className="truncate">
-              <h2 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] truncate">
-                {activeSession.title}
-              </h2>
+
+            {/* Feature 3: Inline Renaming in Header */}
+            <div className="truncate flex items-center gap-2 max-w-lg">
+              {isRenamingTitle ? (
+                <div className="flex items-center gap-1.5 w-full">
+                  <input
+                    ref={renameInputRef}
+                    type="text"
+                    value={renamingTitleText}
+                    onChange={(e) => setRenamingTitleText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveRename()
+                      if (e.key === 'Escape') setIsRenamingTitle(false)
+                    }}
+                    onBlur={handleSaveRename}
+                    className="px-2 py-1 text-xs sm:text-sm font-semibold text-[var(--text-primary)] bg-[var(--bg-canvas)] border border-blue-500/50 rounded-lg focus:outline-hidden ring-2 ring-blue-500/20 w-full"
+                  />
+                  <button
+                    onClick={handleSaveRename}
+                    className="p-1 text-blue-500 hover:text-blue-600 cursor-pointer"
+                    title="Save title"
+                  >
+                    <Check size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={handleStartRename}
+                  className="group flex items-center gap-2 cursor-pointer rounded-lg px-1.5 py-0.5 hover:bg-[var(--bg-surface-hover)] transition-colors"
+                  title="Click to rename thread"
+                >
+                  <h2 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] truncate">
+                    {activeSession.title}
+                  </h2>
+                  <Edit2
+                    size={12}
+                    className="text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0 text-xs">
+            {/* Feature 5: Export Thread to Markdown */}
+            {activeSession.messages.length > 0 && (
+              <button
+                onClick={handleExportMarkdown}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-2xs"
+                title="Export conversation to Markdown (.md)"
+              >
+                <Download size={12} className="text-blue-500" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+            )}
+
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-default)] text-[11px] text-[var(--text-secondary)]">
               <Sparkles size={11} className="text-blue-500" />
               <span className="hidden sm:inline">Model:</span>
@@ -489,18 +712,68 @@ export default function ChatWorkspace() {
             )}
 
             {/* ── Message History Stream ─────────────────────────────────── */}
-            {activeSession.messages.map((msg) => {
+            {activeSession.messages.map((msg, index) => {
               const isUser = msg.role === 'user'
               const isCopied = copiedMessageId === msg.id
+              const isLastTurn = index === activeSession.messages.length - 1
 
               if (isUser) {
+                const isEditing = editingMessageId === msg.id
+
                 return (
-                  <div key={msg.id} className="flex justify-end w-full animate-in fade-in">
-                    <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs px-4 py-2.5 bg-[var(--bg-surface-elevated)] border border-[var(--border-default)] shadow-xs">
-                      <p className="text-[14px] leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap select-text font-normal">
-                        {msg.content}
-                      </p>
-                    </div>
+                  <div key={msg.id} className="flex justify-end w-full group animate-in fade-in">
+                    {isEditing ? (
+                      /* Feature 1: Inline User Message Editor */
+                      <div className="w-full max-w-2xl rounded-2xl p-3.5 bg-[var(--bg-surface)] border border-blue-500/40 shadow-md space-y-2.5">
+                        <textarea
+                          value={editPromptText}
+                          onChange={(e) => setEditPromptText(e.target.value)}
+                          className="w-full p-2.5 rounded-xl bg-[var(--bg-canvas)] border border-[var(--border-default)] text-xs sm:text-[13px] text-[var(--text-primary)] focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 leading-relaxed resize-none"
+                          rows={3}
+                          autoFocus
+                        />
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-[var(--text-muted)]">
+                            Submitting will branch a new stream from this question
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleCancelEdit}
+                              className="px-3 py-1 rounded-lg border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-xs text-[var(--text-secondary)] cursor-pointer transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmEditAndRerun(msg.id)}
+                              className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs cursor-pointer transition-all"
+                            >
+                              Save & Re-run
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Standard User Message Pill */
+                      <div className="flex items-center gap-2 max-w-[85%] sm:max-w-[75%]">
+                        {/* Edit Prompt Pencil Button (hover) */}
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditMessage(msg)}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-all cursor-pointer"
+                          title="Edit and re-run query"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+
+                        <div className="rounded-2xl rounded-tr-xs px-4 py-2.5 bg-[var(--bg-surface-elevated)] border border-[var(--border-default)] shadow-xs">
+                          <p className="text-[14px] leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap select-text font-normal">
+                            {msg.content}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               }
@@ -545,8 +818,8 @@ export default function ChatWorkspace() {
                     )}
 
                     {/* Action Bar */}
-                    {!msg.isError && (
-                      <div className="flex items-center gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-[var(--text-muted)]">
+                    <div className="flex items-center gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-[var(--text-muted)]">
+                      {!msg.isError && (
                         <button
                           type="button"
                           onClick={() => handleCopyMessage(msg.content, msg.id)}
@@ -564,8 +837,21 @@ export default function ChatWorkspace() {
                             </>
                           )}
                         </button>
-                      </div>
-                    )}
+                      )}
+
+                      {/* Feature 2: Regenerate / Retry Button on the latest turn */}
+                      {isLastTurn && !isStreaming && (
+                        <button
+                          type="button"
+                          onClick={handleRegenerateLastResponse}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-blue-500 transition-colors cursor-pointer text-[11px]"
+                          title="Regenerate this response"
+                        >
+                          <RefreshCw size={11} />
+                          <span>Regenerate</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -619,6 +905,23 @@ export default function ChatWorkspace() {
             <div ref={messagesEndRef} className="h-4" />
           </div>
         </div>
+
+        {/* ── Feature 4: Floating "Scroll to Bottom" Pill ──────────────── */}
+        {showScrollBottom && (
+          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 animate-in fade-in slide-in-from-bottom-2">
+            <button
+              onClick={() => {
+                userHasScrolledUp.current = false
+                setShowScrollBottom(false)
+                scrollToBottom('smooth')
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-default)] hover:border-blue-500/40 text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-medium shadow-md hover:shadow-lg transition-all cursor-pointer backdrop-blur-md"
+            >
+              <ArrowDown size={13} className="text-blue-500 animate-bounce" />
+              <span>Scroll to bottom</span>
+            </button>
+          </div>
+        )}
 
         {/* ── 3. Floating Input Island ──────────────────────────────────── */}
         <div className="absolute bottom-0 left-0 right-0 pointer-events-none pb-4 pt-10 bg-gradient-to-t from-[var(--bg-canvas)] via-[var(--bg-canvas)]/90 to-transparent flex flex-col items-center justify-end px-4 z-20">
