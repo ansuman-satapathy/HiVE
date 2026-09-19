@@ -561,7 +561,7 @@ export default function ChatWorkspace() {
               className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group"
             >
               <Plus size={14} className="text-blue-500 group-hover:rotate-90 transition-transform duration-200" />
-              <span>New Thread</span>
+              <span>New Conversation</span>
             </button>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -639,14 +639,6 @@ export default function ChatWorkspace() {
             })}
           </div>
 
-          {/* Sidebar Footer */}
-          <div className="p-3 border-t border-[var(--border-subtle)] text-[11px] text-[var(--text-muted)] flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>RAG Engine Ready</span>
-            </span>
-            <span className="font-mono text-[10px] text-blue-500 font-bold">SSE v1</span>
-          </div>
         </div>
       </aside>
 
