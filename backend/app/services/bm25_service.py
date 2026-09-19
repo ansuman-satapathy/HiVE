@@ -117,8 +117,14 @@ class BM25IndexService:
             records_snapshot = list(self.chunk_records)
             scores = self.bm25_index.get_scores(query_tokens)
 
-        # Filter and rank candidates
-        doc_id_str = str(document_id) if document_id else None
+        # Filter and rank candidates: support single ID, list of IDs, or None
+        target_doc_ids: Optional[set] = None
+        if document_id:
+            if isinstance(document_id, (list, set, tuple)):
+                target_doc_ids = {str(d) for d in document_id if d}
+            else:
+                target_doc_ids = {str(document_id)}
+
         results = []
 
         for idx, score in enumerate(scores):
@@ -126,7 +132,7 @@ class BM25IndexService:
                 continue
 
             record = records_snapshot[idx]
-            if doc_id_str and record["document_id"] != doc_id_str:
+            if target_doc_ids and record["document_id"] not in target_doc_ids:
                 continue
 
             item = dict(record)
