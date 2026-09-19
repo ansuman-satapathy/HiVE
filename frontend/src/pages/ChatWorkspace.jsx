@@ -157,34 +157,77 @@ export default function ChatWorkspace() {
   }
 
   // Auto-scroll anchoring: directly scroll container so bottom padding is respected
-  const scrollToBottom = (behavior = 'smooth') => {
+  const scrollToBottom = (behavior = 'auto') => {
     if (!chatContainerRef.current) return
     if (!userHasScrolledUp.current) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
-        behavior,
-      })
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
   }
 
-  // Force scroll whenever activeSession messages change or streaming starts
+  // Force scroll whenever user submits a new turn
   useEffect(() => {
-    scrollToBottom('smooth')
+    if (activeSession.messages.length > 0) {
+      // If user just sent a message, scroll down once smoothly
+      const lastMsg = activeSession.messages[activeSession.messages.length - 1]
+      if (lastMsg.role === 'user') {
+        userHasScrolledUp.current = false
+        setShowScrollBottom(false)
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTo({
+            top: chatContainerRef.current.scrollHeight,
+            behavior: 'smooth',
+          })
+        }
+      }
+    }
   }, [activeSession.messages.length])
 
-  // Stream text & status streaming auto-scroll
+  // Stream text & status auto-scroll: strictly check userHasScrolledUp.current
   useEffect(() => {
-    if (isStreaming) {
+    if (isStreaming && !userHasScrolledUp.current) {
       scrollToBottom('auto')
     }
   }, [streamedText, status, isStreaming])
 
+  // Detect any user intent to scroll up (wheel or touch)
+  const handleUserWheel = (e) => {
+    if (e.deltaY < 0) {
+      // User is scrolling UP
+      userHasScrolledUp.current = true
+      setShowScrollBottom(true)
+    }
+  }
+
+  const handleTouchStart = useRef({ y: 0 })
+  const onTouchStart = (e) => {
+    if (e.touches.length > 0) {
+      handleTouchStart.current.y = e.touches[0].clientY
+    }
+  }
+  const onTouchMove = (e) => {
+    if (e.touches.length > 0) {
+      const delta = e.touches[0].clientY - handleTouchStart.current.y
+      if (delta > 10) {
+        // Dragging downwards = scrolling UP
+        userHasScrolledUp.current = true
+        setShowScrollBottom(true)
+      }
+    }
+  }
+
   const handleScroll = () => {
     if (!chatContainerRef.current) return
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 140
-    userHasScrolledUp.current = !isAtBottom
-    setShowScrollBottom(!isAtBottom)
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight
+    const isAtBottom = distanceToBottom < 60
+
+    if (isAtBottom) {
+      userHasScrolledUp.current = false
+      setShowScrollBottom(false)
+    } else if (distanceToBottom > 150) {
+      userHasScrolledUp.current = true
+      setShowScrollBottom(true)
+    }
   }
 
   // Auto-resize textarea
@@ -689,7 +732,10 @@ export default function ChatWorkspace() {
         <div
           ref={chatContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-4 sm:px-6 pb-56 pt-6 scroll-smooth"
+          onWheel={handleUserWheel}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          className="flex-1 overflow-y-auto px-4 sm:px-6 pb-56 pt-6"
         >
           <div className="max-w-3xl mx-auto space-y-8">
             {/* ── Welcome State (When No Messages) ────────────────────────── */}
