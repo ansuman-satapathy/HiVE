@@ -25,19 +25,11 @@ import {
 import { tokenStorage } from '../utils/storage'
 import { useFeedback } from '../context/FeedbackContext'
 
-const PRESET_QUERIES = [
-  'How do I configure VPN setup?',
-  'What is the employee travel reimbursement policy?',
-  'Database deadlock timeout resolution',
-  'API authentication headers and tokens',
-  'Password reset instructions for users',
-]
-
 export default function RetrievalPlayground() {
   const { notify } = useFeedback()
 
   // Search & Config States
-  const [query, setQuery] = useState('How do I configure VPN setup?')
+  const [query, setQuery] = useState('')
   const [topK, setTopK] = useState(6)
   const [rrfK, setRrfK] = useState(60)
   const [windowSize, setWindowSize] = useState(1)
@@ -113,9 +105,11 @@ export default function RetrievalPlayground() {
     }
   }
 
-  // Load initial query on first mount
+  // Execute initial search only if query is present
   useEffect(() => {
-    handleExecuteSearch()
+    if (query.trim()) {
+      handleExecuteSearch()
+    }
   }, [])
 
   // Inspect or expand context for a chunk
@@ -205,24 +199,6 @@ export default function RetrievalPlayground() {
           </button>
         </form>
 
-        {/* Preset Query Chips */}
-        <div className="flex items-center gap-1.5 flex-wrap pt-1">
-          <span className="text-[11px] font-medium text-[var(--text-muted)] flex items-center gap-1 mr-1">
-            <Sparkles size={12} /> Presets:
-          </span>
-          {PRESET_QUERIES.map((preset) => (
-            <button
-              key={preset}
-              onClick={() => {
-                setQuery(preset)
-              }}
-              className="text-[11px] px-2.5 py-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] transition-colors cursor-pointer"
-            >
-              {preset}
-            </button>
-          ))}
-        </div>
-
         {/* Collapsible Tuning Panel */}
         {showConfig && (
           <div className="pt-3 mt-3 border-t border-[var(--border-default)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
@@ -289,6 +265,19 @@ export default function RetrievalPlayground() {
           </div>
         )}
       </div>
+
+      {/* Empty State when no query has been run yet */}
+      {!data && !loading && (
+        <div className="py-16 px-4 text-center rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)]">
+          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center mx-auto mb-3">
+            <Search size={22} />
+          </div>
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">Ready to test retrieval</h3>
+          <p className="text-xs text-[var(--text-secondary)] max-w-md mx-auto mt-1">
+            Type any question, keyword, or error code above and click <span className="font-semibold text-blue-500">Run Pipeline</span> to evaluate your workspace's multi-stage retrieval funnel.
+          </p>
+        </div>
+      )}
 
       {/* Latency & Stage Profile Header */}
       {data && (
