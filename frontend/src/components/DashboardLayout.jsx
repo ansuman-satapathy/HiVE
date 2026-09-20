@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useTaskQueue } from '../context/TaskQueueContext'
@@ -8,12 +8,57 @@ import TaskQueueDrawer from './TaskQueueDrawer'
 
 import HiveLogo from './HiveLogo'
 
+const NAV_ITEMS = [
+  { to: '/workspace', label: 'Workspace', icon: Files, end: true },
+  { to: '/workspace/chat', label: 'Chat', icon: MessageSquare },
+  { to: '/workspace/documents', label: 'Documents', icon: Layers },
+  { to: '/workspace/retrieval', label: 'Playground', icon: Activity },
+]
+
 export default function DashboardLayout({ children }) {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { queueData, activeCount, drawerOpen, setDrawerOpen, fetchQueue } = useTaskQueue()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
+  const location = useLocation()
+
+  // Material 3 Expressive Sliding Pill Indicator State
+  const navRef = useRef(null)
+  const itemRefs = useRef({})
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0, opacity: 0 })
+
+  // Update sliding indicator position on route change or resize
+  useLayoutEffect(() => {
+    const updateIndicator = () => {
+      if (!navRef.current) return
+
+      // Find which route is active
+      const activeItem = NAV_ITEMS.find((item) => {
+        if (item.end) return location.pathname === item.to
+        return location.pathname.startsWith(item.to)
+      })
+
+      if (activeItem && itemRefs.current[activeItem.to]) {
+        const itemEl = itemRefs.current[activeItem.to]
+        const navEl = navRef.current
+        const navRect = navEl.getBoundingClientRect()
+        const itemRect = itemEl.getBoundingClientRect()
+
+        setIndicatorStyle({
+          left: itemRect.left - navRect.left,
+          width: itemRect.width,
+          opacity: 1,
+        })
+      } else {
+        setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }))
+      }
+    }
+
+    updateIndicator()
+    window.addEventListener('resize', updateIndicator)
+    return () => window.removeEventListener('resize', updateIndicator)
+  }, [location.pathname])
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -28,69 +73,50 @@ export default function DashboardLayout({ children }) {
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-200" style={{ backgroundColor: 'var(--bg-canvas)' }}>
       {/* Navigation Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between px-6 lg:px-10 py-3.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)] transition-colors">
+      <header className="sticky top-0 z-40 flex items-center justify-between px-6 lg:px-10 py-2.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)] transition-colors">
         {/* Brand & Nav */}
         <div className="flex items-center gap-8">
           <HiveLogo size="md" />
 
-          {/* Navigation Links */}
-          <nav className="flex items-center gap-1.5">
-            <NavLink
-              to="/workspace"
-              end
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-blue-500/10 text-blue-500 font-semibold dark:bg-blue-500/15'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
-                }`
-              }
-            >
-              <Files size={15} />
-              <span>Workspace</span>
-            </NavLink>
+          {/* Material 3 Expressive Navigation Bar */}
+          <nav ref={navRef} className="m3-nav-container">
+            {/* Sliding Active Pill Indicator */}
+            <div
+              className="m3-nav-pill-indicator"
+              style={{
+                left: `${indicatorStyle.left}px`,
+                width: `${indicatorStyle.width}px`,
+                opacity: indicatorStyle.opacity,
+              }}
+            />
 
-            <NavLink
-              to="/workspace/chat"
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-blue-500/10 text-blue-500 font-semibold dark:bg-blue-500/15'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
-                }`
-              }
-            >
-              <MessageSquare size={15} />
-              <span>Chat</span>
-            </NavLink>
-
-            <NavLink
-              to="/workspace/documents"
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-blue-500/10 text-blue-500 font-semibold dark:bg-blue-500/15'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
-                }`
-              }
-            >
-              <Layers size={15} />
-              <span>Documents</span>
-            </NavLink>
-
-            <NavLink
-              to="/workspace/retrieval"
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-blue-500/10 text-blue-500 font-semibold dark:bg-blue-500/15'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
-                }`
-              }
-            >
-              <Activity size={15} />
-              <span>Playground</span>
-            </NavLink>
+            {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                ref={(el) => {
+                  if (el) itemRefs.current[to] = el
+                }}
+                className={({ isActive }) =>
+                  `m3-nav-item ${isActive ? 'is-active' : ''}`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <span className="m3-icon-badge">
+                      <Icon
+                        size={15}
+                        className={`transition-transform duration-300 ${
+                          isActive ? 'scale-110 stroke-[2.2]' : 'stroke-[1.75]'
+                        }`}
+                      />
+                    </span>
+                    <span>{label}</span>
+                  </>
+                )}
+              </NavLink>
+            ))}
           </nav>
         </div>
 
