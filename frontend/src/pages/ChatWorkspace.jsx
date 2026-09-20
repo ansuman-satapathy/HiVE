@@ -93,7 +93,7 @@ export default function ChatWorkspace() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [sessionToDelete, activeCitationModal, editingMessageId, isRenamingTitle])
+  }, [sessionToDelete, selectedCitation, editingMessageId, isRenamingTitle])
 
   // Focus rename input when editing starts
   useEffect(() => {
