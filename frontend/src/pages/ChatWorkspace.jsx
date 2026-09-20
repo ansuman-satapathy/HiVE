@@ -573,26 +573,8 @@ export default function ChatWorkspace() {
             </button>
           </div>
 
-          {/* Scope Selector in Sidebar */}
-          <div className="px-4 py-3 border-b border-[var(--border-subtle)] space-y-1.5">
-            <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
-              <Layers size={13} className="text-blue-500" />
-              <span>Filter Documents</span>
-            </span>
-            <CustomSelect
-              isMulti={true}
-              value={selectedDocIds}
-              onChange={setSelectedDocIds}
-              placeholder="All Documents (Global)"
-              options={[
-                { value: '', label: 'All Documents (Global)' },
-                ...documents.map((d) => ({ value: d.id, label: d.filename })),
-              ]}
-            />
-          </div>
-
           {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
             <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <Clock size={11} />
               <span>Recent Conversations</span>
@@ -745,12 +727,26 @@ export default function ChatWorkspace() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 text-xs">
+          <div className="flex items-center gap-2.5 shrink-0 text-xs">
+            {/* Document Filter Scope in Top Bar */}
+            <div className="w-52 sm:w-60">
+              <CustomSelect
+                isMulti={true}
+                value={selectedDocIds}
+                onChange={setSelectedDocIds}
+                placeholder="All Documents (Global)"
+                options={[
+                  { value: '', label: 'All Documents (Global)' },
+                  ...documents.map((d) => ({ value: d.id, label: d.filename })),
+                ]}
+              />
+            </div>
+
             {/* Feature 5: Export Thread to Markdown */}
             {activeSession.messages.length > 0 && (
               <button
                 onClick={handleExportMarkdown}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-2xs"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-2xs"
                 title="Export conversation to Markdown (.md)"
               >
                 <Download size={12} className="text-blue-500" />
