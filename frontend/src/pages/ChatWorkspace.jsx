@@ -19,6 +19,7 @@ import ChatSidebar from '../components/chat/ChatSidebar'
 import ChatMessageItem from '../components/chat/ChatMessageItem'
 import ChatComposer from '../components/chat/ChatComposer'
 import DeleteSessionModal from '../components/chat/DeleteSessionModal'
+import ReasoningTimeline from '../components/chat/ReasoningTimeline'
 
 const STORAGE_KEY = 'quickdesk_chat_sessions_v1'
 
@@ -104,6 +105,7 @@ export default function ChatWorkspace() {
     streamedText,
     status,
     citations,
+    reasoningSteps,
     error: streamError,
     reset: resetStream,
   } = useEventStream()
@@ -330,12 +332,13 @@ export default function ChatWorkspace() {
       topK: effectiveTopK,
       windowSize: effectiveWindowSize,
       temperature: effectiveTemperature,
-      onDone: ({ text: fullAssistantText, citations: doneCitations }) => {
+      onDone: ({ text: fullAssistantText, citations: doneCitations, reasoningSteps: doneSteps }) => {
         const assistantMessage = {
           id: `msg_asst_${Date.now()}`,
           role: 'assistant',
           content: fullAssistantText,
           citations: doneCitations && doneCitations.length > 0 ? doneCitations : citations,
+          reasoningSteps: doneSteps && doneSteps.length > 0 ? doneSteps : reasoningSteps,
           timestamp: new Date().toISOString(),
         }
 
@@ -753,6 +756,15 @@ export default function ChatWorkspace() {
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                       <span>{status.message}</span>
                     </div>
+                  )}
+
+                  {/* Live ReAct Agent Reasoning Timeline */}
+                  {reasoningSteps && reasoningSteps.length > 0 && (
+                    <ReasoningTimeline
+                      steps={reasoningSteps}
+                      isLive={true}
+                      onCitationClick={(cite) => setSelectedCitation(cite)}
+                    />
                   )}
 
                   {/* Streaming Markdown Content */}

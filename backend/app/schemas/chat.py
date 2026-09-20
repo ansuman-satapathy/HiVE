@@ -25,4 +25,24 @@ class CitationChunk(BaseModel):
     document_title: Optional[str] = None
     chunk_index: int
     content: str
+    token_count: Optional[int] = 0
+    active_heading: Optional[str] = None
     relevance_score: Optional[float] = None
+
+
+class AgentToolCall(BaseModel):
+    tool: str
+    tool_input: Dict[str, Any]
+    iteration: int
+
+
+class AgentThought(BaseModel):
+    thought: str
+    iteration: int
+
+
+class AgentToolResult(BaseModel):
+    tool: str
+    summary: str
+    citations: List[CitationChunk] = []
+    iteration: int

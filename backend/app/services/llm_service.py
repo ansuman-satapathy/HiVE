@@ -102,6 +102,36 @@ class LocalDeterministicLLM(LLMProvider):
         system_content = next((m["content"] for m in messages if m.get("role") == "system"), "")
         user_query = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
 
+        # Check if this is a ReAct reasoning step prompt
+        if "Available Tools:" in system_content and "Thought:" in system_content:
+            # Check if an observation already exists in user_query/scratchpad
+            if "Observation:" in user_query:
+                # Agent has received observation; formulate final answer
+                chunk_ids = re.findall(r"\[ID:\s*([a-zA-Z0-9_\-]+)\]", user_query)
+                cite_tag = f" [doc:{chunk_ids[0]}]" if chunk_ids else ""
+                lines = [l.strip() for l in user_query.split("\n") if l.strip() and not l.startswith("--- Chunk") and not l.startswith("Thought:") and not l.startswith("Action")]
+                excerpt = " ".join(lines[-4:]) if lines else "Relevant excerpts retrieved."
+                if len(excerpt) > 400:
+                    excerpt = excerpt[:400] + "..."
+
+                response_text = (
+                    f"Thought: I now have enough information to answer the user's question.\n"
+                    f"Final Answer: Based on the retrieved documentation, {excerpt}{cite_tag}"
+                )
+            else:
+                # First turn: formulate a search action
+                clean_query = user_query.replace("Question:", "").strip()
+                response_text = (
+                    f"Thought: I need to search the knowledge base for information to answer the user's question.\n"
+                    f"Action: search_knowledge_base\n"
+                    f'Action Input: {{"query": "{clean_query}"}}'
+                )
+
+            for tok in [w + " " for w in response_text.split(" ")]:
+                await asyncio.sleep(0.005)
+                yield tok
+            return
+
         # Extract excerpts from system prompt
         context_body = ""
         if "=== DOCUMENT CONTEXT EXCERPTS ===" in system_content:
@@ -135,7 +165,7 @@ class LocalDeterministicLLM(LLMProvider):
             tokens.append(word + " ")
 
         for tok in tokens:
-            await asyncio.sleep(0.015)
+            await asyncio.sleep(0.01)
             yield tok
 
 
