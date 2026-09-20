@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useTaskQueue } from '../context/TaskQueueContext'
-import { LogOut, Bot, Files, Activity, Layers, Loader2, Sun, Moon, MessageSquare } from 'lucide-react'
+import { LogOut, Bot, Files, Activity, Layers, Loader2, Sun, Moon, MessageSquare, SlidersHorizontal } from 'lucide-react'
 import TaskQueueDrawer from './TaskQueueDrawer'
 
 import HiveLogo from './HiveLogo'
@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { to: '/workspace', label: 'Workspace', icon: Files, end: true },
   { to: '/workspace/chat', label: 'Chat', icon: MessageSquare },
   { to: '/workspace/documents', label: 'Documents', icon: Layers },
-  { to: '/workspace/retrieval', label: 'Playground', icon: Activity },
+  { to: '/workspace/retrieval', label: 'Studio', icon: SlidersHorizontal },
 ]
 
 export default function DashboardLayout({ children }) {
