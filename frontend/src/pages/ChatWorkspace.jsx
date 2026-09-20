@@ -68,8 +68,8 @@ export default function ChatWorkspace() {
   const [editingMessageId, setEditingMessageId] = useState(null)
   const [editPromptText, setEditPromptText] = useState('')
 
-  // Feature 3: Inline Renaming State
-  const [isRenamingTitle, setIsRenamingTitle] = useState(false)
+  // Inline Renaming State (in sidebar list)
+  const [editingSessionTitleId, setEditingSessionTitleId] = useState(null)
   const [renamingTitleText, setRenamingTitleText] = useState('')
   const renameInputRef = useRef(null)
 
@@ -88,20 +88,20 @@ export default function ChatWorkspace() {
         if (sessionToDelete) setSessionToDelete(null)
         if (selectedCitation) setSelectedCitation(null)
         if (editingMessageId) setEditingMessageId(null)
-        if (isRenamingTitle) setIsRenamingTitle(false)
+        if (editingSessionTitleId) setEditingSessionTitleId(null)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [sessionToDelete, selectedCitation, editingMessageId, isRenamingTitle])
+  }, [sessionToDelete, selectedCitation, editingMessageId, editingSessionTitleId])
 
   // Focus rename input when editing starts
   useEffect(() => {
-    if (isRenamingTitle && renameInputRef.current) {
+    if (editingSessionTitleId && renameInputRef.current) {
       renameInputRef.current.focus()
       renameInputRef.current.select()
     }
-  }, [isRenamingTitle])
+  }, [editingSessionTitleId])
 
   // SSE Hook
   const {
@@ -479,20 +479,23 @@ export default function ChatWorkspace() {
     }
   }
 
-  // ── Feature 3: Inline Renaming ─────────────────────────────────────────
-  const handleStartRename = () => {
-    setRenamingTitleText(activeSession.title)
-    setIsRenamingTitle(true)
+  // ── Feature 3: Inline Renaming in Sidebar List ─────────────────────────
+  const handleStartRename = (session, e) => {
+    if (e) e.stopPropagation()
+    setRenamingTitleText(session.title || 'New Conversation')
+    setEditingSessionTitleId(session.id)
   }
 
-  const handleSaveRename = () => {
+  const handleSaveRename = (sessionId) => {
+    const targetId = sessionId || editingSessionTitleId
+    if (!targetId) return
     const trimmed = renamingTitleText.trim()
-    if (trimmed && trimmed !== activeSession.title) {
+    if (trimmed) {
       setSessions((prev) =>
-        prev.map((s) => (s.id === activeSessionId ? { ...s, title: trimmed } : s))
+        prev.map((s) => (s.id === targetId ? { ...s, title: trimmed } : s))
       )
     }
-    setIsRenamingTitle(false)
+    setEditingSessionTitleId(null)
   }
 
   // ── Feature 5: Export Conversation to Markdown ─────────────────────────
@@ -556,20 +559,13 @@ export default function ChatWorkspace() {
       >
         <div className="w-64 flex flex-col h-full shrink-0">
           {/* Sidebar Header - exactly h-13 to align seamlessly with main header */}
-          <div className="h-13 px-4 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2.5 shrink-0">
+          <div className="h-13 px-4 border-b border-[var(--border-subtle)] flex items-center shrink-0">
             <button
               onClick={handleCreateNewChat}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group"
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group"
             >
               <Plus size={14} className="text-blue-500 group-hover:rotate-90 transition-transform duration-200" />
               <span>New Conversation</span>
-            </button>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer"
-              title="Close sidebar"
-            >
-              <PanelLeftClose size={16} />
             </button>
           </div>
 
@@ -589,10 +585,13 @@ export default function ChatWorkspace() {
               sessions.map((session) => {
                 const isActive = session.id === activeSessionId
                 const messageCount = session.messages ? session.messages.length : 0
+                const isEditingThisTitle = editingSessionTitleId === session.id
+
                 return (
                   <div
                     key={session.id}
                     onClick={() => {
+                      if (isEditingThisTitle) return
                       if (isStreaming) abortStream()
                       setActiveSessionId(session.id)
                       resetStream()
@@ -611,26 +610,61 @@ export default function ChatWorkspace() {
                         size={13}
                         className={isActive ? 'text-blue-500 shrink-0' : 'text-[var(--text-muted)] shrink-0'}
                       />
-                      <span className="truncate">{session.title || 'New Conversation'}</span>
+                      {isEditingThisTitle ? (
+                        <div className="flex items-center gap-1 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            ref={renameInputRef}
+                            type="text"
+                            value={renamingTitleText}
+                            onChange={(e) => setRenamingTitleText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveRename(session.id)
+                              if (e.key === 'Escape') setEditingSessionTitleId(null)
+                            }}
+                            onBlur={() => handleSaveRename(session.id)}
+                            className="w-full px-1.5 py-0.5 text-xs font-normal text-[var(--text-primary)] bg-[var(--bg-canvas)] border border-blue-500/60 rounded-md focus:outline-hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveRename(session.id)}
+                            className="p-0.5 text-blue-500 hover:text-blue-600 cursor-pointer shrink-0"
+                            title="Save"
+                          >
+                            <Check size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="truncate">{session.title || 'New Conversation'}</span>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      {messageCount > 0 && (
-                        <span className="text-[10px] font-mono text-[var(--text-muted)] opacity-60 group-hover:opacity-0 transition-opacity">
-                          {messageCount}
-                        </span>
-                      )}
-                      {session.messages && session.messages.length > 0 && (
+                    {!isEditingThisTitle && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        {messageCount > 0 && (
+                          <span className="text-[10px] font-mono text-[var(--text-muted)] opacity-60 group-hover:opacity-0 transition-opacity">
+                            {messageCount}
+                          </span>
+                        )}
                         <button
                           type="button"
-                          onClick={(e) => handleRequestDeleteSession(session, e)}
-                          title="Delete conversation"
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shrink-0"
+                          onClick={(e) => handleStartRename(session, e)}
+                          title="Rename conversation"
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-muted)] hover:text-blue-500 hover:bg-blue-500/10 transition-all cursor-pointer shrink-0"
                         >
-                          <Trash2 size={12} />
+                          <Edit2 size={12} />
                         </button>
-                      )}
-                    </div>
+                        {session.messages && session.messages.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleRequestDeleteSession(session, e)}
+                            title="Delete conversation"
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shrink-0"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })
@@ -665,65 +699,31 @@ export default function ChatWorkspace() {
         {/* Minimalist Header Bar */}
         <header className="h-13 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 sm:px-8 flex items-center justify-between gap-4 shrink-0 z-10">
           <div className="flex items-center gap-2.5 truncate flex-1 min-w-0">
+            {/* Sidebar Toggle Button always visible on top bar */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-1.5 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer shrink-0"
+              title={sidebarOpen ? 'Collapse sidebar' : 'Open sidebar'}
+            >
+              {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
+            </button>
+
             {!sidebarOpen && (
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="p-1.5 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] transition-colors cursor-pointer"
-                  title="Open sidebar"
-                >
-                  <PanelLeft size={16} />
-                </button>
-                <button
-                  onClick={handleCreateNewChat}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group"
-                  title="Start a new conversation"
-                >
-                  <Plus size={13} className="text-blue-500 group-hover:rotate-90 transition-transform duration-200" />
-                  <span className="hidden sm:inline">New</span>
-                </button>
-              </div>
+              <button
+                onClick={handleCreateNewChat}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group shrink-0"
+                title="Start a new conversation"
+              >
+                <Plus size={13} className="text-blue-500 group-hover:rotate-90 transition-transform duration-200" />
+                <span className="hidden sm:inline">New</span>
+              </button>
             )}
 
-            {/* Feature 3: Inline Renaming in Header */}
+            {/* Conversation Name in Header */}
             <div className="truncate flex items-center gap-2 max-w-lg">
-              {isRenamingTitle ? (
-                <div className="flex items-center gap-1.5 w-full">
-                  <input
-                    ref={renameInputRef}
-                    type="text"
-                    value={renamingTitleText}
-                    onChange={(e) => setRenamingTitleText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveRename()
-                      if (e.key === 'Escape') setIsRenamingTitle(false)
-                    }}
-                    onBlur={handleSaveRename}
-                    className="px-2 py-1 text-xs sm:text-sm font-semibold text-[var(--text-primary)] bg-[var(--bg-canvas)] border border-blue-500/50 rounded-lg focus:outline-hidden ring-2 ring-blue-500/20 w-full"
-                  />
-                  <button
-                    onClick={handleSaveRename}
-                    className="p-1 text-blue-500 hover:text-blue-600 cursor-pointer"
-                    title="Save title"
-                  >
-                    <Check size={14} />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  onClick={handleStartRename}
-                  className="group flex items-center gap-2 cursor-pointer rounded-lg px-1.5 py-0.5 hover:bg-[var(--bg-surface-hover)] transition-colors"
-                  title="Click to rename thread"
-                >
-                  <h2 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] truncate">
-                    {activeSession.title}
-                  </h2>
-                  <Edit2
-                    size={12}
-                    className="text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                  />
-                </div>
-              )}
+              <h2 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] truncate">
+                {activeSession.title || 'New Conversation'}
+              </h2>
             </div>
           </div>
 
