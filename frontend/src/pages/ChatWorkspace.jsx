@@ -551,12 +551,12 @@ export default function ChatWorkspace() {
       {/* ── 1. Serene Conversation Sidebar ──────────────────────────────── */}
       <aside
         className={`${
-          sidebarOpen ? 'w-60 sm:w-64 border-r' : 'w-0 border-r-0'
+          sidebarOpen ? 'w-64 border-r' : 'w-0 border-r-0'
         } transition-all duration-300 ease-in-out border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col shrink-0 overflow-hidden z-20`}
       >
-        <div className="w-60 sm:w-64 flex flex-col h-full shrink-0">
+        <div className="w-64 flex flex-col h-full shrink-0">
           {/* Sidebar Header - exactly h-13 to align seamlessly with main header */}
-          <div className="h-13 px-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2 shrink-0">
+          <div className="h-13 px-4 border-b border-[var(--border-subtle)] flex items-center justify-between gap-2.5 shrink-0">
             <button
               onClick={handleCreateNewChat}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group"
@@ -574,7 +574,7 @@ export default function ChatWorkspace() {
           </div>
 
           {/* Scope Selector in Sidebar */}
-          <div className="p-3.5 border-b border-[var(--border-subtle)] space-y-1.5">
+          <div className="px-4 py-3 border-b border-[var(--border-subtle)] space-y-1.5">
             <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
               <Layers size={13} className="text-blue-500" />
               <span>Filter Documents</span>
@@ -592,8 +592,8 @@ export default function ChatWorkspace() {
           </div>
 
           {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+            <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <Clock size={11} />
               <span>Recent Conversations</span>
             </div>
@@ -618,13 +618,13 @@ export default function ChatWorkspace() {
                       setShowScrollBottom(false)
                       setEditingMessageId(null)
                     }}
-                    className={`group flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
+                    className={`group flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-[var(--bg-surface-hover)] text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20 shadow-2xs'
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold'
                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
                     }`}
                   >
-                    <div className="flex items-center gap-2 truncate flex-1">
+                    <div className="flex items-center gap-2 truncate flex-1 min-w-0">
                       <MessageSquare
                         size={13}
                         className={isActive ? 'text-blue-500 shrink-0' : 'text-[var(--text-muted)] shrink-0'}

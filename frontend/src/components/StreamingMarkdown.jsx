@@ -167,25 +167,27 @@ export default function StreamingMarkdown({
         )
       }
 
-      // Render markdown paragraph lines
-      const lines = block.text.split('\n')
+      // Parse markdown text into paragraphs and blocks
+      // We group by double newlines or list/heading transitions so normal paragraphs flow naturally
+      const rawParagraphs = block.text.split(/\n{2,}/)
       const isLastBlock = bIdx === blocks.length - 1
 
       return (
-        <div key={bIdx} className="space-y-3">
-          {lines.map((line, lIdx) => {
-            const isLastLine = isLastBlock && lIdx === lines.length - 1
-            const trimmed = line.trim()
-            if (!trimmed) {
-              return <div key={lIdx} className="h-2" />
-            }
+        <div key={bIdx} className="space-y-3.5">
+          {rawParagraphs.map((para, pIdx) => {
+            const isLastPara = isLastBlock && pIdx === rawParagraphs.length - 1
+            const trimmed = para.trim()
+            if (!trimmed) return null
 
-            // Headings
+            // If the paragraph contains multiple lines (e.g. lists or soft breaks)
+            const lines = para.split('\n')
+
+            // Single Heading: #, ##, ###
             if (trimmed.startsWith('### ')) {
               return (
-                <h4 key={lIdx} className="text-[15px] font-semibold text-[var(--text-primary)] tracking-tight mt-5 mb-2">
+                <h4 key={pIdx} className="text-[15px] font-semibold text-[var(--text-primary)] tracking-tight pt-2 pb-0.5">
                   {renderInline(trimmed.slice(4))}
-                  {isStreaming && isLastLine && (
+                  {isStreaming && isLastPara && (
                     <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
                   )}
                 </h4>
@@ -193,9 +195,9 @@ export default function StreamingMarkdown({
             }
             if (trimmed.startsWith('## ')) {
               return (
-                <h3 key={lIdx} className="text-lg font-bold text-[var(--text-primary)] tracking-tight mt-6 mb-2.5">
+                <h3 key={pIdx} className="text-[16.5px] font-bold text-[var(--text-primary)] tracking-tight pt-2.5 pb-1">
                   {renderInline(trimmed.slice(3))}
-                  {isStreaming && isLastLine && (
+                  {isStreaming && isLastPara && (
                     <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
                   )}
                 </h3>
@@ -203,9 +205,9 @@ export default function StreamingMarkdown({
             }
             if (trimmed.startsWith('# ')) {
               return (
-                <h2 key={lIdx} className="text-xl font-bold text-[var(--text-primary)] tracking-tight mt-7 mb-3">
+                <h2 key={pIdx} className="text-lg font-bold text-[var(--text-primary)] tracking-tight pt-3 pb-1">
                   {renderInline(trimmed.slice(2))}
-                  {isStreaming && isLastLine && (
+                  {isStreaming && isLastPara && (
                     <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
                   )}
                 </h2>
@@ -216,55 +218,85 @@ export default function StreamingMarkdown({
             if (trimmed.startsWith('> ')) {
               return (
                 <blockquote
-                  key={lIdx}
-                  className="pl-4 py-1.5 my-2.5 border-l-2 border-blue-500/60 bg-blue-500/[0.04] rounded-r-lg text-[13.5px] text-[var(--text-secondary)] italic leading-relaxed"
+                  key={pIdx}
+                  className="pl-3.5 py-1 my-1.5 border-l-2 border-blue-500/60 bg-blue-500/[0.04] rounded-r-lg text-[13.5px] text-[var(--text-secondary)] italic leading-relaxed"
                 >
                   {renderInline(trimmed.slice(2))}
-                  {isStreaming && isLastLine && (
+                  {isStreaming && isLastPara && (
                     <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
                   )}
                 </blockquote>
               )
             }
 
-            // Bullet Lists
-            if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            // If the paragraph is a collection of list items or contains list items
+            const isListBlock = lines.some((l) => {
+              const t = l.trim()
+              return t.startsWith('- ') || t.startsWith('* ') || /^\d+\.\s+/.test(t)
+            })
+
+            if (isListBlock) {
               return (
-                <div key={lIdx} className="flex items-start gap-2.5 pl-1 my-1 text-[14px]">
-                  <span className="text-blue-500 select-none leading-[1.7] text-base">•</span>
-                  <span className="flex-1 leading-[1.7] text-[var(--text-primary)]">
-                    {renderInline(trimmed.slice(2))}
-                    {isStreaming && isLastLine && (
-                      <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
-                    )}
-                  </span>
+                <div key={pIdx} className="space-y-1.5 my-1">
+                  {lines.map((line, lIdx) => {
+                    const isLastLine = isLastPara && lIdx === lines.length - 1
+                    const t = line.trim()
+                    if (!t) return null
+
+                    if (t.startsWith('- ') || t.startsWith('* ')) {
+                      return (
+                        <div key={lIdx} className="flex items-start gap-2.5 pl-1 text-[14px]">
+                          <span className="text-blue-500 select-none leading-[1.65] text-base">•</span>
+                          <span className="flex-1 leading-[1.65] text-[var(--text-primary)]">
+                            {renderInline(t.slice(2))}
+                            {isStreaming && isLastLine && (
+                              <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                            )}
+                          </span>
+                        </div>
+                      )
+                    }
+
+                    const numMatch = t.match(/^(\d+)\.\s+(.*)/)
+                    if (numMatch) {
+                      return (
+                        <div key={lIdx} className="flex items-start gap-2.5 pl-1 text-[14px]">
+                          <span className="font-mono text-[11.5px] font-semibold text-blue-500 select-none leading-[1.65] pt-0.5">
+                            {numMatch[1]}.
+                          </span>
+                          <span className="flex-1 leading-[1.65] text-[var(--text-primary)]">
+                            {renderInline(numMatch[2])}
+                            {isStreaming && isLastLine && (
+                              <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                            )}
+                          </span>
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <p key={lIdx} className="text-[14px] leading-relaxed text-[var(--text-primary)]">
+                        {renderInline(line)}
+                        {isStreaming && isLastLine && (
+                          <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
+                        )}
+                      </p>
+                    )
+                  })}
                 </div>
               )
             }
 
-            // Numbered Lists
-            const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/)
-            if (numMatch) {
-              return (
-                <div key={lIdx} className="flex items-start gap-2.5 pl-1 my-1 text-[14px]">
-                  <span className="font-mono text-[12px] font-semibold text-blue-500 select-none leading-[1.7] pt-0.5">
-                    {numMatch[1]}.
-                  </span>
-                  <span className="flex-1 leading-[1.7] text-[var(--text-primary)]">
-                    {renderInline(numMatch[2])}
-                    {isStreaming && isLastLine && (
-                      <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
-                    )}
-                  </span>
-                </div>
-              )
-            }
-
-            // Standard Paragraph
+            // Normal cohesive paragraph: join soft breaks with space or line break
             return (
-              <p key={lIdx} className="text-[14.5px] leading-[1.75] text-[var(--text-primary)]">
-                {renderInline(line)}
-                {isStreaming && isLastLine && (
+              <p key={pIdx} className="text-[14px] leading-[1.7] text-[var(--text-primary)]">
+                {lines.map((line, lIdx) => (
+                  <React.Fragment key={lIdx}>
+                    {renderInline(line)}
+                    {lIdx < lines.length - 1 && ' '}
+                  </React.Fragment>
+                ))}
+                {isStreaming && isLastPara && (
                   <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
                 )}
               </p>
