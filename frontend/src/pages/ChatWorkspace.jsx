@@ -1,28 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
-  MessageSquare,
-  Plus,
-  Trash2,
-  Send,
-  Square,
-  Sparkles,
-  User,
   PanelLeftClose,
   PanelLeft,
-  FileText,
-  Copy,
-  Check,
-  Layers,
-  Search,
+  Plus,
   BookOpen,
-  X,
-  Clock,
-  ChevronDown,
-  ArrowDown,
-  ArrowUp,
-  Edit2,
+  Search,
   Download,
-  Bookmark,
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 import { useEventStream } from '../hooks/useEventStream'
@@ -30,6 +13,12 @@ import CustomSelect from '../components/CustomSelect'
 import StreamingMarkdown from '../components/StreamingMarkdown'
 import CitationSourceDrawer from '../components/CitationSourceDrawer'
 import { HiveLogoIcon } from '../components/HiveLogo'
+
+// Modular chat subcomponents
+import ChatSidebar from '../components/chat/ChatSidebar'
+import ChatMessageItem from '../components/chat/ChatMessageItem'
+import ChatComposer from '../components/chat/ChatComposer'
+import DeleteSessionModal from '../components/chat/DeleteSessionModal'
 
 const STORAGE_KEY = 'quickdesk_chat_sessions_v1'
 
@@ -197,7 +186,6 @@ export default function ChatWorkspace() {
   // Force scroll whenever user submits a new turn
   useEffect(() => {
     if (activeSession.messages.length > 0) {
-      // If user just sent a message, scroll down once smoothly
       const lastMsg = activeSession.messages[activeSession.messages.length - 1]
       if (lastMsg.role === 'user') {
         userHasScrolledUp.current = false
@@ -222,7 +210,6 @@ export default function ChatWorkspace() {
   // Detect any user intent to scroll up (wheel or touch)
   const handleUserWheel = (e) => {
     if (e.deltaY < 0) {
-      // User is scrolling UP: disarm forced auto-scroll
       userHasScrolledUp.current = true
     }
   }
@@ -237,7 +224,6 @@ export default function ChatWorkspace() {
     if (e.touches.length > 0) {
       const delta = e.touches[0].clientY - handleTouchStart.current.y
       if (delta > 10) {
-        // Dragging downwards = scrolling UP: disarm forced auto-scroll
         userHasScrolledUp.current = true
       }
     }
@@ -248,7 +234,6 @@ export default function ChatWorkspace() {
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current
     const distanceToBottom = scrollHeight - scrollTop - clientHeight
 
-    // Only show pill if content is actually scrolled away / cropped (>220px, beyond the composer island height)
     if (distanceToBottom < 80) {
       userHasScrolledUp.current = false
       setShowScrollBottom(false)
@@ -269,7 +254,6 @@ export default function ChatWorkspace() {
   // Create new session
   const handleCreateNewChat = () => {
     if (isStreaming) abortStream()
-    // If an empty new conversation already exists, just switch to it
     const existingEmpty = sessions.find((s) => !s.messages || s.messages.length === 0)
     if (existingEmpty) {
       setActiveSessionId(existingEmpty.id)
@@ -297,7 +281,6 @@ export default function ChatWorkspace() {
   // Request delete session (opens confirmation dialog)
   const handleRequestDeleteSession = (session, e) => {
     e.stopPropagation()
-    // Do not allow deleting a new conversation with no messages
     if (!session || !session.messages || session.messages.length === 0) {
       return
     }
@@ -327,13 +310,11 @@ export default function ChatWorkspace() {
     setShowScrollBottom(false)
     setTimeout(() => scrollToBottom('smooth'), 50)
 
-    // Build history for backend multi-turn context
     const previousTurns = priorMessages.map((m) => ({
       role: m.role,
       content: m.content,
     }))
 
-    // Resolve current active profile configuration
     const activeProf = profiles.find((p) => p.id === selectedProfileId)
     const effectiveTopK = activeProf?.top_k ?? 5
     const effectiveWindowSize = activeProf?.window_size ?? 1
@@ -407,13 +388,11 @@ export default function ChatWorkspace() {
       timestamp: new Date().toISOString(),
     }
 
-    // Update session title if it's the first message
     const updatedTitle =
       activeSession.messages.length === 0
         ? text.slice(0, 36) + (text.length > 36 ? '...' : '')
         : activeSession.title
 
-    // Append user message immediately
     const nextMessages = [...activeSession.messages, userMessage]
     setSessions((prev) =>
       prev.map((s) => {
@@ -450,7 +429,6 @@ export default function ChatWorkspace() {
     const msgIndex = activeSession.messages.findIndex((m) => m.id === msgId)
     if (msgIndex === -1) return
 
-    // Truncate everything after this message (branching from this turn)
     const priorTurns = activeSession.messages.slice(0, msgIndex)
     const editedUserMessage = {
       id: `msg_user_${Date.now()}`,
@@ -480,7 +458,6 @@ export default function ChatWorkspace() {
   const handleRegenerateLastResponse = async () => {
     if (isStreaming || activeSession.messages.length === 0) return
 
-    // Find the last assistant message and the preceding user query
     const msgs = [...activeSession.messages]
     const lastMsg = msgs[msgs.length - 1]
 
@@ -488,7 +465,6 @@ export default function ChatWorkspace() {
     let queryToRerun = ''
 
     if (lastMsg.role === 'assistant') {
-      // Pop the assistant message
       const withoutLastAssistant = msgs.slice(0, -1)
       const lastUserMsg = withoutLastAssistant[withoutLastAssistant.length - 1]
       if (!lastUserMsg || lastUserMsg.role !== 'user') return
@@ -496,7 +472,6 @@ export default function ChatWorkspace() {
       queryToRerun = lastUserMsg.content
       priorTurns = withoutLastAssistant.slice(0, -1)
 
-      // Update state without the old assistant message
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id === activeSessionId) {
@@ -587,148 +562,30 @@ export default function ChatWorkspace() {
 
   return (
     <div className="flex h-[calc(100vh-65px)] w-full overflow-hidden bg-[var(--bg-canvas)]">
-      {/* ── 1. Serene Conversation Sidebar ──────────────────────────────── */}
-      <aside
-        className={`${
-          sidebarOpen ? 'w-64 border-r' : 'w-0 border-r-0'
-        } transition-all duration-300 ease-in-out border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col shrink-0 overflow-hidden z-20`}
-      >
-        <div className="w-64 flex flex-col h-full shrink-0">
-          {/* Sidebar Header - exactly h-13 to align seamlessly with main header */}
-          <div className="h-13 px-4 border-b border-[var(--border-subtle)] flex items-center shrink-0">
-            <button
-              onClick={handleCreateNewChat}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-blue-500/40 hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-all cursor-pointer group"
-            >
-              <Plus size={14} className="text-blue-500 group-hover:rotate-90 transition-transform duration-200" />
-              <span>New Conversation</span>
-            </button>
-          </div>
-
-          {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
-            <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-              <Clock size={11} />
-              <span>Recent Conversations</span>
-            </div>
-
-            {sessions.length === 0 ? (
-              <div className="p-4 text-center text-xs text-[var(--text-muted)] space-y-1">
-                <p>No conversations yet.</p>
-                <p className="text-[11px]">Click New Conversation to start.</p>
-              </div>
-            ) : (
-              sessions.map((session) => {
-                const isActive = session.id === activeSessionId
-                const messageCount = session.messages ? session.messages.length : 0
-                const isEditingThisTitle = editingSessionTitleId === session.id
-
-                return (
-                  <div
-                    key={session.id}
-                    onClick={() => {
-                      if (isEditingThisTitle) return
-                      if (isStreaming) abortStream()
-                      setActiveSessionId(session.id)
-                      resetStream()
-                      userHasScrolledUp.current = false
-                      setShowScrollBottom(false)
-                      setEditingMessageId(null)
-                    }}
-                    className={`group flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                      <MessageSquare
-                        size={13}
-                        className={isActive ? 'text-blue-500 shrink-0' : 'text-[var(--text-muted)] shrink-0'}
-                      />
-                      {isEditingThisTitle ? (
-                        <div className="flex items-center gap-1 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            ref={renameInputRef}
-                            type="text"
-                            value={renamingTitleText}
-                            onChange={(e) => setRenamingTitleText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveRename(session.id)
-                              if (e.key === 'Escape') setEditingSessionTitleId(null)
-                            }}
-                            onBlur={() => handleSaveRename(session.id)}
-                            className="w-full px-1.5 py-0.5 text-xs font-normal text-[var(--text-primary)] bg-[var(--bg-canvas)] border border-blue-500/60 rounded-md focus:outline-hidden"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleSaveRename(session.id)}
-                            className="p-0.5 text-blue-500 hover:text-blue-600 cursor-pointer shrink-0"
-                            title="Save"
-                          >
-                            <Check size={13} />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="truncate">{session.title || 'New Conversation'}</span>
-                      )}
-                    </div>
-
-                    {!isEditingThisTitle && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        {messageCount > 0 && (
-                          <span className="text-[10px] font-mono text-[var(--text-muted)] opacity-60 group-hover:opacity-0 transition-opacity">
-                            {messageCount}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => handleStartRename(session, e)}
-                          title="Rename conversation"
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-muted)] hover:text-blue-500 hover:bg-blue-500/10 transition-all cursor-pointer shrink-0"
-                        >
-                          <Edit2 size={12} />
-                        </button>
-                        {session.messages && session.messages.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleRequestDeleteSession(session, e)}
-                            title="Delete conversation"
-                            className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shrink-0"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          {/* Quick Stats & Document Library Footprint */}
-          <div className="p-3 border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)]/40 space-y-2">
-            <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
-              <span className="flex items-center gap-1.5 font-medium">
-                <FileText size={12} className="text-blue-500" />
-                <span>Knowledge Base</span>
-              </span>
-              <span className="font-mono text-[10px] font-semibold text-[var(--text-primary)] bg-[var(--bg-surface)] px-1.5 py-0.5 rounded border border-[var(--border-default)]">
-                {documents.length} {documents.length === 1 ? 'doc' : 'docs'}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between text-[10.5px] text-[var(--text-muted)] pt-0.5">
-              <span>{sessions.length} {sessions.length === 1 ? 'conversation' : 'conversations'}</span>
-              <span className="flex items-center gap-1 text-emerald-500 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                <span>Ready</span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </aside>
+      {/* ── 1. Serene Conversation Sidebar Component ─────────────────────── */}
+      <ChatSidebar
+        isOpen={sidebarOpen}
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onSelectSession={(sessionId) => {
+          if (isStreaming) abortStream()
+          setActiveSessionId(sessionId)
+          resetStream()
+          userHasScrolledUp.current = false
+          setShowScrollBottom(false)
+          setEditingMessageId(null)
+        }}
+        onCreateNewChat={handleCreateNewChat}
+        onStartRename={handleStartRename}
+        onSaveRename={handleSaveRename}
+        editingSessionTitleId={editingSessionTitleId}
+        renamingTitleText={renamingTitleText}
+        setRenamingTitleText={setRenamingTitleText}
+        renameInputRef={renameInputRef}
+        onCancelRename={() => setEditingSessionTitleId(null)}
+        onRequestDeleteSession={handleRequestDeleteSession}
+        documentsCount={documents.length}
+      />
 
       {/* ── 2. Editorial Central Chat Column ────────────────────────────── */}
       <main className="flex-1 flex flex-col h-full min-w-0 relative">
@@ -858,152 +715,27 @@ export default function ChatWorkspace() {
 
             {/* ── Message History Stream ─────────────────────────────────── */}
             {activeSession.messages.map((msg, index) => {
-              const isUser = msg.role === 'user'
               const isCopied = copiedMessageId === msg.id
               const isLastTurn = index === activeSession.messages.length - 1
+              const isEditing = editingMessageId === msg.id
 
-              if (isUser) {
-                const isEditing = editingMessageId === msg.id
-
-                return (
-                  <div key={msg.id} className="flex justify-end w-full group animate-in fade-in">
-                    {isEditing ? (
-                      /* Feature 1: Inline User Message Editor */
-                      <div className="w-full max-w-2xl rounded-2xl p-3.5 bg-[var(--bg-surface)] border border-blue-500/40 shadow-md space-y-2.5">
-                        <textarea
-                          value={editPromptText}
-                          onChange={(e) => setEditPromptText(e.target.value)}
-                          className="w-full p-2.5 rounded-xl bg-[var(--bg-canvas)] border border-[var(--border-default)] text-xs sm:text-[13px] text-[var(--text-primary)] focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 leading-relaxed resize-none"
-                          rows={3}
-                          autoFocus
-                        />
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-[11px] text-[var(--text-muted)]">
-                            Submitting will branch a new stream from this question
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={handleCancelEdit}
-                              className="px-3 py-1 rounded-lg border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-xs text-[var(--text-secondary)] cursor-pointer transition-colors"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleConfirmEditAndRerun(msg.id)}
-                              className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs cursor-pointer transition-all"
-                            >
-                              Save & Re-run
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      /* Standard User Message Pill */
-                      <div className="flex items-center gap-2 max-w-[85%] sm:max-w-[75%]">
-                        {/* Edit Prompt Pencil Button (hover) */}
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditMessage(msg)}
-                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-all cursor-pointer"
-                          title="Edit and re-run query"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-
-                        <div className="rounded-2xl rounded-tr-xs px-4 py-2.5 bg-[var(--bg-surface-elevated)] border border-[var(--border-default)] shadow-xs">
-                          <p className="text-[14px] leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap select-text font-normal">
-                            {msg.content}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              }
-
-              // Assistant Message: Open Editorial Flow
               return (
-                <div key={msg.id} className="flex gap-3.5 sm:gap-4 w-full group animate-in fade-in">
-                  {/* HiVE Brand Assistant Avatar */}
-                  <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs overflow-hidden">
-                    <HiveLogoIcon size={18} />
-                  </div>
-
-                  {/* Open Reading Column */}
-                  <div className="flex-1 min-w-0 space-y-3">
-                    {msg.isError ? (
-                      <div className="p-3.5 rounded-xl border border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-medium">
-                        {msg.content}
-                      </div>
-                    ) : (
-                      <StreamingMarkdown
-                        content={msg.content}
-                        isStreaming={false}
-                        citations={msg.citations || []}
-                        onCitationClick={(cite) => setSelectedCitation(cite)}
-                      />
-                    )}
-
-                    {/* Citations Grounding Strip */}
-                    {msg.citations && msg.citations.length > 0 && (
-                      <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1 mr-1">
-                          <Layers size={12} /> Sources:
-                        </span>
-                        {msg.citations.map((cite, cIdx) => (
-                          <button
-                            key={cIdx}
-                            type="button"
-                            onClick={() => setSelectedCitation(cite)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/5 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
-                          >
-                            <FileText size={11} className="text-blue-500" />
-                            <span className="truncate max-w-[140px] font-medium">{cite.document_title || 'Document'}</span>
-                            <span className="font-mono text-[10px] text-blue-500 font-bold">#{cite.chunk_index}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Action Bar */}
-                    <div className="flex items-center gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-[var(--text-muted)]">
-                      {!msg.isError && (
-                        <button
-                          type="button"
-                          onClick={() => handleCopyMessage(msg.content, msg.id)}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer text-[11px]"
-                        >
-                          {isCopied ? (
-                            <>
-                              <Check size={11} className="text-emerald-500" />
-                              <span className="text-emerald-500 font-medium">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy size={11} />
-                              <span>Copy response</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-
-                      {/* Feature 2: Regenerate / Retry Button on the latest turn */}
-                      {isLastTurn && !isStreaming && (
-                        <button
-                          type="button"
-                          onClick={handleRegenerateLastResponse}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-blue-500 transition-colors cursor-pointer text-[11px]"
-                          title="Regenerate this response"
-                        >
-                          <RefreshCw size={11} />
-                          <span>Regenerate</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <ChatMessageItem
+                  key={msg.id}
+                  message={msg}
+                  isLastTurn={isLastTurn}
+                  isStreaming={isStreaming}
+                  isCopied={isCopied}
+                  onCopy={handleCopyMessage}
+                  onRegenerate={handleRegenerateLastResponse}
+                  onCitationClick={(cite) => setSelectedCitation(cite)}
+                  isEditing={isEditing}
+                  editPromptText={editPromptText}
+                  setEditPromptText={setEditPromptText}
+                  onStartEdit={handleStartEditMessage}
+                  onCancelEdit={handleCancelEdit}
+                  onConfirmEdit={handleConfirmEditAndRerun}
+                />
               )
             })}
 
@@ -1037,7 +769,7 @@ export default function ChatWorkspace() {
                   {citations && citations.length > 0 && (
                     <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-1.5">
                       <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1 mr-1">
-                        <Layers size={12} /> Found Sources:
+                        Sources:
                       </span>
                       {citations.map((cite, cIdx) => (
                         <button
@@ -1046,7 +778,6 @@ export default function ChatWorkspace() {
                           onClick={() => setSelectedCitation(cite)}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/5 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
                         >
-                          <FileText size={11} className="text-blue-500" />
                           <span className="truncate max-w-[140px] font-medium">{cite.document_title || 'Document'}</span>
                           <span className="font-mono text-[10px] text-blue-500 font-bold">#{cite.chunk_index}</span>
                         </button>
@@ -1061,117 +792,26 @@ export default function ChatWorkspace() {
           </div>
         </div>
 
-        {/* ── Feature 4: Floating "Scroll to Bottom" Pill ──────────────── */}
-        {showScrollBottom && (hasMessages || isStreaming) && (
-          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 animate-in fade-in slide-in-from-bottom-2">
-            <button
-              onClick={() => {
-                userHasScrolledUp.current = false
-                setShowScrollBottom(false)
-                scrollToBottom('smooth')
-              }}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-default)] hover:border-blue-500/40 text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-medium shadow-md hover:shadow-lg transition-all cursor-pointer backdrop-blur-md"
-            >
-              <ArrowDown size={13} className="text-blue-500 animate-bounce" />
-              <span>Scroll to bottom</span>
-            </button>
-          </div>
-        )}
-
-        {/* ── 3. Floating Input Island ──────────────────────────────────── */}
-        <div className="absolute bottom-0 left-0 right-0 pointer-events-none pb-3 pt-10 bg-gradient-to-t from-[var(--bg-canvas)] via-[var(--bg-canvas)]/95 to-transparent flex flex-col items-center justify-end px-4 z-20">
-          <div className="pointer-events-auto max-w-3xl w-full space-y-2">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                handleSendMessage()
-              }}
-              className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-lg hover:border-blue-500/30 transition-all duration-200 focus-within:border-blue-500/70 focus-within:shadow-xl focus-within:ring-3 focus-within:ring-blue-500/10 overflow-hidden"
-            >
-              {/* Input Textarea */}
-              <textarea
-                ref={textareaRef}
-                value={inputPrompt}
-                onChange={(e) => setInputPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask a question about your documents... (Shift+Enter for newline)"
-                rows={1}
-                className="w-full resize-none px-4 pt-3.5 pb-2 text-[14px] leading-relaxed bg-transparent text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-hidden max-h-48"
-              />
-
-              {/* Bottom Toolbar inside the Island */}
-              <div className="px-3.5 pb-2.5 pt-1.5 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)]/60 bg-[var(--bg-canvas)]/30">
-                {/* Active Scope & Model in Composer Toolbar */}
-                <div className="flex items-center gap-2 truncate">
-                  {/* Model Selector Pill (Ready for custom API models) */}
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-default)] text-[11px] text-[var(--text-secondary)] shadow-2xs shrink-0 cursor-default select-none" title="Current Active Model (Custom API models coming soon)">
-                    <Sparkles size={11} className="text-blue-500" />
-                    <span className="font-mono text-[10px] text-[var(--text-primary)] font-semibold">Llama 3.2 11B</span>
-                  </div>
-
-                  {/* Active Scope Pill */}
-                  {selectedDocIds.length > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-600 dark:text-blue-400 font-medium shadow-2xs">
-                      <FileText size={11} />
-                      <span className="truncate max-w-[150px]">
-                        {selectedDocIds.length === 1
-                          ? documents.find((d) => d.id === selectedDocIds[0])?.filename || '1 document'
-                          : `${selectedDocIds.length} documents`}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDocIds([])}
-                        className="hover:text-rose-500 cursor-pointer p-0.5 rounded-full"
-                        title="Search all documents"
-                      >
-                        <X size={10} />
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-[var(--text-muted)] hidden sm:flex items-center gap-1.5 truncate">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
-                      <span>All Documents</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {isStreaming ? (
-                    <button
-                      type="button"
-                      onClick={abortStream}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer animate-pulse"
-                    >
-                      <Square size={11} fill="currentColor" />
-                      <span>Stop</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={!inputPrompt.trim()}
-                      className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all cursor-pointer ${
-                        inputPrompt.trim()
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
-                          : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] opacity-40 cursor-not-allowed'
-                      }`}
-                      title="Send message (Enter)"
-                    >
-                      <ArrowUp size={15} strokeWidth={2.5} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </form>
-
-            {/* AI Accuracy Disclaimer Notice */}
-            <div className="text-center">
-              <p className="text-[11px] text-[var(--text-muted)] leading-normal select-none">
-                HiVE synthesizes answers from document context. AI may make mistakes; always verify critical information via citations.
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* ── 3. Floating Input Island Component ────────────────────────── */}
+        <ChatComposer
+          inputPrompt={inputPrompt}
+          setInputPrompt={setInputPrompt}
+          onSubmit={handleSendMessage}
+          isStreaming={isStreaming}
+          onAbort={abortStream}
+          selectedDocIds={selectedDocIds}
+          setSelectedDocIds={setSelectedDocIds}
+          documents={documents}
+          textareaRef={textareaRef}
+          onKeyDown={handleKeyDown}
+          showScrollBottom={showScrollBottom}
+          hasMessages={hasMessages}
+          onScrollToBottom={() => {
+            userHasScrolledUp.current = false
+            setShowScrollBottom(false)
+            scrollToBottom('smooth')
+          }}
+        />
 
         {/* ── 4. Grounding Citation Source Drawer ──────────────────────── */}
         {selectedCitation && (
@@ -1181,49 +821,12 @@ export default function ChatWorkspace() {
           />
         )}
 
-        {/* ── 5. Delete Confirmation Modal ──────────────────────────────── */}
-        {sessionToDelete && (
-          <div
-            onClick={() => setSessionToDelete(null)}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl p-5 space-y-4 animate-in zoom-in-95"
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shrink-0 mt-0.5">
-                  <Trash2 size={18} />
-                </div>
-                <div className="space-y-1 min-w-0">
-                  <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                    Delete conversation?
-                  </h3>
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                    Are you sure you want to delete <span className="font-semibold text-[var(--text-primary)] break-all">"{sessionToDelete.title}"</span>? This action cannot be undone.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
-                <button
-                  type="button"
-                  onClick={() => setSessionToDelete(null)}
-                  className="px-3.5 py-1.5 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmDeleteSession}
-                  className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* ── 5. Delete Confirmation Modal Component ────────────────────── */}
+        <DeleteSessionModal
+          session={sessionToDelete}
+          onClose={() => setSessionToDelete(null)}
+          onConfirm={handleConfirmDeleteSession}
+        />
       </main>
     </div>
   )
