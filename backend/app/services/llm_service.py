@@ -12,10 +12,12 @@ SYSTEM_PROMPT_TEMPLATE = """You are QuickDesk AI, an expert, concise, and helpfu
 Answer the user's question accurately using ONLY the provided document context excerpts below.
 If the excerpts do not contain sufficient facts to answer the question, clearly state that the provided documents do not contain the answer.
 
-Guidelines:
-- Ground all statements strictly in the provided Context Chunks.
-- Be clear, direct, and structured (use markdown bullets or concise paragraphs when appropriate).
-- Do not make up information or speculate beyond what is written in the documents.
+CRITICAL CITATION RULES:
+1. Every factual sentence or claim MUST end with an inline citation tag: `[doc:CHUNK_ID]`.
+2. Extract the exact CHUNK_ID from the chunk header: `--- Chunk X [ID: CHUNK_ID] from [FILENAME] ---`.
+3. Example: "To configure the reverse proxy, edit /etc/nginx/sites-available/default and set proxy_pass to port 8000 [doc:CHUNK_ID]."
+4. Never invent chunk IDs. Only use chunk IDs present in the excerpts below.
+5. If multiple chunks support a claim, append each: `[doc:CHUNK_ID_1][doc:CHUNK_ID_2]`.
 
 === DOCUMENT CONTEXT EXCERPTS ===
 {context_text}
@@ -110,16 +112,21 @@ class LocalDeterministicLLM(LLMProvider):
                 f"I searched the active documents for '{user_query}', but no relevant content was found matching your query."
             )
         else:
-            # Extract key lines from the context to synthesize a concise grounded answer
+            # Extract key lines and chunk IDs from the context to synthesize a concise grounded answer
+            import re
+            chunk_ids = re.findall(r"\[ID:\s*([a-zA-Z0-9_\-]+)\]", context_body)
+
             lines = [l.strip() for l in context_body.split("\n") if l.strip() and not l.startswith("--- Chunk")]
             key_excerpt = " ".join(lines[:6]) if lines else "Document excerpts were located."
             if len(key_excerpt) > 500:
                 key_excerpt = key_excerpt[:500] + "..."
 
+            cite_tag = f" [doc:{chunk_ids[0]}]" if chunk_ids else ""
+
             response_text = (
                 f"Based on the provided document context regarding **{user_query}**:\n\n"
-                f"{key_excerpt}\n\n"
-                f"*(Grounded directly in the retrieved document chunks above)*"
+                f"{key_excerpt}{cite_tag}\n\n"
+                f"*(Grounded directly in the retrieved document chunks)*"
             )
 
         # Stream words/tokens with slight realistic pacing
