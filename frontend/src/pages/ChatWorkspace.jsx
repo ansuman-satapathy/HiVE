@@ -21,8 +21,8 @@ import {
   ArrowDown,
   ArrowUp,
   Edit2,
-  RefreshCw,
   Download,
+  Bookmark,
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 import { useEventStream } from '../hooks/useEventStream'
@@ -53,6 +53,10 @@ export default function ChatWorkspace() {
 
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  // Retrieval Profiles State
+  const [profiles, setProfiles] = useState([])
+  const [selectedProfileId, setSelectedProfileId] = useState(null)
 
   // Document Scope State
   const [documents, setDocuments] = useState([])
@@ -141,6 +145,29 @@ export default function ChatWorkspace() {
       }
     }
     loadDocs()
+  }, [])
+
+  // Fetch retrieval profiles
+  useEffect(() => {
+    async function loadProfiles() {
+      try {
+        const token = tokenStorage.getToken()
+        const res = await fetch('/api/retrieval-profiles', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const list = await res.json()
+          setProfiles(list)
+          if (!selectedProfileId && list.length > 0) {
+            const def = list.find((p) => p.is_system_default && p.name.includes('Balanced')) || list[0]
+            setSelectedProfileId(def.id)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load retrieval profiles for chat:', err)
+      }
+    }
+    loadProfiles()
   }, [])
 
   // Initialize or ensure active session
@@ -306,13 +333,22 @@ export default function ChatWorkspace() {
       content: m.content,
     }))
 
+    // Resolve current active profile configuration
+    const activeProf = profiles.find((p) => p.id === selectedProfileId)
+    const effectiveTopK = activeProf?.top_k ?? 5
+    const effectiveWindowSize = activeProf?.window_size ?? 1
+    const effectiveTemperature = activeProf?.temperature ?? 0.2
+    const effectiveDocIds = selectedDocIds.length > 0
+      ? selectedDocIds
+      : (activeProf?.document_ids && activeProf.document_ids.length > 0 ? activeProf.document_ids : [])
+
     await startStream({
       query: queryText,
-      documentIds: selectedDocIds,
+      documentIds: effectiveDocIds,
       messages: previousTurns,
-      topK: 5,
-      windowSize: 1,
-      temperature: 0.2,
+      topK: effectiveTopK,
+      windowSize: effectiveWindowSize,
+      temperature: effectiveTemperature,
       onDone: ({ text: fullAssistantText, citations: doneCitations }) => {
         const assistantMessage = {
           id: `msg_asst_${Date.now()}`,
@@ -727,9 +763,31 @@ export default function ChatWorkspace() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0 text-xs">
+          <div className="flex items-center gap-2 shrink-0 text-xs">
+            {/* Retrieval Profile Selector in Top Bar */}
+            {profiles.length > 0 && (
+              <div className="w-38 sm:w-44">
+                <CustomSelect
+                  isMulti={false}
+                  value={selectedProfileId}
+                  onChange={(val) => {
+                    setSelectedProfileId(val)
+                    const found = profiles.find((p) => p.id === val)
+                    if (found && found.document_ids && found.document_ids.length > 0) {
+                      setSelectedDocIds(found.document_ids)
+                    }
+                  }}
+                  placeholder="Select Profile"
+                  options={profiles.map((p) => ({
+                    value: p.id,
+                    label: p.name,
+                  }))}
+                />
+              </div>
+            )}
+
             {/* Document Filter Scope in Top Bar */}
-            <div className="w-52 sm:w-60">
+            <div className="w-48 sm:w-56">
               <CustomSelect
                 isMulti={true}
                 value={selectedDocIds}

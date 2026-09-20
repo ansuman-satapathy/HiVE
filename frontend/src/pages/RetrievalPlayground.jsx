@@ -22,6 +22,11 @@ import {
   ExternalLink,
   HelpCircle,
   BookOpen,
+  Bookmark,
+  Plus,
+  Save,
+  Trash2,
+  Sliders,
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 import { useFeedback } from '../context/FeedbackContext'
@@ -30,11 +35,20 @@ import CustomSelect from '../components/CustomSelect'
 export default function RetrievalPlayground() {
   const { notify } = useFeedback()
 
+  // Profiles State
+  const [profiles, setProfiles] = useState([])
+  const [selectedProfileId, setSelectedProfileId] = useState(null)
+  const [saveModalOpen, setSaveModalOpen] = useState(false)
+  const [newProfileName, setNewProfileName] = useState('')
+  const [newProfileDesc, setNewProfileDesc] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+
   // Search & Config States
   const [query, setQuery] = useState('')
-  const [topK, setTopK] = useState(6)
+  const [topK, setTopK] = useState(5)
   const [rrfK, setRrfK] = useState(60)
   const [windowSize, setWindowSize] = useState(1)
+  const [temperature, setTemperature] = useState(0.2)
   const [selectedDocIds, setSelectedDocIds] = useState([])
   const [documents, setDocuments] = useState([])
   const [showConfig, setShowConfig] = useState(false)
@@ -52,18 +66,172 @@ export default function RetrievalPlayground() {
   // Plain-Language Guide Modal State
   const [showGuide, setShowGuide] = useState(false)
 
+  // Load Profiles from Backend
+  const loadProfiles = async () => {
+    try {
+      const token = tokenStorage.getToken()
+      const res = await fetch('/api/retrieval-profiles', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const list = await res.json()
+        setProfiles(list)
+        if (!selectedProfileId && list.length > 0) {
+          const defaultProf = list.find((p) => p.is_system_default && p.name.includes('Balanced')) || list[0]
+          setSelectedProfileId(defaultProf.id)
+          applyProfileValues(defaultProf)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load retrieval profiles:', err)
+    }
+  }
+
+  useEffect(() => {
+    loadProfiles()
+  }, [])
+
+  // Apply profile parameters to active studio sliders
+  const applyProfileValues = (prof) => {
+    if (!prof) return
+    setTopK(prof.top_k)
+    setRrfK(prof.rrf_k)
+    setWindowSize(prof.window_size)
+    setTemperature(prof.temperature)
+    setSelectedDocIds(prof.document_ids || [])
+  }
+
+  const handleSelectProfile = (profileId) => {
+    setSelectedProfileId(profileId)
+    const found = profiles.find((p) => p.id === profileId)
+    if (found) {
+      applyProfileValues(found)
+      notify.info(`Switched to profile: ${found.name}`)
+    }
+  }
+
+  // Save changes to current custom profile
+  const handleUpdateCurrentProfile = async () => {
+    const current = profiles.find((p) => p.id === selectedProfileId)
+    if (!current) return
+    if (current.is_system_default) {
+      setNewProfileName(`${current.name} (Custom)`)
+      setNewProfileDesc(`Custom tuning based on ${current.name}`)
+      setSaveModalOpen(true)
+      return
+    }
+
+    setSavingProfile(true)
+    try {
+      const token = tokenStorage.getToken()
+      const res = await fetch(`/api/retrieval-profiles/${current.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          top_k: topK,
+          rrf_k: rrfK,
+          window_size: windowSize,
+          temperature: temperature,
+          document_ids: selectedDocIds.filter(Boolean),
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Failed to update profile')
+      }
+      const updated = await res.json()
+      setProfiles((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+      notify.success(`Updated profile '${updated.name}'`)
+    } catch (err) {
+      notify.error(err.message)
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  // Create new profile
+  const handleCreateNewProfile = async (e) => {
+    if (e) e.preventDefault()
+    if (!newProfileName.trim()) return
+
+    setSavingProfile(true)
+    try {
+      const token = tokenStorage.getToken()
+      const res = await fetch('/api/retrieval-profiles', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newProfileName.trim(),
+          description: newProfileDesc.trim() || null,
+          top_k: topK,
+          rrf_k: rrfK,
+          window_size: windowSize,
+          temperature: temperature,
+          document_ids: selectedDocIds.filter(Boolean),
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Failed to create profile')
+      }
+      const created = await res.json()
+      setProfiles((prev) => [...prev, created])
+      setSelectedProfileId(created.id)
+      setSaveModalOpen(false)
+      setNewProfileName('')
+      setNewProfileDesc('')
+      notify.success(`Created profile '${created.name}'`)
+    } catch (err) {
+      notify.error(err.message)
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  // Delete custom profile
+  const handleDeleteProfile = async (profileId) => {
+    const prof = profiles.find((p) => p.id === profileId)
+    if (!prof || prof.is_system_default) return
+    if (!window.confirm(`Delete profile '${prof.name}'?`)) return
+
+    try {
+      const token = tokenStorage.getToken()
+      const res = await fetch(`/api/retrieval-profiles/${profileId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Failed to delete profile')
+      setProfiles((prev) => prev.filter((p) => p.id !== profileId))
+      const fallback = profiles.find((p) => p.id !== profileId)
+      if (fallback) {
+        setSelectedProfileId(fallback.id)
+        applyProfileValues(fallback)
+      }
+      notify.success(`Deleted profile '${prof.name}'`)
+    } catch (err) {
+      notify.error(err.message)
+    }
+  }
+
   // Close modals on Escape key press
   useEffect(() => {
-    if (!expansionModal && !showGuide) return
+    if (!expansionModal && !showGuide && !saveModalOpen) return
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         setExpansionModal(null)
         setShowGuide(false)
+        setSaveModalOpen(false)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [expansionModal, showGuide])
+  }, [expansionModal, showGuide, saveModalOpen])
 
   // Fetch document list for document filter dropdown
   useEffect(() => {
@@ -170,11 +338,16 @@ export default function RetrievalPlayground() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+              Retrieval Studio
+            </span>
+          </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-0.5">
-            Retrieval Funnel Playground
+            Search & Retrieval Studio
           </h1>
           <p className="text-xs text-[var(--text-secondary)]">
-            Side-by-side diagnostic visualization for Sparse BM25, Dense Vector, RRF Hybrid, and Cross-Encoder Reranker
+            Configure, benchmark, and save custom retrieval profiles and hyperparameters for your workspace
           </p>
         </div>
 
@@ -205,6 +378,85 @@ export default function RetrievalPlayground() {
         </div>
       </div>
 
+      {/* Preset Profiles Ribbon */}
+      <div className="p-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto py-0.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5 shrink-0 mr-1">
+            <Bookmark size={13} className="text-blue-500" />
+            <span>Preset Profile:</span>
+          </span>
+
+          {profiles.map((prof) => {
+            const isSelected = prof.id === selectedProfileId
+            return (
+              <button
+                key={prof.id}
+                onClick={() => handleSelectProfile(prof.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer shrink-0 ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                    : 'border border-[var(--border-default)] bg-[var(--bg-canvas)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-blue-500/30'
+                }`}
+              >
+                <span>{prof.name}</span>
+                {prof.is_system_default && (
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-[var(--bg-surface)] text-[var(--text-muted)]'
+                  }`}>
+                    default
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 text-xs">
+          {/* Save / Update Button */}
+          {selectedProfileId && (
+            <button
+              onClick={handleUpdateCurrentProfile}
+              disabled={savingProfile}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-default)] hover:border-blue-500/50 bg-[var(--bg-canvas)] hover:bg-blue-500/5 text-[var(--text-primary)] text-xs font-medium transition-all cursor-pointer shadow-2xs"
+              title="Save current slider values to this profile"
+            >
+              <Save size={13} className="text-blue-500" />
+              <span>{savingProfile ? 'Saving...' : 'Save Settings'}</span>
+            </button>
+          )}
+
+          {/* New Profile Button */}
+          <button
+            onClick={() => {
+              setNewProfileName('')
+              setNewProfileDesc('')
+              setSaveModalOpen(true)
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+          >
+            <Plus size={13} />
+            <span>New Profile</span>
+          </button>
+
+          {/* Delete Button for custom profiles */}
+          {(() => {
+            const cur = profiles.find((p) => p.id === selectedProfileId)
+            if (cur && !cur.is_system_default) {
+              return (
+                <button
+                  onClick={() => handleDeleteProfile(cur.id)}
+                  className="p-1.5 rounded-xl border border-[var(--border-default)] hover:border-rose-500/40 text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
+                  title="Delete this custom profile"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )
+            }
+            return null
+          })()}
+        </div>
+      </div>
+
       {/* Query Search Bar */}
       <div className="w-full p-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs space-y-3">
         <form onSubmit={handleExecuteSearch} className="flex gap-2">
@@ -230,7 +482,7 @@ export default function RetrievalPlayground() {
 
         {/* Collapsible Tuning Panel */}
         {showConfig && (
-          <div className="pt-3.5 mt-3 border-t border-[var(--border-default)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
+          <div className="pt-3.5 mt-3 border-t border-[var(--border-default)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 animate-in fade-in">
             <div className="space-y-1.5 min-w-0">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-medium text-[var(--text-secondary)]">Top Candidates (top_k)</span>
@@ -270,7 +522,7 @@ export default function RetrievalPlayground() {
               <input
                 type="range"
                 min={0}
-                max={4}
+                max={3}
                 value={windowSize}
                 onChange={(e) => setWindowSize(Number(e.target.value))}
                 className="theme-slider cursor-pointer"
@@ -278,8 +530,24 @@ export default function RetrievalPlayground() {
             </div>
 
             <div className="space-y-1.5 min-w-0">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-[var(--text-secondary)]">LLM Temperature</span>
+                <span className="text-blue-500 font-bold font-mono">{temperature.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={temperature}
+                onChange={(e) => setTemperature(Number(e.target.value))}
+                className="theme-slider cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-1.5 min-w-0">
               <label className="text-[11px] font-medium text-[var(--text-secondary)] block">
-                Document Scope
+                Default Scope
               </label>
               <CustomSelect
                 isMulti={true}
@@ -812,6 +1080,98 @@ export default function RetrievalPlayground() {
                 Got It
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save / Create New Profile Modal */}
+      {saveModalOpen && (
+        <div
+          onClick={() => setSaveModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden flex flex-col"
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-[var(--border-default)] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500">
+                  <Bookmark size={18} />
+                </span>
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                  Save Custom Retrieval Profile
+                </h3>
+              </div>
+              <button
+                onClick={() => setSaveModalOpen(false)}
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleCreateNewProfile} className="p-6 space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-semibold text-[var(--text-primary)] block">
+                  Profile Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                  placeholder="e.g. Legal & Contracts Research"
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] text-xs text-[var(--text-primary)] focus:outline-hidden focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-semibold text-[var(--text-primary)] block">
+                  Description <span className="text-[var(--text-muted)] font-normal">(optional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={newProfileDesc}
+                  onChange={(e) => setNewProfileDesc(e.target.value)}
+                  placeholder="When to use this profile in chat..."
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] text-xs text-[var(--text-primary)] focus:outline-hidden focus:border-blue-500 transition-colors resize-none"
+                />
+              </div>
+
+              {/* Current Hyperparameter Summary */}
+              <div className="p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] space-y-1.5 text-[11px]">
+                <div className="font-semibold text-[var(--text-primary)]">Configured Settings to Save:</div>
+                <div className="grid grid-cols-2 gap-2 text-[var(--text-secondary)] font-mono">
+                  <div>Top-K: <span className="text-blue-500 font-bold">{topK}</span></div>
+                  <div>RRF k: <span className="text-blue-500 font-bold">{rrfK}</span></div>
+                  <div>Window: <span className="text-blue-500 font-bold">±{windowSize}</span></div>
+                  <div>Temperature: <span className="text-blue-500 font-bold">{temperature.toFixed(2)}</span></div>
+                </div>
+                <div className="text-[var(--text-muted)] text-[10.5px] pt-1 border-t border-[var(--border-subtle)]">
+                  Scope: {selectedDocIds.filter(Boolean).length === 0 ? 'All Documents (Global)' : `${selectedDocIds.filter(Boolean).length} documents selected`}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSaveModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-surface-hover)] text-xs text-[var(--text-secondary)] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile || !newProfileName.trim()}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {savingProfile ? 'Saving...' : 'Save Profile'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
