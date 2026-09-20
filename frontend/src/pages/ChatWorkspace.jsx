@@ -108,6 +108,8 @@ export default function ChatWorkspace() {
     reasoningSteps,
     error: streamError,
     reset: resetStream,
+    elapsedMs,
+    finalElapsedMs,
   } = useEventStream()
 
   // Save sessions to localStorage
@@ -332,15 +334,17 @@ export default function ChatWorkspace() {
       topK: effectiveTopK,
       windowSize: effectiveWindowSize,
       temperature: effectiveTemperature,
-      onDone: ({ text: fullAssistantText, citations: doneCitations, reasoningSteps: doneSteps }) => {
+      onDone: ({ text: fullAssistantText, citations: doneCitations, reasoningSteps: doneSteps, elapsedMs: doneElapsedMs }) => {
         const assistantMessage = {
           id: `msg_asst_${Date.now()}`,
           role: 'assistant',
           content: fullAssistantText,
           citations: doneCitations && doneCitations.length > 0 ? doneCitations : citations,
           reasoningSteps: doneSteps && doneSteps.length > 0 ? doneSteps : reasoningSteps,
+          elapsedMs: doneElapsedMs,
           timestamp: new Date().toISOString(),
         }
+
 
         setSessions((prev) =>
           prev.map((s) => {
@@ -750,11 +754,16 @@ export default function ChatWorkspace() {
                 </div>
 
                 <div className="flex-1 min-w-0 space-y-3">
-                  {/* Status Indicator Pill */}
+                  {/* Status Indicator Pill with live elapsed timer */}
                   {status && (
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/25 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-xs font-medium w-fit">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                       <span>{status.message}</span>
+                      <span className="font-mono text-[10px] text-blue-400/70 tabular-nums">
+                        {elapsedMs < 1000
+                          ? `${elapsedMs}ms`
+                          : `${(elapsedMs / 1000).toFixed(1)}s`}
+                      </span>
                     </div>
                   )}
 

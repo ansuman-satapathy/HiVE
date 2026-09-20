@@ -4,17 +4,38 @@ import { tokenStorage } from '../utils/storage'
 /**
  * Custom React hook for consuming Server-Sent Events (SSE) streaming APIs via POST requests.
  * Manages streaming lifecycle, token accumulation, status phases, citations,
- * ReAct agent reasoning steps (thoughts, tool calls, tool results), and abort controls.
+ * ReAct agent reasoning steps (thoughts, tool calls, tool results), abort controls,
+ * and response timing (live elapsed counter + server-reported total).
  */
 export function useEventStream() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamedText, setStreamedText] = useState('')
   const [status, setStatus] = useState(null) // { stage: string, message: string }
   const [citations, setCitations] = useState([])
-  const [reasoningSteps, setReasoningSteps] = useState([]) // Array of { type: 'thought' | 'tool_call' | 'tool_result', ... }
+  const [reasoningSteps, setReasoningSteps] = useState([])
   const [error, setError] = useState(null)
+  const [elapsedMs, setElapsedMs] = useState(0)        // live counter while streaming (100ms ticks)
+  const [finalElapsedMs, setFinalElapsedMs] = useState(null) // server-reported total on done
 
   const abortControllerRef = useRef(null)
+  const timerRef = useRef(null)
+  const startTimeRef = useRef(null)
+
+  // ── Timer helpers ────────────────────────────────────────────────────────
+  const startTimer = useCallback(() => {
+    startTimeRef.current = performance.now()
+    setElapsedMs(0)
+    timerRef.current = setInterval(() => {
+      setElapsedMs(Math.floor(performance.now() - startTimeRef.current))
+    }, 100)
+  }, [])
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
 
   // Abort active stream
   const abortStream = useCallback(() => {
@@ -23,8 +44,9 @@ export function useEventStream() {
       abortControllerRef.current = null
       setIsStreaming(false)
       setStatus(null)
+      stopTimer()
     }
-  }, [])
+  }, [stopTimer])
 
   // Clean up on unmount
   useEffect(() => {
@@ -32,11 +54,12 @@ export function useEventStream() {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
+      stopTimer()
     }
-  }, [])
+  }, [stopTimer])
 
   /**
-   * Start streaming request
+   * Start a streaming chat request.
    */
   const startStream = useCallback(
     async ({
@@ -64,6 +87,8 @@ export function useEventStream() {
       setCitations([])
       setReasoningSteps([])
       setError(null)
+      setFinalElapsedMs(null)
+      startTimer()
 
       let accumulated = ''
       let capturedCitations = []
@@ -179,6 +204,9 @@ export function useEventStream() {
                 setStreamedText(accumulated)
                 if (onToken) onToken(delta, accumulated)
               } else if (eventType === 'done') {
+                stopTimer()
+                const serverMs = data.elapsed_ms ?? null
+                setFinalElapsedMs(serverMs)
                 setStatus(null)
                 setIsStreaming(false)
                 if (onDone) {
@@ -187,10 +215,12 @@ export function useEventStream() {
                     finishReason: data.finish_reason,
                     citations: capturedCitations,
                     reasoningSteps: capturedSteps,
+                    elapsedMs: serverMs,
                   })
                 }
               } else if (eventType === 'error') {
                 const errMsg = data.error || data.message || 'Stream encountered an error.'
+                stopTimer()
                 setError(errMsg)
                 setIsStreaming(false)
                 if (onError) onError(new Error(errMsg))
@@ -201,10 +231,12 @@ export function useEventStream() {
           }
         }
 
+        stopTimer()
         setIsStreaming(false)
         setStatus(null)
         abortControllerRef.current = null
       } catch (err) {
+        stopTimer()
         if (err.name === 'AbortError') {
           console.log('Stream aborted by user.')
         } else {
@@ -217,7 +249,7 @@ export function useEventStream() {
         abortControllerRef.current = null
       }
     },
-    []
+    [startTimer, stopTimer]
   )
 
   return {
@@ -229,12 +261,16 @@ export function useEventStream() {
     citations,
     reasoningSteps,
     error,
+    elapsedMs,
+    finalElapsedMs,
     reset: () => {
       setStreamedText('')
       setCitations([])
       setReasoningSteps([])
       setStatus(null)
       setError(null)
+      setElapsedMs(0)
+      setFinalElapsedMs(null)
     },
   }
 }

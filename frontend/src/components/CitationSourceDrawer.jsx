@@ -125,7 +125,9 @@ export default function CitationSourceDrawer({
                 Token Volume
               </span>
               <p className="font-mono text-xs font-semibold text-[var(--text-primary)]">
-                {citation.token_count ? `${citation.token_count} tokens` : 'Approx. ~250 tokens'}
+                {citation.token_count && citation.token_count > 0
+                  ? `${citation.token_count} tokens`
+                  : 'Approx. ~250 tokens'}
               </p>
             </div>
           </div>
@@ -155,8 +157,18 @@ export default function CitationSourceDrawer({
               </button>
             </div>
 
-            <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] text-[12.5px] text-[var(--text-primary)] font-mono leading-relaxed whitespace-pre-wrap select-text max-h-96 overflow-y-auto shadow-inner border-l-3 border-l-blue-500">
-              {citation.content || 'No text content available for this chunk.'}
+            <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] text-[12.5px] text-[var(--text-primary)] font-mono leading-relaxed whitespace-pre-wrap select-text max-h-96 overflow-y-auto shadow-inner border-l-[3px] border-l-blue-500">
+              {citation.content
+                ? citation.content
+                : (
+                  <span className="text-[var(--text-muted)] italic">
+                    Chunk content not available in this session.
+                    {citation.chunk_id && (
+                      <><br /><br />Chunk ID: <span className="not-italic text-blue-400">{citation.chunk_id}</span></>
+                    )}
+                  </span>
+                )
+              }
             </div>
           </div>
 

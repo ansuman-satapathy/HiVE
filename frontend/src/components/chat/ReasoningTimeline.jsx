@@ -16,7 +16,7 @@ export default function ReasoningTimeline({
   isLive = false,
   onCitationClick = null,
 }) {
-  const [isExpanded, setIsExpanded] = useState(isLive)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [showRawPayloads, setShowRawPayloads] = useState(false)
 
   if (!steps || steps.length === 0) {
