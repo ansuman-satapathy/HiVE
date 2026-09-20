@@ -1,3 +1,4 @@
+import re
 import asyncio
 import logging
 from typing import AsyncGenerator, List, Dict, Any, Optional
@@ -15,9 +16,10 @@ If the excerpts do not contain sufficient facts to answer the question, clearly 
 CRITICAL CITATION RULES:
 1. Every factual sentence or claim MUST end with an inline citation tag: `[doc:CHUNK_ID]`.
 2. Extract the exact CHUNK_ID from the chunk header: `--- Chunk X [ID: CHUNK_ID] from [FILENAME] ---`.
-3. Example: "To configure the reverse proxy, edit /etc/nginx/sites-available/default and set proxy_pass to port 8000 [doc:CHUNK_ID]."
-4. Never invent chunk IDs. Only use chunk IDs present in the excerpts below.
-5. If multiple chunks support a claim, append each: `[doc:CHUNK_ID_1][doc:CHUNK_ID_2]`.
+3. Example: "The boundary condition for E is Ey1=Ey2 [doc:89dd8593-e105-4f7d-b8ed-0acdd30faacc]."
+4. IMPORTANT: Write the tag with NO space after the colon: `[doc:CHUNK_ID]` NOT `[doc: CHUNK_ID]`.
+5. Never invent chunk IDs. Only use chunk IDs present in the excerpts below.
+6. If multiple chunks support a claim, append each: `[doc:CHUNK_ID_1][doc:CHUNK_ID_2]`.
 
 === DOCUMENT CONTEXT EXCERPTS ===
 {context_text}
@@ -142,8 +144,6 @@ class LocalDeterministicLLM(LLMProvider):
                 f"I searched the active documents for '{user_query}', but no relevant content was found matching your query."
             )
         else:
-            # Extract key lines and chunk IDs from the context to synthesize a concise grounded answer
-            import re
             chunk_ids = re.findall(r"\[ID:\s*([a-zA-Z0-9_\-]+)\]", context_body)
 
             lines = [l.strip() for l in context_body.split("\n") if l.strip() and not l.startswith("--- Chunk")]

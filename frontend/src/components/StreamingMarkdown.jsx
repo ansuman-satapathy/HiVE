@@ -65,18 +65,21 @@ export default function StreamingMarkdown({
             )
           }
 
-          // Handle [doc:chunk_id] inline citation tags
-          const citeParts = iPart.split(/(\[doc:[a-zA-Z0-9_\-]+\])/g)
+          // Handle [doc:chunk_id] inline citation tags (allow optional space after colon)
+          const citeParts = iPart.split(/(\[doc:\s*[a-zA-Z0-9_-]+\])/g)
           return citeParts.map((cPart, cIdx) => {
-            const match = cPart.match(/^\[doc:([a-zA-Z0-9_\-]+)\]$/)
+            const match = cPart.match(/^\[doc:\s*([a-zA-Z0-9_-]+)\]$/)
             if (match) {
-              const chunkId = match[1]
-              // Find matching citation from citations array
+              const chunkId = match[1].trim()
+              // Normalize comparison: trim and lowercase for robust UUID matching
+              const normalizedChunkId = chunkId.toLowerCase().trim()
               const foundIdx = citations.findIndex(
-                (c) => String(c.chunk_id) === String(chunkId) || String(c.chunk_index) === String(chunkId)
+                (c) =>
+                  String(c.chunk_id).toLowerCase().trim() === normalizedChunkId ||
+                  String(c.chunk_index) === chunkId
               )
               const citeData = foundIdx !== -1 ? citations[foundIdx] : null
-              const displayNum = foundIdx !== -1 ? foundIdx + 1 : cIdx + 1
+              const displayNum = foundIdx !== -1 ? foundIdx + 1 : '?'
 
               return (
                 <CitationBadge

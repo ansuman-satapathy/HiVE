@@ -6,10 +6,18 @@ import {
   Layers,
   Edit2,
   RefreshCw,
+  Clock,
 } from 'lucide-react'
 import StreamingMarkdown from '../StreamingMarkdown'
 import { HiveLogoIcon } from '../HiveLogo'
 import ReasoningTimeline from './ReasoningTimeline'
+
+/** Format milliseconds into a human-readable string */
+function formatElapsed(ms) {
+  if (ms == null) return null
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
 
 export default function ChatMessageItem({
   message,
@@ -19,7 +27,6 @@ export default function ChatMessageItem({
   onCopy,
   onRegenerate,
   onCitationClick,
-  // User turn editing props
   isEditing,
   editPromptText,
   setEditPromptText,
@@ -29,11 +36,11 @@ export default function ChatMessageItem({
 }) {
   const isUser = message.role === 'user'
 
+  // ── User message ──────────────────────────────────────────────────────────
   if (isUser) {
     return (
       <div className="flex justify-end w-full group animate-in fade-in">
         {isEditing ? (
-          /* Inline User Message Editor */
           <div className="w-full max-w-2xl rounded-2xl p-3.5 bg-[var(--bg-surface)] border border-blue-500/40 shadow-md space-y-2.5">
             <textarea
               value={editPromptText}
@@ -59,13 +66,12 @@ export default function ChatMessageItem({
                   onClick={() => onConfirmEdit(message.id)}
                   className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs cursor-pointer transition-all"
                 >
-                  Save & Re-run
+                  Save &amp; Re-run
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          /* Standard User Message Pill */
           <div className="flex items-center gap-2 max-w-[85%] sm:max-w-[75%]">
             <button
               type="button"
@@ -75,7 +81,6 @@ export default function ChatMessageItem({
             >
               <Edit2 size={13} />
             </button>
-
             <div className="rounded-2xl rounded-tr-xs px-4 py-2.5 bg-[var(--bg-surface-elevated)] border border-[var(--border-default)] shadow-xs">
               <p className="text-[14px] leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap select-text font-normal">
                 {message.content}
@@ -87,19 +92,20 @@ export default function ChatMessageItem({
     )
   }
 
-  // Assistant Message
+  // ── Assistant message ─────────────────────────────────────────────────────
   const hasReasoningSteps = message.reasoningSteps && message.reasoningSteps.length > 0
+  const elapsedLabel = formatElapsed(message.elapsedMs)
 
   return (
     <div className="flex gap-3.5 sm:gap-4 w-full group animate-in fade-in">
-      {/* HiVE Brand Assistant Avatar */}
+      {/* Avatar */}
       <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs overflow-hidden">
         <HiveLogoIcon size={18} />
       </div>
 
-      {/* Open Reading Column */}
+      {/* Content */}
       <div className="flex-1 min-w-0 space-y-3">
-        {/* Expandable Agent Reasoning Timeline */}
+        {/* Reasoning Timeline */}
         {hasReasoningSteps && (
           <div className="mb-2">
             <ReasoningTimeline
@@ -110,6 +116,7 @@ export default function ChatMessageItem({
           </div>
         )}
 
+        {/* Message body */}
         {message.isError ? (
           <div className="p-3.5 rounded-xl border border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-medium">
             {message.content}
@@ -123,7 +130,7 @@ export default function ChatMessageItem({
           />
         )}
 
-        {/* Citations Grounding Strip */}
+        {/* Citations strip */}
         {message.citations && message.citations.length > 0 && (
           <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1 mr-1">
@@ -144,39 +151,48 @@ export default function ChatMessageItem({
           </div>
         )}
 
-        {/* Action Bar */}
-        <div className="flex items-center gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-[var(--text-muted)]">
-          {!message.isError && (
-            <button
-              type="button"
-              onClick={() => onCopy(message.content, message.id)}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer text-[11px]"
-            >
-              {isCopied ? (
-                <>
-                  <Check size={11} className="text-emerald-500" />
-                  <span className="text-emerald-500 font-medium">Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={11} />
-                  <span>Copy response</span>
-                </>
-              )}
-            </button>
-          )}
+        {/* Footer: action buttons + always-visible elapsed time */}
+        <div className="flex items-center justify-between pt-0.5">
+          {/* Left: action buttons (hover only) */}
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {!message.isError && (
+              <button
+                type="button"
+                onClick={() => onCopy(message.content, message.id)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer text-[11px]"
+              >
+                {isCopied ? (
+                  <>
+                    <Check size={11} className="text-emerald-500" />
+                    <span className="text-emerald-500 font-medium">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={11} />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            )}
+            {isLastTurn && !isStreaming && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-blue-500 transition-colors cursor-pointer text-[11px]"
+                title="Regenerate"
+              >
+                <RefreshCw size={11} />
+                <span>Regenerate</span>
+              </button>
+            )}
+          </div>
 
-          {/* Regenerate / Retry Button on the latest turn */}
-          {isLastTurn && !isStreaming && (
-            <button
-              type="button"
-              onClick={onRegenerate}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-blue-500 transition-colors cursor-pointer text-[11px]"
-              title="Regenerate this response"
-            >
-              <RefreshCw size={11} />
-              <span>Regenerate</span>
-            </button>
+          {/* Right: elapsed time — always visible once response is done */}
+          {elapsedLabel && (
+            <span className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] font-mono tabular-nums">
+              <Clock size={10} className="opacity-60" />
+              <span className="opacity-70">{elapsedLabel}</span>
+            </span>
           )}
         </div>
       </div>
