@@ -3,13 +3,15 @@ import { tokenStorage } from '../utils/storage'
 
 /**
  * Custom React hook for consuming Server-Sent Events (SSE) streaming APIs via POST requests.
- * Manages streaming lifecycle, token accumulation, status phases, citations, and abort controls.
+ * Manages streaming lifecycle, token accumulation, status phases, citations,
+ * ReAct agent reasoning steps (thoughts, tool calls, tool results), and abort controls.
  */
 export function useEventStream() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamedText, setStreamedText] = useState('')
-  const [status, setStatus] = useState(null) // { stage: 'retrieval' | 'generation', message: string }
+  const [status, setStatus] = useState(null) // { stage: string, message: string }
   const [citations, setCitations] = useState([])
+  const [reasoningSteps, setReasoningSteps] = useState([]) // Array of { type: 'thought' | 'tool_call' | 'tool_result', ... }
   const [error, setError] = useState(null)
 
   const abortControllerRef = useRef(null)
@@ -35,16 +37,6 @@ export function useEventStream() {
 
   /**
    * Start streaming request
-   * @param {Object} params
-   * @param {string} params.query - User prompt/question
-   * @param {Array<string>} [params.documentIds] - Scoped document UUIDs
-   * @param {Array<Object>} [params.messages] - Multi-turn conversation history
-   * @param {number} [params.topK=5] - Chunks to retrieve
-   * @param {number} [params.windowSize=1] - Context expansion window
-   * @param {number} [params.temperature=0.2] - Generation temperature
-   * @param {Function} [params.onToken] - Optional callback per token delta
-   * @param {Function} [params.onDone] - Optional callback upon completion
-   * @param {Function} [params.onError] - Optional callback on failure
    */
   const startStream = useCallback(
     async ({
@@ -68,12 +60,14 @@ export function useEventStream() {
 
       setIsStreaming(true)
       setStreamedText('')
-      setStatus({ stage: 'retrieval', message: 'Connecting to retrieval pipeline...' })
+      setStatus({ stage: 'agent_reasoning', message: 'Analyzing question and reasoning...' })
       setCitations([])
+      setReasoningSteps([])
       setError(null)
 
       let accumulated = ''
       let capturedCitations = []
+      let capturedSteps = []
 
       try {
         const token = tokenStorage.getToken()
@@ -144,6 +138,36 @@ export function useEventStream() {
 
               if (eventType === 'status') {
                 setStatus({ stage: data.stage, message: data.message })
+              } else if (eventType === 'thought') {
+                const step = {
+                  type: 'thought',
+                  thought: data.thought,
+                  iteration: data.iteration,
+                  timestamp: Date.now(),
+                }
+                capturedSteps = [...capturedSteps, step]
+                setReasoningSteps((prev) => [...prev, step])
+              } else if (eventType === 'tool_call') {
+                const step = {
+                  type: 'tool_call',
+                  tool: data.tool,
+                  tool_input: data.tool_input,
+                  iteration: data.iteration,
+                  timestamp: Date.now(),
+                }
+                capturedSteps = [...capturedSteps, step]
+                setReasoningSteps((prev) => [...prev, step])
+              } else if (eventType === 'tool_result') {
+                const step = {
+                  type: 'tool_result',
+                  tool: data.tool,
+                  summary: data.summary,
+                  citations: data.citations || [],
+                  iteration: data.iteration,
+                  timestamp: Date.now(),
+                }
+                capturedSteps = [...capturedSteps, step]
+                setReasoningSteps((prev) => [...prev, step])
               } else if (eventType === 'context') {
                 if (Array.isArray(data.citations)) {
                   capturedCitations = data.citations
@@ -162,6 +186,7 @@ export function useEventStream() {
                     text: accumulated,
                     finishReason: data.finish_reason,
                     citations: capturedCitations,
+                    reasoningSteps: capturedSteps,
                   })
                 }
               } else if (eventType === 'error') {
@@ -202,10 +227,12 @@ export function useEventStream() {
     streamedText,
     status,
     citations,
+    reasoningSteps,
     error,
     reset: () => {
       setStreamedText('')
       setCitations([])
+      setReasoningSteps([])
       setStatus(null)
       setError(null)
     },

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import StreamingMarkdown from '../StreamingMarkdown'
 import { HiveLogoIcon } from '../HiveLogo'
+import ReasoningTimeline from './ReasoningTimeline'
 
 export default function ChatMessageItem({
   message,
@@ -87,6 +88,8 @@ export default function ChatMessageItem({
   }
 
   // Assistant Message
+  const hasReasoningSteps = message.reasoningSteps && message.reasoningSteps.length > 0
+
   return (
     <div className="flex gap-3.5 sm:gap-4 w-full group animate-in fade-in">
       {/* HiVE Brand Assistant Avatar */}
@@ -96,6 +99,17 @@ export default function ChatMessageItem({
 
       {/* Open Reading Column */}
       <div className="flex-1 min-w-0 space-y-3">
+        {/* Expandable Agent Reasoning Timeline */}
+        {hasReasoningSteps && (
+          <div className="mb-2">
+            <ReasoningTimeline
+              steps={message.reasoningSteps}
+              isLive={false}
+              onCitationClick={onCitationClick}
+            />
+          </div>
+        )}
+
         {message.isError ? (
           <div className="p-3.5 rounded-xl border border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-medium">
             {message.content}
