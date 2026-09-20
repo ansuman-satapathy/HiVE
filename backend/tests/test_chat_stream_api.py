@@ -131,11 +131,12 @@ async def test_chat_stream_endpoint_sse_protocol(db_session, client: AsyncClient
     assert citations[0]["document_title"] == "server_setup_guide.md"
     assert "nginx" in citations[0]["content"].lower()
 
-    # Verify tokens yielded text
+    # Verify tokens yielded text and included citation tags
     tokens = [e[1]["delta"] for e in events if e[0] == "token"]
     full_text = "".join(tokens)
     assert len(full_text) > 0
     assert "nginx" in full_text.lower() or "proxy" in full_text.lower()
+    assert "[doc:" in full_text
 
 
 @pytest.mark.asyncio

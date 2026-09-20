@@ -1,11 +1,19 @@
 import React, { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
+import CitationBadge from './CitationBadge'
 
 /**
  * Editorial-grade streaming markdown and code block renderer.
  * Designed with Claude-inspired typography, open reading rhythm, and zero external dependencies.
+ * Supports interactive [doc:chunk_id] inline citation badges.
  */
-export default function StreamingMarkdown({ content = '', isStreaming = false, className = '' }) {
+export default function StreamingMarkdown({
+  content = '',
+  isStreaming = false,
+  className = '',
+  citations = [],
+  onCitationClick = null,
+}) {
   const [copiedCodeId, setCopiedCodeId] = useState(null)
 
   const handleCopyCode = (codeText, id) => {
@@ -16,7 +24,7 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
     }, 2000)
   }
 
-  // Parse inline elements (bold, italic, code, link)
+  // Parse inline elements (bold, italic, code, citation badges)
   const renderInline = (text) => {
     if (!text) return null
 
@@ -56,7 +64,32 @@ export default function StreamingMarkdown({ content = '', isStreaming = false, c
               </em>
             )
           }
-          return iPart
+
+          // Handle [doc:chunk_id] inline citation tags
+          const citeParts = iPart.split(/(\[doc:[a-zA-Z0-9_\-]+\])/g)
+          return citeParts.map((cPart, cIdx) => {
+            const match = cPart.match(/^\[doc:([a-zA-Z0-9_\-]+)\]$/)
+            if (match) {
+              const chunkId = match[1]
+              // Find matching citation from citations array
+              const foundIdx = citations.findIndex(
+                (c) => String(c.chunk_id) === String(chunkId) || String(c.chunk_index) === String(chunkId)
+              )
+              const citeData = foundIdx !== -1 ? citations[foundIdx] : null
+              const displayNum = foundIdx !== -1 ? foundIdx + 1 : cIdx + 1
+
+              return (
+                <CitationBadge
+                  key={`${i}-${j}-${k}-${cIdx}`}
+                  citation={citeData}
+                  chunkId={chunkId}
+                  index={displayNum}
+                  onClick={onCitationClick}
+                />
+              )
+            }
+            return cPart
+          })
         })
       })
     })

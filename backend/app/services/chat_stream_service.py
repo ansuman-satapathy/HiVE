@@ -160,7 +160,7 @@ class ChatStreamService:
                         logger.debug(f"Context expansion skipped for chunk {c_id_str}: {err}")
 
                 context_blocks.append(
-                    f"--- Chunk {chunk_index} from [{doc_title}] ---\n{expanded_content}\n"
+                    f"--- Chunk {chunk_index} [ID: {c_id_str}] from [{doc_title}] ---\n{expanded_content}\n"
                 )
 
                 citations.append({
@@ -168,7 +168,9 @@ class ChatStreamService:
                     "document_id": d_id_str,
                     "document_title": doc_title,
                     "chunk_index": chunk_index,
-                    "content": base_content[:300] + ("..." if len(base_content) > 300 else ""),
+                    "content": base_content,
+                    "token_count": item.get("token_count", 0),
+                    "active_heading": (item.get("chunk_metadata") or {}).get("active_heading"),
                     "relevance_score": round(float(relevance), 4) if relevance is not None else None,
                 })
 

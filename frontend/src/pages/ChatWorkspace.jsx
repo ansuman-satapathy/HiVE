@@ -28,6 +28,7 @@ import { tokenStorage } from '../utils/storage'
 import { useEventStream } from '../hooks/useEventStream'
 import CustomSelect from '../components/CustomSelect'
 import StreamingMarkdown from '../components/StreamingMarkdown'
+import CitationSourceDrawer from '../components/CitationSourceDrawer'
 import { HiveLogoIcon } from '../components/HiveLogo'
 
 const STORAGE_KEY = 'quickdesk_chat_sessions_v1'
@@ -60,7 +61,7 @@ export default function ChatWorkspace() {
   // Input & Composer State
   const [inputPrompt, setInputPrompt] = useState('')
   const [copiedMessageId, setCopiedMessageId] = useState(null)
-  const [activeCitationModal, setActiveCitationModal] = useState(null)
+  const [selectedCitation, setSelectedCitation] = useState(null)
   const [sessionToDelete, setSessionToDelete] = useState(null)
 
   // Feature 1: Editing User Message State
@@ -85,7 +86,7 @@ export default function ChatWorkspace() {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         if (sessionToDelete) setSessionToDelete(null)
-        if (activeCitationModal) setActiveCitationModal(null)
+        if (selectedCitation) setSelectedCitation(null)
         if (editingMessageId) setEditingMessageId(null)
         if (isRenamingTitle) setIsRenamingTitle(false)
       }
@@ -883,7 +884,12 @@ export default function ChatWorkspace() {
                         {msg.content}
                       </div>
                     ) : (
-                      <StreamingMarkdown content={msg.content} isStreaming={false} />
+                      <StreamingMarkdown
+                        content={msg.content}
+                        isStreaming={false}
+                        citations={msg.citations || []}
+                        onCitationClick={(cite) => setSelectedCitation(cite)}
+                      />
                     )}
 
                     {/* Citations Grounding Strip */}
@@ -896,7 +902,7 @@ export default function ChatWorkspace() {
                           <button
                             key={cIdx}
                             type="button"
-                            onClick={() => setActiveCitationModal(cite)}
+                            onClick={() => setSelectedCitation(cite)}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/5 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
                           >
                             <FileText size={11} className="text-blue-500" />
@@ -965,7 +971,12 @@ export default function ChatWorkspace() {
 
                   {/* Streaming Markdown Content */}
                   {streamedText && (
-                    <StreamingMarkdown content={streamedText} isStreaming={true} />
+                    <StreamingMarkdown
+                      content={streamedText}
+                      isStreaming={true}
+                      citations={citations || []}
+                      onCitationClick={(cite) => setSelectedCitation(cite)}
+                    />
                   )}
 
                   {/* Citations Found Live */}
@@ -978,7 +989,7 @@ export default function ChatWorkspace() {
                         <button
                           key={cIdx}
                           type="button"
-                          onClick={() => setActiveCitationModal(cite)}
+                          onClick={() => setSelectedCitation(cite)}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/5 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
                         >
                           <FileText size={11} className="text-blue-500" />
@@ -1108,47 +1119,12 @@ export default function ChatWorkspace() {
           </div>
         </div>
 
-        {/* ── 4. Excerpt Preview Modal ──────────────────────────────────── */}
-        {activeCitationModal && (
-          <div
-            onClick={() => setActiveCitationModal(null)}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl p-6 space-y-4 animate-in zoom-in-95"
-            >
-              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
-                <div className="flex items-center gap-2">
-                  <FileText size={16} className="text-blue-500" />
-                  <h4 className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[280px]">
-                    {activeCitationModal.document_title || 'Document Excerpt'}
-                  </h4>
-                </div>
-                <span className="text-[11px] font-mono text-blue-500 font-bold">
-                  Chunk #{activeCitationModal.chunk_index}
-                </span>
-              </div>
-
-              <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] text-xs text-[var(--text-primary)] font-mono whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed select-text">
-                {activeCitationModal.content}
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                {activeCitationModal.relevance_score !== null && (
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                    Relevance Score: {activeCitationModal.relevance_score}
-                  </span>
-                )}
-                <button
-                  onClick={() => setActiveCitationModal(null)}
-                  className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer ml-auto"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* ── 4. Grounding Citation Source Drawer ──────────────────────── */}
+        {selectedCitation && (
+          <CitationSourceDrawer
+            citation={selectedCitation}
+            onClose={() => setSelectedCitation(null)}
+          />
         )}
 
         {/* ── 5. Delete Confirmation Modal ──────────────────────────────── */}
