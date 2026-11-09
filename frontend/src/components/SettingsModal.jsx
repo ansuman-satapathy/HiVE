@@ -146,8 +146,6 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
     fetchSettings()
   }, [isOpen, user])
 
-  if (!isOpen) return null
-
   // Auto-detect local Ollama models
   const handleDetectLocal = async () => {
     setDetectingLocal(true)
@@ -597,6 +595,8 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
     setCopiedMcp(true)
     setTimeout(() => setCopiedMcp(false), 2000)
   }
+
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
