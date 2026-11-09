@@ -434,8 +434,19 @@ async def list_workspace_models(
             "is_active": True,
         }]
 
+    active_id = None
+    for m in models:
+        if m.get("is_active"):
+            active_id = m.get("id")
+            break
+    if not active_id and models:
+        active_id = models[0].get("id") or models[0].get("model_name")
+    if not active_id:
+        active_id = setting.llm_model
+
     return {
         "models": models,
+        "active_model_id": active_id,
         "active_model": setting.llm_model,
         "active_provider": setting.llm_provider,
     }
