@@ -75,16 +75,16 @@ export default function DashboardLayout({ children }) {
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-200" style={{ backgroundColor: 'var(--bg-canvas)' }}>
       {/* Navigation Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between px-6 lg:px-10 py-2.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)] transition-colors">
+      <header className="sticky top-0 z-40 h-14 flex items-center justify-between px-6 lg:px-8 border-b border-[var(--border-default)] bg-[var(--bg-surface)]/95 backdrop-blur-md transition-colors">
         {/* Brand & Nav */}
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-7">
           <HiveLogo size="md" />
 
-          {/* Material 3 Expressive Navigation Bar */}
-          <nav ref={navRef} className="m3-nav-container">
-            {/* Sliding Active Pill Indicator */}
+          {/* Workspace Segmented Navigation Bar */}
+          <nav ref={navRef} className="workspace-nav-container">
+            {/* Sliding Active Card Indicator */}
             <div
-              className="m3-nav-pill-indicator"
+              className="workspace-nav-indicator"
               style={{
                 left: `${indicatorStyle.left}px`,
                 width: `${indicatorStyle.width}px`,
@@ -101,33 +101,25 @@ export default function DashboardLayout({ children }) {
                   if (el) itemRefs.current[to] = el
                 }}
                 className={({ isActive }) =>
-                  `m3-nav-item ${isActive ? 'is-active' : ''}`
+                  `workspace-nav-item ${isActive ? 'is-active' : ''}`
                 }
               >
-                {({ isActive }) => (
-                  <>
-                    <span className="m3-icon-badge">
-                      <Icon
-                        size={15}
-                        className={`transition-transform duration-300 ${
-                          isActive ? 'scale-110 stroke-[2.2]' : 'stroke-[1.75]'
-                        }`}
-                      />
-                    </span>
-                    <span>{label}</span>
-                  </>
-                )}
+                <Icon
+                  size={14}
+                  className="nav-icon shrink-0"
+                />
+                <span>{label}</span>
               </NavLink>
             ))}
           </nav>
         </div>
 
         {/* Right Section: Theme Toggle + Task Indicator + Profile */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Dark / Light Toggle */}
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-all flex items-center justify-center"
+            className="h-8 w-8 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center justify-center cursor-pointer shadow-xs"
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
             {theme === 'dark' ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-slate-600" />}
@@ -136,10 +128,10 @@ export default function DashboardLayout({ children }) {
           {/* Background Tasks Indicator Button */}
           <button
             onClick={() => setDrawerOpen(true)}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-medium transition-all ${
+            className={`h-8 px-3 rounded-lg border text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
               activeCount > 0
                 ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 pulse-glow'
-                : 'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]'
+                : 'border-[var(--border-default)] bg-[var(--bg-canvas)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]'
             }`}
           >
             {activeCount > 0 ? (
@@ -157,16 +149,16 @@ export default function DashboardLayout({ children }) {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] text-xs font-medium transition-all"
+                className="h-8 pl-1.5 pr-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] text-xs font-medium transition-all flex items-center gap-2 cursor-pointer shadow-xs"
               >
-                <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold shadow-xs">
                   {user.full_name?.charAt(0).toUpperCase()}
                 </div>
                 <span>{user.full_name}</span>
               </button>
 
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 shadow-xl flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-1.5 shadow-xl flex flex-col gap-0.5 z-50 animate-in fade-in zoom-in-95 duration-100">
                   <div className="px-3 py-2 border-b border-[var(--border-default)] mb-1">
                     <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{user.full_name}</p>
                     <p className="text-[11px] text-[var(--text-muted)] truncate">{user.email}</p>
@@ -177,7 +169,7 @@ export default function DashboardLayout({ children }) {
                       setDropdownOpen(false)
                       setSettingsOpen(true)
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors text-left cursor-pointer"
                   >
                     <Settings size={13} className="text-blue-500" />
                     <span>Workspace Settings</span>
@@ -185,7 +177,7 @@ export default function DashboardLayout({ children }) {
 
                   <button
                     onClick={logout}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
                   >
                     <LogOut size={13} />
                     <span>Log Out</span>
