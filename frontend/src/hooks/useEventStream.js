@@ -138,8 +138,23 @@ export function useEventStream() {
         const decoder = new TextDecoder('utf-8')
         let buffer = ''
 
-        while (true) {
-          const { done, value } = await reader.read()
+        let isCompleted = false
+
+        while (!isCompleted) {
+          let readResult
+          try {
+            readResult = await reader.read()
+          } catch (readErr) {
+            if (isCompleted || readErr.name === 'AbortError') break
+            // In Firefox, if connection closed after tokens or done event
+            if (accumulated) {
+              console.warn('Stream connection closed by server after tokens received:', readErr)
+              break
+            }
+            throw readErr
+          }
+
+          const { done, value } = readResult
           if (done) break
 
           buffer += decoder.decode(value, { stream: true })
@@ -213,6 +228,7 @@ export function useEventStream() {
                 setStreamedText(accumulated)
                 if (onToken) onToken(delta, accumulated)
               } else if (eventType === 'done') {
+                isCompleted = true
                 stopTimer()
                 const serverMs = data.elapsed_ms ?? null
                 setFinalElapsedMs(serverMs)
@@ -228,6 +244,7 @@ export function useEventStream() {
                     elapsedMs: serverMs,
                   })
                 }
+                break
               } else if (eventType === 'error') {
                 const errMsg = data.error || data.message || 'Stream encountered an error.'
                 stopTimer()
@@ -239,6 +256,25 @@ export function useEventStream() {
               console.warn('Failed to parse SSE payload:', eventDataStr, parseErr)
             }
           }
+
+          if (isCompleted) break
+        }
+
+        if (!isCompleted && accumulated) {
+          isCompleted = true
+          stopTimer()
+          setIsStreaming(false)
+          setStatus(null)
+          if (onDone) {
+            onDone({
+              text: accumulated,
+              finishReason: 'stop',
+              citations: capturedCitations,
+              reasoningSteps: capturedSteps,
+              modelThought: capturedModelThought,
+              elapsedMs: Math.floor(performance.now() - startTimeRef.current),
+            })
+          }
         }
 
         stopTimer()
@@ -247,8 +283,8 @@ export function useEventStream() {
         abortControllerRef.current = null
       } catch (err) {
         stopTimer()
-        if (err.name === 'AbortError') {
-          console.log('Stream aborted by user.')
+        if (err.name === 'AbortError' || isCompleted) {
+          // Expected termination or stream completed cleanly
         } else {
           console.error('Chat stream error:', err)
           setError(err.message || 'Failed to complete chat stream')
