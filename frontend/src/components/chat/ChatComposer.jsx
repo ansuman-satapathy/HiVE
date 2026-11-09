@@ -77,7 +77,7 @@ export default function ChatComposer({
               e.preventDefault()
               onSubmit()
             }}
-            className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-lg hover:border-blue-500/30 transition-all duration-200 focus-within:border-blue-500/70 focus-within:shadow-xl focus-within:ring-3 focus-within:ring-blue-500/10 overflow-hidden"
+            className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-lg hover:border-blue-500/30 transition-all duration-200 focus-within:border-blue-500/70 focus-within:shadow-xl focus-within:ring-3 focus-within:ring-blue-500/10"
           >
             {/* Input Textarea */}
             <textarea
@@ -87,19 +87,23 @@ export default function ChatComposer({
               onKeyDown={onKeyDown}
               placeholder="Ask a question about your documents... (Shift+Enter for newline)"
               rows={1}
-              className="w-full resize-none px-4 pt-3.5 pb-2 text-[14px] leading-relaxed bg-transparent text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-hidden max-h-48"
+              className="w-full resize-none px-4 pt-3.5 pb-2 text-[14px] leading-relaxed bg-transparent text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-hidden max-h-48 rounded-t-2xl"
             />
 
             {/* Bottom Toolbar inside the Island */}
-            <div className="px-3.5 pb-2.5 pt-1.5 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)]/60 bg-[var(--bg-canvas)]/30">
+            <div className="px-3.5 pb-2.5 pt-1.5 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)]/60 bg-[var(--bg-canvas)]/30 rounded-b-2xl">
               {/* Active Scope & Model in Composer Toolbar */}
-              <div className="flex items-center gap-2 truncate">
+              <div className="flex items-center gap-2 min-w-0">
                 {/* Interactive Model Selector Dropdown */}
                 <div className="relative shrink-0" ref={dropdownRef}>
                   <button
                     type="button"
                     onClick={() => setModelDropdownOpen((prev) => !prev)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] hover:bg-blue-500/10 border border-[var(--border-default)] hover:border-blue-500/30 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 shadow-2xs transition-all cursor-pointer select-none group"
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] shadow-2xs transition-all cursor-pointer select-none group ${
+                      modelDropdownOpen
+                        ? 'bg-blue-500/15 border-blue-500/40 text-blue-600 dark:text-blue-400'
+                        : 'bg-[var(--bg-subtle)] hover:bg-blue-500/10 border-[var(--border-default)] hover:border-blue-500/30 text-[var(--text-secondary)] hover:text-blue-500'
+                    }`}
                     title="Click to switch active AI model"
                   >
                     <Sparkles size={11} className="text-blue-500 transition-transform group-hover:scale-110" />
@@ -107,7 +111,7 @@ export default function ChatComposer({
                       {activeLabel}
                     </span>
                     {modelDropdownOpen ? (
-                      <ChevronUp size={11} className="text-[var(--text-muted)] group-hover:text-blue-500" />
+                      <ChevronUp size={11} className="text-blue-500" />
                     ) : (
                       <ChevronDown size={11} className="text-[var(--text-muted)] group-hover:text-blue-500" />
                     )}
@@ -115,15 +119,19 @@ export default function ChatComposer({
 
                   {/* Dropdown Menu Popup (Opens Upwards) */}
                   {modelDropdownOpen && (
-                    <div className="absolute bottom-full left-0 mb-2 w-64 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl backdrop-blur-md p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2">
-                      <div className="px-2.5 py-1.5 border-b border-[var(--border-subtle)] mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                          Active Model Switcher
+                    <div className="absolute bottom-full left-0 mb-2.5 w-72 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl backdrop-blur-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[var(--border-subtle)] mb-1.5">
+                        <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                          <Sparkles size={11} className="text-blue-500" />
+                          Switch Model
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold font-mono">
+                          {models.length || 1} available
                         </span>
                       </div>
 
                       {/* Models List */}
-                      <div className="max-h-48 overflow-y-auto space-y-0.5">
+                      <div className="max-h-56 overflow-y-auto space-y-1 pr-0.5">
                         {models.length > 0 ? (
                           models.map((m) => {
                             const isSelected = m.id === activeModelId || m.model_name === activeModelId
@@ -135,44 +143,51 @@ export default function ChatComposer({
                                   if (onSelectModel) onSelectModel(m.id || m.model_name)
                                   setModelDropdownOpen(false)
                                 }}
-                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
+                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-left text-xs transition-colors cursor-pointer ${
                                   isSelected
                                     ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium'
                                     : 'text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]'
                                 }`}
                               >
                                 <div className="flex items-center gap-2 truncate">
-                                  <Cpu size={12} className={isSelected ? 'text-blue-500' : 'text-[var(--text-muted)]'} />
+                                  <Cpu size={13} className={isSelected ? 'text-blue-500 shrink-0' : 'text-[var(--text-muted)] shrink-0'} />
                                   <div className="truncate">
-                                    <div className="font-mono text-[11px] truncate">{m.model_name || m.name || m.id}</div>
-                                    <div className="text-[9px] text-[var(--text-muted)] capitalize">
-                                      {m.provider || 'cloud'}
+                                    <div className="font-mono text-[11px] font-semibold truncate">{m.model_name || m.name || m.id}</div>
+                                    <div className="text-[9.5px] text-[var(--text-muted)] capitalize flex items-center gap-1">
+                                      <span>{m.provider || 'local'}</span>
+                                      {m.is_active && (
+                                        <span className="text-emerald-500 font-medium">• default</span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
-                                {isSelected && <Check size={12} className="text-blue-500 shrink-0" />}
+                                {isSelected && <Check size={13} className="text-blue-500 shrink-0" />}
                               </button>
                             )
                           })
                         ) : (
-                          <div className="px-2.5 py-2 text-center text-[11px] text-[var(--text-muted)]">
-                            No custom models added yet.
+                          <div className="px-3 py-2 text-center text-xs text-[var(--text-muted)]">
+                            <span className="font-mono font-medium text-[var(--text-primary)]">{activeLabel}</span>
+                            <div className="text-[10px] text-[var(--text-muted)] mt-0.5">Workspace active model</div>
                           </div>
                         )}
                       </div>
 
                       {/* Manage Models Action */}
-                      <div className="border-t border-[var(--border-subtle)] mt-1 pt-1">
+                      <div className="border-t border-[var(--border-subtle)] mt-1.5 pt-1.5">
                         <button
                           type="button"
                           onClick={() => {
                             setModelDropdownOpen(false)
                             window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'model' } }))
                           }}
-                          className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-left text-[11px] text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 transition-colors font-medium cursor-pointer"
+                          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-[11px] text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 transition-colors font-medium cursor-pointer"
                         >
-                          <Settings size={12} />
-                          <span>Manage Models in Settings...</span>
+                          <span className="flex items-center gap-1.5">
+                            <Settings size={12} />
+                            <span>Manage Models in Settings</span>
+                          </span>
+                          <span className="text-[10px] opacity-70">&rarr;</span>
                         </button>
                       </div>
                     </div>
