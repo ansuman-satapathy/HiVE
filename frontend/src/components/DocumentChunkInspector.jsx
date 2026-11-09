@@ -1,4 +1,5 @@
 import { Layers, X, Search, Loader2, Code2, Check, Copy, ChevronLeft, ChevronRight } from 'lucide-react'
+import { formatNumber } from '../utils/formatters'
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B'
@@ -67,7 +68,7 @@ export default function DocumentChunkInspector({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-b border-[var(--border-default)] bg-[var(--bg-subtle)] text-xs">
           <div className="flex items-center gap-3 text-[var(--text-secondary)]">
             <div>Size: <strong className="text-[var(--text-primary)]">{formatBytes(selectedDoc.file_size_bytes)}</strong></div>
-            <div>Tokens: <strong className="text-[var(--text-primary)]">{selectedDoc.token_count?.toLocaleString()}</strong></div>
+            <div>Tokens: <strong className="text-[var(--text-primary)]">{formatNumber(selectedDoc.token_count)}</strong></div>
             <div>Format: <strong className="text-[var(--text-primary)] uppercase">{selectedDoc.file_type}</strong></div>
           </div>
 

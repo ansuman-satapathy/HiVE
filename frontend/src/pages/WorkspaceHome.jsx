@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { tokenStorage } from '../utils/storage'
+import { formatNumber, formatCompactNumber } from '../utils/formatters'
 
 const SESSIONS_STORAGE_KEY = 'hive_chat_sessions_v1'
 const LEGACY_SESSIONS_STORAGE_KEY = 'quickdesk_chat_sessions_v1'
@@ -161,10 +162,6 @@ export default function WorkspaceHome() {
       {/* ── 1. Hero Header & Quick Actions ── */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 pb-2 border-b border-[var(--border-default)]">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-500 text-xs font-semibold mb-2.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-            HiVE v0.2.0
-          </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)]">
             Welcome back{user?.full_name ? `, ${user.full_name}` : ''}
           </h1>
@@ -220,12 +217,12 @@ export default function WorkspaceHome() {
               <Database size={13} className="text-blue-500" />
               Documents
             </span>
-            <span className="text-[10.5px] font-medium text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              Indexed
-            </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tabular-nums">
-            {loading ? '—' : stats.totalDocs}
+          <div
+            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tabular-nums"
+            title={formatNumber(stats.totalDocs)}
+          >
+            {loading ? '—' : formatCompactNumber(stats.totalDocs)}
           </div>
           <p className="text-[11px] text-[var(--text-muted)] truncate">
             PDF, Markdown, TXT, CSV, Excel
@@ -239,12 +236,12 @@ export default function WorkspaceHome() {
               <Layers size={13} className="text-sky-500" />
               Document Chunks
             </span>
-            <span className="text-[10.5px] font-medium text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">
-              Indexed
-            </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tabular-nums">
-            {loading ? '—' : stats.totalChunks.toLocaleString()}
+          <div
+            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tabular-nums"
+            title={formatNumber(stats.totalChunks)}
+          >
+            {loading ? '—' : formatCompactNumber(stats.totalChunks)}
           </div>
           <p className="text-[11px] text-[var(--text-muted)] truncate">
             Passages indexed for search
@@ -258,12 +255,12 @@ export default function WorkspaceHome() {
               <Hash size={13} className="text-violet-500" />
               Total Tokens
             </span>
-            <span className="text-[10.5px] font-medium text-violet-500 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/20">
-              Tokens
-            </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tabular-nums">
-            {loading ? '—' : stats.totalTokens.toLocaleString()}
+          <div
+            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tabular-nums"
+            title={formatNumber(stats.totalTokens)}
+          >
+            {loading ? '—' : formatCompactNumber(stats.totalTokens)}
           </div>
           <p className="text-[11px] text-[var(--text-muted)] truncate">
             Across all uploaded documents
@@ -276,10 +273,6 @@ export default function WorkspaceHome() {
             <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <SlidersHorizontal size={13} className="text-amber-500" />
               Search Modes
-            </span>
-            <span className="text-[10.5px] font-medium text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              Hybrid Search
             </span>
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tabular-nums">
@@ -310,10 +303,6 @@ export default function WorkspaceHome() {
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center">
                   <Cpu size={20} />
                 </div>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Active
-                </span>
               </div>
 
               <div>
@@ -359,10 +348,6 @@ export default function WorkspaceHome() {
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500 flex items-center justify-center">
                   <Sparkles size={20} />
                 </div>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Active
-                </span>
               </div>
 
               <div>
@@ -408,10 +393,6 @@ export default function WorkspaceHome() {
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center">
                   <Bot size={20} />
                 </div>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                  <Radio size={11} className="animate-pulse" />
-                  MCP Server Ready
-                </span>
               </div>
 
               <div>

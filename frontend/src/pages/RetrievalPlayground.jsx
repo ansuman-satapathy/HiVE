@@ -338,11 +338,6 @@ export default function RetrievalPlayground() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-              Retrieval Studio
-            </span>
-          </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-0.5">
             Search & Retrieval Studio
           </h1>

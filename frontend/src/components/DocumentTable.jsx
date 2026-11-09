@@ -1,4 +1,5 @@
 import { FileText, FileCode, FileSpreadsheet, Layers, Trash2, Loader2, Check, Info, RotateCw, AlertCircle } from 'lucide-react'
+import { formatNumber, formatCompactNumber } from '../utils/formatters'
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B'
@@ -196,12 +197,15 @@ export default function DocumentTable({
 
                   {/* Section Count */}
                   <td className="px-4 py-4 font-bold text-[var(--text-primary)]">
-                    {doc.chunk_count || 0}
+                    {formatNumber(doc.chunk_count || 0)}
                   </td>
 
                   {/* Token Count */}
-                  <td className="px-4 py-4 text-[var(--text-secondary)] font-mono">
-                    {doc.token_count?.toLocaleString() || 0}
+                  <td
+                    className="px-4 py-4 text-[var(--text-secondary)] font-mono"
+                    title={doc.token_count ? `${formatNumber(doc.token_count)} tokens` : '0 tokens'}
+                  >
+                    {doc.token_count >= 1_000_000 ? formatCompactNumber(doc.token_count) : formatNumber(doc.token_count || 0)}
                   </td>
 
                   {/* Status Badge */}
