@@ -1,197 +1,211 @@
-# HiVE — Document Intelligence & Agentic Runtime Platform
+# HiVE
 
-HiVE is a full-stack document intelligence and agentic runtime platform featuring structure-aware document parsing, hybrid search (BM25 + Dense Vector Indexing), Reciprocal Rank Fusion (RRF), cross-encoder re-ranking, and autonomous ReAct agent loops. The entire system is containerized and runs with a single `docker compose up`.
+A self-hosted document intelligence workspace I built to fix a problem I kept running into with standard RAG implementations: they fail on exact keywords (error codes, function names, API identifiers), and they give you no visibility into *why* a particular chunk was retrieved.
+
+HiVE is my attempt to build the retrieval pipeline I actually wanted — hybrid BM25 + dense vector search, Reciprocal Rank Fusion, cross-encoder reranking, context window expansion, and a Retrieval Studio where you can benchmark any query and see every intermediate score. The chat interface puts a conversational layer on top of that pipeline with an agent that searches first and streams cited answers token by token.
 
 ---
 
-## How to Run Locally
+## What It Does
 
-### Prerequisites
+Upload a PDF, Markdown file, plain text, CSV, or Excel sheet. Ask a question. Get a streaming answer with every factual claim linked back to the exact retrieved excerpt — click any citation badge to inspect the source chunk, its relevance score, and its section heading.
 
-- **Docker** and **Docker Compose** (recommended)
-- Or: **Python 3.12+**, **Node.js 22+**, **PostgreSQL 15+** for manual setup
-- An **NVIDIA NIM API key** (free tier: [build.nvidia.com](https://build.nvidia.com))
+The Retrieval Studio lets you run any query in debug mode and see the BM25 sparse score, dense cosine similarity, RRF fusion rank, and cross-encoder rerank score for each candidate — side by side.
 
-### Docker Compose
+---
+
+## Retrieval Pipeline
+
+Standard vector search retrieves semantically similar text well but misses exact terms — an error code like `ERR_AUTH_401` gets embedded into a neighbourhood of "authentication errors" rather than matching the literal string. BM25 catches exact identifiers but misses paraphrase. Neither alone is sufficient.
+
+HiVE runs both in parallel and fuses them:
+
+```
+Query
+  ├── BM25 sparse search    (rank_bm25, BM25Plus, in-memory)
+  └── Dense vector search   (ChromaDB, NVIDIA NIM text-embedding-3 or local fallback)
+            │
+            ▼
+    Reciprocal Rank Fusion  (k=60, rank-based — avoids score-scale incompatibility)
+            │
+            ▼
+    Cross-encoder rerank    (NVIDIA rerank-3 or local heuristic: exact phrase + proximity + coverage)
+            │
+            ▼
+    Context window expansion (fetch ±N surrounding chunks, deduplicate overlap)
+            │
+            ▼
+    LLM synthesis + streaming citations
+```
+
+**RRF design note:** BM25 scores are dimensionless (12.3, 0.8, ...) and cosine similarities are bounded [-1, 1]. Averaging them is meaningless. RRF converts both to ordinal ranks and sums `1 / (k + rank)` — a document that places first in both systems gets the highest fused score regardless of raw score scale.
+
+**Cross-encoder note:** The bi-encoders used for vector search embed query and document *separately* — fast for ANN lookup but they can't model token interactions. A cross-encoder receives `[query, document]` as a joint input and can score "database timeout" as a compound phrase, not two independent tokens.
+
+---
+
+## Chunking
+
+The chunking service is structure-aware rather than fixed-character. It detects markdown heading levels (`#`, `##`, `###`) and PDF page markers, groups content under its nearest heading, and embeds `active_heading` and `section_hierarchy` into each chunk's metadata. That section context is what surfaces in the citation drawer when you click a source badge.
+
+Fixed-character splitting is simpler but it cuts mid-sentence and severs tables from their column headers. Structure-aware chunking keeps semantically related content together and produces chunks that are actually coherent in isolation.
+
+---
+
+## Agent
+
+The agent uses a simplified ReAct pattern — Thought → Action → Observation. For conversational messages (greetings, follow-ups) it short-circuits directly to the LLM, skipping retrieval. For substantive questions it always searches first, without an extra LLM call to decide *whether* to search.
+
+The reasoning timeline in the UI shows every step the agent took — what it searched for, how many chunks it retrieved, and from which documents — so the answer isn't a black box.
+
+---
+
+## Architecture
+
+```
+Browser
+  │
+  ├── REST API (FastAPI, JWT auth)
+  ├── SSE stream (chat completions, token-by-token)
+  └── WebSocket (ingestion progress updates)
+           │
+           ▼
+    FastAPI Backend
+      ├── Document ingestion worker (async, background tasks)
+      ├── Hybrid retrieval engine   (BM25 + ChromaDB + RRF + reranker)
+      ├── Context expansion         (±N chunk window, overlap dedup)
+      ├── Agent runtime             (ReAct, tool dispatcher, CRAG)
+      └── LLM service               (NVIDIA NIM / local fallback, provider abstraction)
+           │
+      ┌────┴─────┐
+      │          │
+ PostgreSQL    ChromaDB
+ (documents,   (dense vector
+  chunks,       embeddings)
+  sessions)
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Why |
+|-------|-----------|-----|
+| Backend | FastAPI + SQLModel | Async-native, type-safe ORM, easy SSE via `StreamingResponse` |
+| Database | PostgreSQL 15 | Document & chunk metadata, sessions, retrieval profiles |
+| Vector store | ChromaDB | Persistent, embedded, no separate server required |
+| Sparse search | `rank_bm25` (BM25Plus) | In-memory, thread-safe, superior to BM25 on short docs |
+| Reranker | NVIDIA NIM `rerank-3` / local heuristic | Full cross-encoder when API key present, deterministic fallback otherwise |
+| Embeddings | NVIDIA NIM `text-embedding-3` / local fallback | Same provider abstraction — works offline |
+| LLM | NVIDIA NIM `meta/llama-3.1-70b-instruct` | Swappable via config |
+| Frontend | React 18 + Vite + Tailwind | SPA, no SSR needed for a single-workspace tool |
+| Auth | JWT (bcrypt, `python-jose`) | Stateless, simple for single-tenant workspace |
+| Containerisation | Docker Compose | Single command to run the full stack |
+
+---
+
+## Running Locally
+
+**Prerequisites:** Docker + Docker Compose. An NVIDIA NIM API key (free tier at [build.nvidia.com](https://build.nvidia.com)). The pipeline also runs fully offline with local fallbacks — no API key required for development.
 
 ```bash
-git clone <repo-url> && cd quickdesk
+git clone <repo> && cd quickdesk
 
-# Configure your API key
 cp backend/.env.example backend/.env
-# Edit backend/.env and set NVIDIA_API_KEY=nvapi-...
+# Set NVIDIA_API_KEY=nvapi-... in backend/.env (optional — works without it)
 
 docker compose up --build -d
 ```
 
-Open **http://localhost:5173**. The Vite dev server proxies `/api/*` and `/ws/*` to the backend.
+Open **http://localhost:5173**
 
-### Seed Accounts
-
-| Role | Email | Password |
-|------|-------|----------|
-| Employee | `employee@quickdesk.com` | `password123` |
-| Agent | `agent@quickdesk.com` | `password123` |
-| Superadmin | `admin@quickdesk.com` | `password123` |
+Default workspace account: `admin@quickdesk.com` / `password123`
 
 ---
 
-## API Endpoints
+## API Surface
 
-### Authentication
+### Documents
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/documents/upload` | Upload file, starts async ingestion pipeline |
+| `GET`  | `/api/documents/` | List all documents with ingestion status |
+| `GET`  | `/api/documents/{id}/chunks` | Fetch all chunks with metadata for a document |
+| `DELETE` | `/api/documents/{id}` | Delete document and purge from BM25 + vector indices |
 
-| Method | Path | Purpose | Auth |
-|--------|------|---------|------|
-| `POST` | `/api/auth/register` | Register new user (always employee role) | No |
-| `POST` | `/api/auth/login` | Login, returns JWT access token | No |
-| `GET` | `/api/auth/me` | Get current user profile | Bearer |
-| `GET` | `/api/auth/users` | List all users | Superadmin |
-| `POST` | `/api/auth/users` | Create user with custom role | Superadmin |
-| `PATCH` | `/api/auth/users/{id}` | Update user details/role | Superadmin |
+### Chat
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/chat/sessions` | Create a new chat session |
+| `GET`  | `/api/chat/sessions` | List sessions |
+| `POST` | `/api/chat/sessions/{id}/stream` | SSE stream — returns `thought`, `tool_call`, `tool_result`, `token`, `done` events |
 
-### Tickets
+### Retrieval (Debug)
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/retrieval/debug` | Run a query through the full pipeline, return per-stage scores |
+| `GET`  | `/api/retrieval/profiles` | List retrieval profiles |
+| `POST` | `/api/retrieval/profiles` | Create a custom retrieval profile |
 
-| Method | Path | Purpose | Auth |
-|--------|------|---------|------|
-| `POST` | `/api/tickets` | Create ticket (queues AI classification in background) | Bearer |
-| `GET` | `/api/tickets` | List tickets (employee: own only; agent/admin: all) | Bearer |
-| `PATCH` | `/api/tickets/{id}` | Update category/priority/status (audit logged) | Agent, Superadmin |
-| `POST` | `/api/tickets/{id}/reply` | Submit final resolution, marks ticket resolved | Agent, Superadmin |
-| `GET` | `/api/tickets/{id}/audit-logs` | Get override audit history for a ticket | Bearer |
-
-### Metrics & Real-time
-
-| Method | Path | Purpose | Auth |
-|--------|------|---------|------|
-| `GET` | `/api/metrics` | Dashboard analytics (status counts, categories, median resolution, override %) | Agent, Superadmin |
-| `WS` | `/ws/tickets` | Real-time ticket event stream (created, updated, resolved) | None (open) |
-| `GET` | `/api/health` | Health check | None |
-
----
-
-
-# Decisions and Tradeoffs
-
-## a) Why React (Vite) instead of Next.js?
-
-I chose React with Vite because QuickDesk is an internal single-page application. It doesn't require server-side rendering or SEO, so Vite provides a simpler setup, faster development experience, and a lightweight production build.
+### Auth
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/auth/login` | Returns JWT |
+| `GET`  | `/api/auth/me` | Current user |
 
 ---
 
-## b) RAG Pipeline
+## Tests
 
-The knowledge base consists of markdown documents loaded using LangChain. The documents are split into smaller chunks using `RecursiveCharacterTextSplitter`, embedded using NVIDIA embeddings, and stored in a Chroma vector database.
+```bash
+cd backend && source .venv/bin/activate
+pytest tests/ -v
+```
 
-When an agent opens a ticket, the system retrieves the most relevant knowledge base chunks using semantic search and passes them to the LLM along with the ticket details to generate a draft response. If no relevant documents are found, the assistant returns a fallback response instead of generating unsupported information.
+37 tests covering BM25 tokenization and recall, RRF formula correctness, cross-encoder ordering, context expansion overlap deduplication, document upload pipeline, chat SSE API, and agent tool dispatch. All tests run with no API key and no network — every AI service has a local deterministic fallback.
 
----
-
-## c) Invalid LLM Categories
-
-The LLM output is validated against the allowed category and priority values. If an invalid value is returned or parsing fails, the backend falls back to safe default values (`Other` and `Medium`) before storing the ticket.
-
----
-
-## d) JWT Storage
-
-The JWT is stored in localStorage for simplicity since this project is a client-side SPA. In a production environment, I would prefer using secure httpOnly cookies to reduce XSS exposure.
-
----
-
-## e) Backend Role Enforcement
-
-Role-based access is enforced on the backend using FastAPI dependencies. Protected endpoints verify the authenticated user's role before executing any business logic, preventing unauthorized users from accessing agent-only functionality even if they manually call the API.
+```
+tests/test_bm25_search.py          — tokenizer preserves error codes, BM25 scores rank correctly
+tests/test_hybrid_retrieval.py     — RRF formula verification with known ranks
+tests/test_cross_encoder_reranker.py — exact phrase boost, proximity scoring
+tests/test_context_expansion.py   — overlap deduplication, window boundary handling
+tests/test_document_upload.py     — parse → chunk → index pipeline
+tests/test_chat_stream_api.py     — SSE frame parsing, citation embedding
+tests/test_react_agent.py         — tool dispatch, conversational short-circuit
+```
 
 ---
 
-## f) Why WebSockets?
+## Retrieval Studio
 
-I used native WebSockets because the application only needs lightweight real-time updates for ticket creation and resolution. If a connection is lost, the client reconnects and refreshes the latest data.
+The `/retrieval` route in the UI is a debug playground. Enter any query, pick a document scope (all or specific), and click **Run Pipeline**. The results panel shows:
 
----
+- BM25 score and rank per candidate chunk
+- Dense cosine similarity and rank per candidate chunk  
+- RRF fusion score
+- Cross-encoder rerank score
+- Final context text sent to the LLM
+- Total retrieval latency
 
-## g) Biggest Limitation
-
-The biggest limitation is the dependency on the external LLM provider. If the AI service is unavailable, ticket creation still succeeds but AI classification and draft generation will not be available until the service is restored. In a production system, I would introduce retries and background job processing.
-
----
-
-## h) AI Assistance
-
-AI tools helped accelerate repetitive tasks such as project scaffolding, boilerplate code, and UI development. However, generated code and prompts still required manual review and refinement to ensure they met the project requirements.
+This was the main reason I built HiVE — I wanted to see exactly why the wrong chunk was being retrieved, not just that the answer was wrong.
 
 ---
 
-# What I Would Do With More Time
+## Roadmap
 
-* Add authenticated WebSocket connections.
-* Improve AI background worker with better retry handling.
-* Add file uploads for attachments.
-* Improve automated test coverage.
-* Replace localStorage authentication with secure cookies.
+Things I'd add with more time, roughly in priority order:
 
----
-
-# Known Limitations
-
-* WebSocket connections are not authenticated.
-* AI processing depends on an external LLM service.
-* No rate limiting implemented for auth or other endpoints.
-* Ticket pagination is handled on the client.
+- **Corrective RAG (CRAG):** Grade retrieved context relevance after retrieval. If the best chunk scores below a threshold, rewrite the query and retrieve again before synthesising. Already partially designed in `agent_runtime.py`.
+- **MCP server endpoint:** Expose the document search tool over the [Model Context Protocol](https://modelcontextprotocol.io) so Claude Desktop or Cursor can query indexed documents directly.
+- **Eval harness:** A CLI script (`evals/run_eval.py`) that runs benchmark questions through the retrieval pipeline and scores Faithfulness and Answer Relevancy (Ragas / DeepEval).
+- **Sandboxed Python execution:** Let the agent write and run Python to answer quantitative questions over CSV/Excel data.
+- **Structured audit log:** Persist every document mutation and agent tool call with correlation IDs for debugging.
 
 ---
 
-# Tech Stack
+## Known Limitations
 
-| Layer          | Technology                    |
-| -------------- | ----------------------------- |
-| Frontend       | React, Vite                   |
-| Backend        | Python, FastAPI           |
-| Database       | PostgreSQL                    |
-| AI             | LangChain, NVIDIA NIM, Chroma |
-| Authentication | JWT, bcrypt                   |
-| Real-time      | Native WebSockets             |
-| Infrastructure | Docker Compose                |
-
----
-
-## Architecture Diagram
-
-                    QuickDesk Architecture
-
-                    +----------------------+
-                    |    React (Vite)      |
-                    |   Employee / Agent   |
-                    +----------+-----------+
-                               |
-                         REST API + JWT
-                               |
-                               ▼
-                  +---------------------------+
-                  |       FastAPI Backend     |
-                  |---------------------------|
-                  | • Authentication          |
-                  | • Ticket Management       |
-                  | • AI Classification       |
-                  | • RAG Service             |
-                  | • Metrics                 |
-                  | • WebSocket Server        |
-                  +------+-------------+------+
-                         |             |
-               SQLModel  |             | LangChain
-                         |             |
-                         ▼             ▼
-             +----------------+   +----------------+
-             |   PostgreSQL   |   | Chroma Vector  |
-             |                |   |     Store      |
-             +----------------+   +--------+-------+
-                                           |
-                                   Embeddings/Search
-                                           |
-                                           ▼
-                              +-------------------------+
-                              | NVIDIA NIM / LLM API    |
-                              | - Embeddings            |
-                              | - Category & Priority   |
-                              | - Draft Reply           |
-                              +-------------------------+
+- The BM25 index is in-memory — it rebuilds from PostgreSQL on startup, which adds ~2–5 seconds for large corpora. A persisted Postgres FTS index would eliminate this.
+- WebSocket connections for ingestion progress are not authenticated.
+- No rate limiting on the chat endpoint.
+- The local embedding fallback uses a heuristic character n-gram approach — retrieval quality is significantly better with real embeddings.

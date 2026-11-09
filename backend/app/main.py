@@ -9,6 +9,7 @@ from app.api.retrieval import router as retrieval_router
 from app.api.profiles import router as profiles_router
 from app.api.chat import router as chat_router
 from app.api.ws import router as ws_router
+from app.api.mcp import router as mcp_router
 from app.db.database import engine
 
 logger = logging.getLogger("main")
@@ -135,6 +136,7 @@ app.include_router(retrieval_router, prefix="/api")
 app.include_router(profiles_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(ws_router)
+app.include_router(mcp_router, prefix="/api")
 
 @app.get("/api/health")
 async def health_check():
