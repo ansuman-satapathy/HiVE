@@ -106,13 +106,10 @@ Browser
 
 ## Running Locally
 
-**Prerequisites:** Docker + Docker Compose. An NVIDIA NIM API key (free tier at [build.nvidia.com](https://build.nvidia.com)). The pipeline also runs fully offline with local fallbacks — no API key required for development.
+**Prerequisites:** Docker + Docker Compose. The pipeline runs completely zero-config with local fallbacks — no external API key or third-party accounts are required to get started.
 
 ```bash
 git clone <repo> && cd quickdesk
-
-cp backend/.env.example backend/.env
-# Set NVIDIA_API_KEY=nvapi-... in backend/.env (optional — works without it)
 
 docker compose up --build -d
 ```
@@ -120,6 +117,42 @@ docker compose up --build -d
 Open **http://localhost:5173**
 
 Default workspace account: `admin@hive.com` / `password123`
+
+---
+
+## Configuration & Secrets Management (12-Factor / Vault / Kubernetes)
+
+HiVE supports both in-app configuration via the UI and 12-factor runtime environment variable injection.
+
+### 1. Database-Level Encryption at Rest
+When you configure an API key through the In-App **Workspace Settings** or the **Onboarding Wizard**:
+- The API key is encrypted at rest using authenticated symmetric encryption (AES-128-CBC + HMAC-SHA256 via Fernet) before persisting to PostgreSQL.
+- Database dumps or direct queries to `workspace_settings` will only reveal encrypted ciphertext tokens (`enc::v1::gAAAAA...`).
+- The API responses mask all keys (`sk-••••••••1234`), ensuring credentials never leak to network inspectors or browser logs.
+- By default, the encryption key is derived deterministically from `SECRET_KEY`. To provide a dedicated enterprise key, set `CONFIG_ENCRYPTION_KEY` in your environment.
+
+### 2. Runtime Injection via Secrets Manager (No DB Storage)
+If your organization prefers not to store API keys in the database at all, you can supply credentials dynamically at runtime using AWS Secrets Manager, HashiCorp Vault, Kubernetes Secrets, or Docker environment variables:
+
+| Environment Variable | Description | Example |
+|---|---|---|
+| `LLM_PROVIDER` | Default LLM runtime engine | `openai`, `ollama`, `local` |
+| `LLM_BASE_URL` | OpenAI-compatible endpoint URL | `https://api.openai.com/v1`, `https://api.groq.com/openai/v1`, `https://integrate.api.nvidia.com/v1`, `http://localhost:11434/v1` |
+| `LLM_MODEL` | Model identifier | `gpt-4o-mini`, `llama3.2`, `llama-3.3-70b-versatile`, `meta/llama-3.2-3b-instruct` |
+| `LLM_API_KEY` | Primary API credential | `sk-...` or `nvapi-...` |
+| `OPENAI_API_KEY` | Alternative standard key | `sk-...` |
+| `CONFIG_ENCRYPTION_KEY` | Custom encryption key for DB secrets | `base64-or-passphrase` |
+
+> **Precedence:** Explicit settings configured in the UI take precedence over environment defaults. If the database row is empty or set to `auto`, HiVE automatically falls back to your injected runtime environment secrets.
+
+### 3. OpenAI-Compatible Providers (OpenAI, Groq, NVIDIA NIM, Ollama)
+All LLM providers in HiVE adhere to the standard OpenAI `/v1/chat/completions` specification:
+- **Local Ollama:** `http://localhost:11434/v1` (or `http://host.docker.internal:11434/v1` inside Docker)
+- **OpenAI:** `https://api.openai.com/v1` (`gpt-4o-mini`, `gpt-4o`)
+- **Groq:** `https://api.groq.com/openai/v1` (`llama-3.3-70b-versatile`)
+- **NVIDIA NIM:** `https://integrate.api.nvidia.com/v1` (`meta/llama-3.2-3b-instruct`)
+
+---
 
 ### Updating Frontend Files in Docker
 The backend runs with a volume mount (`--reload`), so Python changes take effect immediately. For the production frontend container (which serves the compiled bundle via Nginx), rebuild and recreate only the frontend container without resetting PostgreSQL or the backend:

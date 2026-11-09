@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   X,
   Cpu,
@@ -42,6 +42,20 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [testResult, setTestResult] = useState(null)
   const [modelSuccessMsg, setModelSuccessMsg] = useState(null)
   const [modelErrorMsg, setModelErrorMsg] = useState(null)
+
+  const isCloudProvider = useMemo(() => {
+    if (provider === 'local' || provider === 'ollama') return false
+    return !baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1') && !baseUrl.includes('host.docker.internal')
+  }, [provider, baseUrl])
+
+  const canTestConnection = useMemo(() => {
+    if (testingConnection) return false
+    if (provider === 'local') return false
+    if (!baseUrl || !baseUrl.trim()) return false
+    if (!modelName || !modelName.trim()) return false
+    if (isCloudProvider && !apiKey.trim() && !hasApiKey) return false
+    return true
+  }, [testingConnection, provider, baseUrl, modelName, isCloudProvider, apiKey, hasApiKey])
 
   // Account & Security State
   const [fullName, setFullName] = useState(user?.full_name || '')
@@ -138,6 +152,21 @@ export default function SettingsModal({ isOpen, onClose }) {
 
   // Test LLM connection
   const handleTestConnection = async () => {
+    if (!canTestConnection) {
+      if (isCloudProvider && !apiKey.trim() && !hasApiKey) {
+        setTestResult({
+          success: false,
+          message: 'An API key is required to test cloud endpoints. Please enter an API key above.',
+        })
+      } else if (!baseUrl.trim() || !modelName.trim()) {
+        setTestResult({
+          success: false,
+          message: 'Please provide both an API Base URL and a Model Identifier.',
+        })
+      }
+      return
+    }
+
     setTestingConnection(true)
     setTestResult(null)
     const token = tokenStorage.getToken()
@@ -155,10 +184,22 @@ export default function SettingsModal({ isOpen, onClose }) {
           api_key: apiKey || undefined,
         }),
       })
-      const data = await res.json()
-      setTestResult(data)
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        const errorMsg = data?.message || data?.detail || `Server returned error HTTP ${res.status}`
+        setTestResult({
+          success: false,
+          message: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg),
+        })
+      } else {
+        setTestResult({
+          success: data?.success ?? true,
+          latency_ms: data?.latency_ms,
+          message: data?.message || (data?.success ? 'Connected successfully!' : 'Connection test failed'),
+        })
+      }
     } catch (err) {
-      setTestResult({ success: false, message: `Test request failed: ${err.message}` })
+      setTestResult({ success: false, message: `Connection test error: ${err.message}` })
     } finally {
       setTestingConnection(false)
     }
@@ -398,7 +439,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                     <label className="block text-xs font-bold text-[var(--text-primary)] mb-2.5">
                       Select LLM Provider
                     </label>
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       {/* Ollama / Local */}
                       <button
                         type="button"
@@ -422,7 +463,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                           </span>
                         </div>
                         <p className="text-[11px] text-[var(--text-muted)]">
-                          Connects to your local Ollama or vLLM container.
+                          Connects to local Ollama or vLLM container.
                         </p>
                       </button>
 
@@ -449,33 +490,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                           </span>
                         </div>
                         <p className="text-[11px] text-[var(--text-muted)]">
-                          OpenAI, Groq, DeepSeek, or any compatible endpoint.
-                        </p>
-                      </button>
-
-                      {/* NVIDIA NIM */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProvider('nvidia')
-                          setModelName('meta/llama-3.2-11b-vision-instruct')
-                        }}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                          provider === 'nvidia'
-                            ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/30'
-                            : 'border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-bold text-[var(--text-primary)]">
-                            NVIDIA NIM
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-500 font-semibold border border-purple-500/20">
-                            NIM API
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[var(--text-muted)]">
-                          Enterprise Llama 3.2 NIM with hardware reranking.
+                          OpenAI, Groq, NVIDIA NIM, or DeepSeek.
                         </p>
                       </button>
 
@@ -507,74 +522,94 @@ export default function SettingsModal({ isOpen, onClose }) {
                   {/* Provider Configuration Fields */}
                   {provider !== 'local' && (
                     <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] space-y-4">
-                      {/* Base URL (for Ollama or OpenAI) */}
-                      {provider !== 'nvidia' && (
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-xs font-semibold text-[var(--text-primary)]">
-                              API Base URL
-                            </label>
-                            {provider === 'ollama' && (
-                              <button
-                                type="button"
-                                onClick={handleDetectLocal}
-                                disabled={detectingLocal}
-                                className="text-[11px] text-blue-500 hover:underline flex items-center gap-1 cursor-pointer"
-                              >
-                                {detectingLocal ? (
-                                  <Loader2 size={11} className="animate-spin" />
-                                ) : (
-                                  <Sparkles size={11} />
-                                )}
-                                <span>Auto-Detect Local Ollama</span>
-                              </button>
-                            )}
-                          </div>
-                          <input
-                            type="text"
-                            required
-                            value={baseUrl}
-                            onChange={(e) => setBaseUrl(e.target.value)}
-                            placeholder="http://localhost:11434/v1"
-                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs font-mono text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
-                          />
-
-                          {/* Quick URL Presets */}
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            <span className="text-[10px] text-[var(--text-muted)] self-center mr-1">
-                              Presets:
-                            </span>
+                      {/* Base URL */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-xs font-semibold text-[var(--text-primary)]">
+                            API Base URL
+                          </label>
+                          {provider === 'ollama' && (
                             <button
                               type="button"
-                              onClick={() => setBaseUrl('http://localhost:11434/v1')}
-                              className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                              onClick={handleDetectLocal}
+                              disabled={detectingLocal}
+                              className="text-[11px] text-blue-500 hover:underline flex items-center gap-1 cursor-pointer"
                             >
-                              Ollama (Host)
+                              {detectingLocal ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <Sparkles size={11} />
+                              )}
+                              <span>Auto-Detect Local Ollama</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => setBaseUrl('http://host.docker.internal:11434/v1')}
-                              className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
-                            >
-                              Ollama (Docker)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setBaseUrl('https://api.openai.com/v1')}
-                              className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
-                            >
-                              OpenAI
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setBaseUrl('https://api.groq.com/openai/v1')}
-                              className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
-                            >
-                              Groq
-                            </button>
-                          </div>
+                          )}
                         </div>
-                      )}
+                        <input
+                          type="text"
+                          required
+                          value={baseUrl}
+                          onChange={(e) => setBaseUrl(e.target.value)}
+                          placeholder="http://localhost:11434/v1 or https://api.openai.com/v1"
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs font-mono text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
+                        />
+
+                        {/* Quick URL & Model Presets */}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          <span className="text-[10px] text-[var(--text-muted)] self-center mr-1">
+                            Presets:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBaseUrl('http://localhost:11434/v1')
+                              setModelName('llama3.2')
+                            }}
+                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                          >
+                            Ollama (Host)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBaseUrl('http://host.docker.internal:11434/v1')
+                              setModelName('llama3.2')
+                            }}
+                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                          >
+                            Ollama (Docker)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBaseUrl('https://api.openai.com/v1')
+                              setModelName('gpt-4o-mini')
+                            }}
+                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                          >
+                            OpenAI
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBaseUrl('https://api.groq.com/openai/v1')
+                              setModelName('llama-3.3-70b-versatile')
+                            }}
+                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                          >
+                            Groq
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBaseUrl('https://integrate.api.nvidia.com/v1')
+                              setModelName('meta/llama-3.2-3b-instruct')
+                            }}
+                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-purple-500 cursor-pointer"
+                          >
+                            NVIDIA NIM
+                          </button>
+                        </div>
+                      </div>
 
                       {/* Model Name */}
                       <div>
@@ -607,9 +642,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                             placeholder={
                               provider === 'ollama'
                                 ? 'llama3.2 or mistral'
-                                : provider === 'nvidia'
-                                ? 'meta/llama-3.2-11b-vision-instruct'
-                                : 'gpt-4o-mini'
+                                : 'gpt-4o-mini or meta/llama-3.2-3b-instruct'
                             }
                             className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs font-mono text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                           />
@@ -633,7 +666,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                             type={showApiKey ? 'text' : 'password'}
                             value={apiKey}
                             onChange={(e) => setApiKey(e.target.value)}
-                            placeholder={hasApiKey ? '•••••••••••••••• (Leave blank to keep current)' : 'sk-... or nvapi-...'}
+                            placeholder={hasApiKey ? '•••••••••••••••• (Leave blank to keep saved key)' : 'sk-... or nvapi-...'}
                             className="w-full pl-3 pr-10 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs font-mono text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                           />
                           <button
@@ -662,8 +695,10 @@ export default function SettingsModal({ isOpen, onClose }) {
                       ) : (
                         <AlertCircle size={14} className="shrink-0 mt-0.5" />
                       )}
-                      <div>
-                        <p className="font-semibold">{testResult.message}</p>
+                      <div className="flex-1">
+                        <p className="font-semibold break-words">
+                          {testResult.message || testResult.detail || (typeof testResult === 'string' ? testResult : 'Connection test failed')}
+                        </p>
                         {testResult.latency_ms != null && (
                           <p className="text-[10.5px] opacity-80 mt-0.5">
                             Roundtrip response latency: {testResult.latency_ms}ms
@@ -689,15 +724,22 @@ export default function SettingsModal({ isOpen, onClose }) {
 
                   {/* Form Actions */}
                   <div className="flex items-center justify-between pt-3 border-t border-[var(--border-default)]">
-                    <button
-                      type="button"
-                      onClick={handleTestConnection}
-                      disabled={testingConnection || provider === 'local'}
-                      className="px-3.5 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-surface-hover)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      {testingConnection && <Loader2 size={13} className="animate-spin text-blue-500" />}
-                      <span>Test Connection</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleTestConnection}
+                        disabled={!canTestConnection}
+                        className="px-3.5 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-surface-hover)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {testingConnection && <Loader2 size={13} className="animate-spin text-blue-500" />}
+                        <span>Test Connection</span>
+                      </button>
+                      {!canTestConnection && isCloudProvider && !apiKey.trim() && !hasApiKey && (
+                        <span className="text-[11px] text-[var(--text-muted)]">
+                          API key required to test
+                        </span>
+                      )}
+                    </div>
 
                     <button
                       type="submit"

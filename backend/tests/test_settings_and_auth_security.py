@@ -99,3 +99,75 @@ async def test_update_profile_and_change_password(db_session: AsyncSession, clie
     )
     assert login_res.status_code == 200
     assert "access_token" in login_res.json()
+
+
+@pytest.mark.asyncio
+async def test_api_key_encryption_at_rest(db_session: AsyncSession, client: AsyncClient):
+    """Verify sensitive API keys are encrypted at rest with Fernet/AES in the database."""
+    from sqlmodel import select
+    from app.models.workspace_setting import WorkspaceSetting
+    from app.core.encryption import is_encrypted
+
+    user = await create_test_user(db_session, email="encrypt_tester@example.com")
+    headers = auth_header(user)
+
+    secret_key = "sk-super-confidential-api-key-998877"
+
+    # Save settings with raw secret key
+    patch_res = await client.patch(
+        "/api/settings",
+        json={
+            "llm_provider": "openai",
+            "llm_base_url": "https://api.openai.com/v1",
+            "llm_model": "gpt-4o-mini",
+            "llm_api_key": secret_key,
+        },
+        headers=headers
+    )
+    assert patch_res.status_code == 200
+    data = patch_res.json()
+    assert data["has_api_key"] is True
+    # Masked in API response — never plaintext
+    assert secret_key not in data["llm_api_key_masked"]
+    assert "••••••••" in data["llm_api_key_masked"]
+
+    # Check database directly — must be encrypted, NEVER stored in plaintext
+    stmt = select(WorkspaceSetting)
+    row = (await db_session.exec(stmt)).first()
+    assert row is not None
+    assert row.llm_api_key != secret_key
+    assert is_encrypted(row.llm_api_key)
+    assert row.llm_api_key.startswith("enc::v1::")
+    # In-memory property decrypts correctly
+    assert row.decrypted_api_key == secret_key
+
+
+@pytest.mark.asyncio
+async def test_cloud_test_llm_requires_key_when_empty(db_session: AsyncSession, client: AsyncClient):
+    """Verify test-llm returns a clean human-readable error if cloud API key is missing."""
+    from app.models.workspace_setting import WorkspaceSetting
+    from sqlmodel import select
+
+    user = await create_test_user(db_session, email="cloud_test_user@example.com")
+    headers = auth_header(user)
+
+    # Ensure no key in DB
+    stmt = select(WorkspaceSetting)
+    setting = (await db_session.exec(stmt)).first()
+    if setting:
+        setting.llm_api_key = None
+        db_session.add(setting)
+        await db_session.commit()
+
+    payload = {
+        "provider": "openai",
+        "base_url": "https://api.openai.com/v1",
+        "model_name": "gpt-4o-mini",
+        "api_key": "",
+    }
+    res = await client.post("/api/settings/test-llm", json=payload, headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is False
+    assert "API key is required" in data["message"]
+

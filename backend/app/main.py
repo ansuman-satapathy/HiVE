@@ -107,6 +107,24 @@ async def lifespan(app: FastAPI):
                 logger.warning(f"Error during startup document auto-resume: {resume_err}")
 
         asyncio.create_task(resume_interrupted_documents())
+
+        # Initialize LLMService from persistent DB settings if available
+        try:
+            from app.models.workspace_setting import WorkspaceSetting
+            from app.services.llm_service import LLMService
+            async with SessionLocal() as db:
+                stmt = select(WorkspaceSetting)
+                setting_row = (await db.exec(stmt)).first()
+                if setting_row and setting_row.llm_provider != "auto":
+                    llm_service = LLMService.get_instance()
+                    llm_service.configure(
+                        provider=setting_row.llm_provider,
+                        base_url=setting_row.llm_base_url,
+                        model_name=setting_row.llm_model,
+                        api_key=setting_row.decrypted_api_key,
+                    )
+        except Exception as llm_err:
+            logger.warning(f"Could not load workspace settings on startup: {llm_err}")
     except Exception as e:
         import logging
         logging.getLogger("main").warning(f"Could not warm BM25 index on startup: {e}")

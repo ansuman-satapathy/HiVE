@@ -413,32 +413,69 @@ export default function Onboarding() {
             {/* Option B: Cloud API */}
             {modelMode === 'cloud' && (
               <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] space-y-3.5">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      setCloudProvider('openai')
                       setCloudBaseUrl('https://api.openai.com/v1')
                       setCloudModel('gpt-4o-mini')
                     }}
-                    className={`py-1.5 px-3 rounded-lg border text-xs font-semibold cursor-pointer ${
-                      cloudProvider === 'openai' ? 'border-blue-500 bg-blue-500/10 text-blue-500' : 'border-[var(--border-default)]'
+                    className={`py-1.5 px-2 rounded-lg border text-xs font-semibold cursor-pointer text-center ${
+                      cloudBaseUrl.includes('openai.com') ? 'border-blue-500 bg-blue-500/10 text-blue-500' : 'border-[var(--border-default)]'
                     }`}
                   >
-                    OpenAI / Groq
+                    OpenAI
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setCloudProvider('nvidia')
-                      setCloudModel('meta/llama-3.2-11b-vision-instruct')
+                      setCloudBaseUrl('https://api.groq.com/openai/v1')
+                      setCloudModel('llama-3.3-70b-versatile')
                     }}
-                    className={`py-1.5 px-3 rounded-lg border text-xs font-semibold cursor-pointer ${
-                      cloudProvider === 'nvidia' ? 'border-purple-500 bg-purple-500/10 text-purple-500' : 'border-[var(--border-default)]'
+                    className={`py-1.5 px-2 rounded-lg border text-xs font-semibold cursor-pointer text-center ${
+                      cloudBaseUrl.includes('groq.com') ? 'border-blue-500 bg-blue-500/10 text-blue-500' : 'border-[var(--border-default)]'
+                    }`}
+                  >
+                    Groq
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCloudBaseUrl('https://integrate.api.nvidia.com/v1')
+                      setCloudModel('meta/llama-3.2-3b-instruct')
+                    }}
+                    className={`py-1.5 px-2 rounded-lg border text-xs font-semibold cursor-pointer text-center ${
+                      cloudBaseUrl.includes('nvidia.com') ? 'border-purple-500 bg-purple-500/10 text-purple-500' : 'border-[var(--border-default)]'
                     }`}
                   >
                     NVIDIA NIM
                   </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                    API Base URL
+                  </label>
+                  <input
+                    type="text"
+                    value={cloudBaseUrl}
+                    onChange={(e) => setCloudBaseUrl(e.target.value)}
+                    placeholder="https://api.openai.com/v1"
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs font-mono text-[var(--text-primary)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                    Model Identifier
+                  </label>
+                  <input
+                    type="text"
+                    value={cloudModel}
+                    onChange={(e) => setCloudModel(e.target.value)}
+                    placeholder="gpt-4o-mini or meta/llama-3.2-3b-instruct"
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs font-mono text-[var(--text-primary)]"
+                  />
                 </div>
 
                 <div>
@@ -530,7 +567,7 @@ export default function Onboarding() {
                   {modelMode === 'ollama'
                     ? `Local Ollama (${ollamaModel})`
                     : modelMode === 'cloud'
-                    ? `${cloudProvider.toUpperCase()} (${cloudModel})`
+                    ? `Cloud API (${cloudModel})`
                     : 'Offline Synthesizer (Configurable in Settings)'}
                 </p>
                 <p>

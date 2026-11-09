@@ -13,6 +13,17 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
+    # Optional encryption key for database config & secrets (AES/Fernet)
+    # If not set, safely derived from SECRET_KEY
+    CONFIG_ENCRYPTION_KEY: str = ""
+
+    # Runtime LLM Configuration from Environment / Secrets Manager (optional)
+    LLM_PROVIDER: str = ""
+    LLM_BASE_URL: str = ""
+    LLM_MODEL: str = ""
+    LLM_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+
     NVIDIA_API_KEY: str = ""
     NVIDIA_MODEL: str = "meta/llama-3.2-11b-vision-instruct"
     NVIDIA_EMBED_MODEL: str = "nvidia/nemotron-3-embed-1b"
