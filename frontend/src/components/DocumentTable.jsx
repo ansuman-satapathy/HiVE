@@ -22,6 +22,7 @@ export default function DocumentTable({
   documents,
   loading,
   uploading = false,
+  isLocked = false,
   searchQuery,
   filterType,
   selectedIds = new Set(),
@@ -58,13 +59,19 @@ export default function DocumentTable({
             ? 'No indexed documents match your current filter criteria.'
             : 'Upload or drop manuals, documentation, or txt files above to start indexing.'}
         </p>
-        {onUploadClick && (
+        {!isLocked && onUploadClick && (
           <button
             onClick={onUploadClick}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all"
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
           >
             Upload First File
           </button>
+        )}
+        {isLocked && (
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-semibold">
+            <Loader2 size={13} className="spin-animate" />
+            <span>Ingestion in progress... uploads locked</span>
+          </div>
         )}
       </div>
     )

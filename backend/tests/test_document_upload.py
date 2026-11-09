@@ -200,3 +200,43 @@ async def test_batch_delete_and_search_filter(client, db_session):
     after_data = after_res.json()
     assert after_data["total"] == 1
     assert after_data["items"][0]["id"] == doc_ids[2]
+
+
+@pytest.mark.asyncio
+async def test_upload_locked_while_documents_processing(client, db_session):
+    """Verify that uploading files while active ingestion tasks are running returns 409 Conflict."""
+    from app.models.document import Document
+    user = await create_test_user(db_session, "lock_test_user@hive.com")
+    headers = auth_header(user)
+
+    # Insert a document currently in 'parsing' state
+    in_flight_doc = Document(
+        user_id=user.id,
+        filename="busy_doc.pdf",
+        file_path="/tmp/busy_doc.pdf",
+        file_type="pdf",
+        file_size_bytes=1024,
+        sha256_hash="hash_busy_123",
+        status=IngestionStatus.PARSING,
+        chunk_count=0,
+        token_count=0,
+    )
+    db_session.add(in_flight_doc)
+    await db_session.commit()
+
+    # Attempt single upload
+    files = {"file": ("new_doc.txt", io.BytesIO(b"Hello world"), "text/plain")}
+    res = await client.post("/api/documents/upload", headers=headers, files=files)
+    assert res.status_code == 409
+    assert "currently being processed" in res.json()["detail"]
+
+    # Attempt batch upload
+    batch_files = [("files", ("batch1.txt", io.BytesIO(b"Batch content"), "text/plain"))]
+    batch_res = await client.post("/api/documents/upload-batch", headers=headers, files=batch_files)
+    assert batch_res.status_code == 409
+    assert "currently being processed" in batch_res.json()["detail"]
+
+    # Clean up
+    await db_session.delete(in_flight_doc)
+    await db_session.commit()
+

@@ -11,7 +11,7 @@ import DocumentChunkInspector from '../components/DocumentChunkInspector'
 
 export default function DocumentHub() {
   const { notify, confirm } = useFeedback()
-  const { fetchQueue, setDrawerOpen, activeCount } = useTaskQueue()
+  const { fetchQueue, setDrawerOpen, activeCount, queueData } = useTaskQueue()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
@@ -120,11 +120,40 @@ export default function DocumentHub() {
     }
   }, [page, pageSize, debouncedSearch, filterType])
 
-  const hasActiveDocs = documents.some((d) =>
+  // Global check: active count from queue + filtered document statuses
+  const hasActiveDocs = (activeCount > 0) || documents.some((d) =>
     ['pending', 'parsing', 'chunking', 'indexing'].includes(d.status)
   )
   const hasActiveDocsRef = useRef(hasActiveDocs)
   hasActiveDocsRef.current = hasActiveDocs
+
+  // Live overall ingestion progress percentage (0 - 100)
+  const overallProgress = useMemo(() => {
+    if (activeCount === 0 && !uploading && !hasActiveDocs) return 0
+    if (uploading) return 25
+
+    const tasks = queueData?.active_tasks || []
+    if (tasks.length > 0) {
+      const sum = tasks.reduce((acc, t) => {
+        const s = t.status || 'pending'
+        const p = s === 'indexing' ? 85 : s === 'chunking' ? 65 : s === 'parsing' ? 40 : 15
+        return acc + p
+      }, 0)
+      return Math.round(sum / tasks.length)
+    }
+
+    const activeList = documents.filter((d) =>
+      ['pending', 'parsing', 'chunking', 'indexing'].includes(d.status)
+    )
+    if (activeList.length > 0) {
+      const sum = activeList.reduce((acc, d) => {
+        const p = d.status === 'indexing' ? 85 : d.status === 'chunking' ? 65 : d.status === 'parsing' ? 40 : 15
+        return acc + p
+      }, 0)
+      return Math.round(sum / activeList.length)
+    }
+    return 35
+  }, [activeCount, uploading, hasActiveDocs, queueData, documents])
 
   // Polling loop with dynamic interval: polls aggressively (1s) during active ingestion/upload
   useEffect(() => {
@@ -151,7 +180,7 @@ export default function DocumentHub() {
 
   const handleFileUpload = async (filesInput) => {
     if (!filesInput) return
-    if (uploading || hasActiveDocs) {
+    if (uploading || hasActiveDocs || activeCount > 0) {
       notify.warning('Documents are currently being ingested. Please wait for processing to finish before uploading more files.')
       return
     }
@@ -461,6 +490,7 @@ export default function DocumentHub() {
         uploading={uploading}
         hasActiveDocs={hasActiveDocs}
         activeCount={Math.max(activeCount, activeProcessingCount)}
+        progress={overallProgress}
         dragOver={dragOver}
         setDragOver={setDragOver}
         onFileSelect={handleFileUpload}
@@ -486,6 +516,7 @@ export default function DocumentHub() {
         documents={documents}
         loading={loading}
         uploading={uploading}
+        isLocked={uploading || hasActiveDocs}
         searchQuery={searchQuery}
         filterType={filterType}
         selectedIds={selectedIds}
