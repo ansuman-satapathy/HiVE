@@ -33,7 +33,7 @@ class ThinkTagFilter:
                     if before:
                         results.append({"type": "content", "delta": before})
                     self.in_think = True
-                elif "<" in self.buffer and any("<think>".startswith(self.buffer[self.buffer.rfind("<"):])):
+                elif "<" in self.buffer and "<think>".startswith(self.buffer[self.buffer.rfind("<"):]):
                     # Potential partial tag at the end of buffer: wait for next chunk
                     idx = self.buffer.rfind("<")
                     if idx > 0:
@@ -49,7 +49,7 @@ class ThinkTagFilter:
                     if thought and self.enable_thinking:
                         results.append({"type": "thought", "delta": thought})
                     self.in_think = False
-                elif "<" in self.buffer and any("</think>".startswith(self.buffer[self.buffer.rfind("<"):])):
+                elif "<" in self.buffer and "</think>".startswith(self.buffer[self.buffer.rfind("<"):]):
                     idx = self.buffer.rfind("<")
                     thought = self.buffer[:idx]
                     if thought and self.enable_thinking:
