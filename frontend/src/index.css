@@ -457,16 +457,17 @@ input[type="range"].theme-slider::-moz-range-thumb {
 
 /* ==========================================================================
    Modern Workspace Segmented Navigation
-   Refined, sleek desktop aesthetic inspired by Linear / Vercel
+   Centered, cohesive brand aesthetic with refined blue elevation
    ========================================================================== */
 .workspace-nav-container {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   padding: 3px;
   background-color: var(--bg-canvas);
   border: 1px solid var(--border-default);
   border-radius: 12px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
 }
 
 .workspace-nav-indicator {
@@ -475,16 +476,16 @@ input[type="range"].theme-slider::-moz-range-thumb {
   bottom: 3px;
   border-radius: 9px;
   background-color: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  box-shadow: 0 1px 3px 0 rgba(59, 130, 246, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
   transition: left 0.22s cubic-bezier(0.16, 1, 0.3, 1), width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
 }
 
 .dark .workspace-nav-indicator {
-  background-color: rgba(255, 255, 255, 0.09);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.37);
+  background-color: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  box-shadow: 0 0 14px -2px rgba(59, 130, 246, 0.22);
 }
 
 .workspace-nav-item {
@@ -493,7 +494,7 @@ input[type="range"].theme-slider::-moz-range-thumb {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 13px;
+  padding: 5px 14px;
   border-radius: 9px;
   font-size: 12.5px;
   font-weight: 500;
@@ -511,7 +512,12 @@ input[type="range"].theme-slider::-moz-range-thumb {
 }
 
 .workspace-nav-item.is-active {
-  color: var(--text-primary);
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.dark .workspace-nav-item.is-active {
+  color: #93c5fd;
   font-weight: 600;
 }
 
@@ -525,7 +531,7 @@ input[type="range"].theme-slider::-moz-range-thumb {
 }
 
 .workspace-nav-item.is-active .nav-icon {
-  color: #3b82f6;
+  color: #2563eb;
 }
 
 .dark .workspace-nav-item.is-active .nav-icon {
