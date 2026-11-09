@@ -253,3 +253,4 @@ async def test_crag_triggered_when_context_poor(fake_req, fake_user, fake_db):
 
     done_event = next(e for e in events if e["type"] == "done")
     assert done_event["data"]["total_steps"] == 2
+

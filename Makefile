@@ -34,3 +34,4 @@ build-frontend:
 
 test:
 	cd backend && pytest tests/ -v
+
