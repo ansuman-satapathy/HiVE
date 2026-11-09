@@ -46,7 +46,7 @@ class LLMProvider(ABC):
 class OpenAICompatibleLLM(LLMProvider):
     """
     Standard OpenAI-compatible streaming LLM provider.
-    Supports local Ollama, vLLM, LM Studio, as well as cloud OpenAI, Groq, DeepSeek.
+    Supports local Ollama, vLLM, LM Studio, as well as cloud OpenAI, Groq, NVIDIA NIM, DeepSeek.
     Endpoint: {base_url}/chat/completions
     """
 
@@ -55,15 +55,16 @@ class OpenAICompatibleLLM(LLMProvider):
         base_url: str = "http://localhost:11434/v1",
         model_name: str = "llama3.2",
         api_key: Optional[str] = None,
-        timeout: float = 60.0,
+        timeout: float = 45.0,
     ):
-        clean_url = base_url.rstrip("/")
-        if not clean_url.endswith("/chat/completions"):
-            if not clean_url.endswith("/v1"):
-                clean_url = f"{clean_url}/v1"
-            clean_url = f"{clean_url}/chat/completions"
+        self.base_url = base_url.rstrip("/")
+        if not self.base_url.endswith("/v1") and not self.base_url.endswith("/chat/completions"):
+            self.endpoint_url = f"{self.base_url}/v1/chat/completions"
+        elif self.base_url.endswith("/chat/completions"):
+            self.endpoint_url = self.base_url
+        else:
+            self.endpoint_url = f"{self.base_url}/chat/completions"
 
-        self.endpoint_url = clean_url
         self.model_name = model_name
         self.api_key = api_key or ""
         self.timeout = timeout
@@ -83,10 +84,7 @@ class OpenAICompatibleLLM(LLMProvider):
 
         payload = {
             "model": self.model_name,
-            "messages": [
-                {"role": m.get("role", "user"), "content": m.get("content", "")}
-                for m in messages
-            ],
+            "messages": messages,
             "temperature": temperature,
             "stream": True,
         }
@@ -94,12 +92,15 @@ class OpenAICompatibleLLM(LLMProvider):
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 async with client.stream(
-                    "POST", self.endpoint_url, json=payload, headers=headers
+                    "POST",
+                    self.endpoint_url,
+                    json=payload,
+                    headers=headers,
                 ) as response:
-                    if response.status_code >= 400:
+                    if response.status_code != 200:
                         error_body = await response.aread()
                         logger.warning(
-                            f"OpenAI-compatible LLM returned status {response.status_code}: {error_body.decode(errors='replace')}. Falling back to local synthesizer."
+                            f"OpenAI-compatible endpoint {self.endpoint_url} returned HTTP {response.status_code}: {error_body.decode('utf-8', errors='ignore')[:250]}. Falling back to local synthesizer."
                         )
                         async for chunk in self._fallback.astream(messages, temperature):
                             yield chunk
@@ -128,54 +129,6 @@ class OpenAICompatibleLLM(LLMProvider):
             logger.warning(
                 f"OpenAI-compatible streaming error ({exc}) connecting to {self.endpoint_url}; falling back to local synthesizer."
             )
-            async for chunk in self._fallback.astream(messages, temperature):
-                yield chunk
-
-
-class NVIDIAStreamingLLM(LLMProvider):
-    """
-    Streaming LLM provider backed by NVIDIA NIM API (e.g., Llama 3.2 11B / 70B).
-    Falls back gracefully to LocalDeterministicLLM on connection or quota failure.
-    """
-
-    def __init__(self, api_key: str, model_name: Optional[str] = None):
-        self.api_key = api_key
-        self.model_name = model_name or settings.NVIDIA_MODEL
-        self._fallback = LocalDeterministicLLM()
-
-    async def astream(
-        self,
-        messages: List[Dict[str, str]],
-        temperature: float = 0.2,
-    ) -> AsyncGenerator[str, None]:
-        try:
-            from langchain_nvidia_ai_endpoints import ChatNVIDIA
-            from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-
-            chat = ChatNVIDIA(
-                api_key=self.api_key,
-                model=self.model_name,
-                temperature=temperature,
-            )
-
-            lc_messages = []
-            for m in messages:
-                role = m.get("role", "user")
-                content = m.get("content", "")
-                if role == "system":
-                    lc_messages.append(SystemMessage(content=content))
-                elif role == "assistant":
-                    lc_messages.append(AIMessage(content=content))
-                else:
-                    lc_messages.append(HumanMessage(content=content))
-
-            async for chunk in chat.astream(lc_messages):
-                content = chunk.content
-                if content:
-                    yield content
-
-        except Exception as exc:
-            logger.warning(f"NVIDIA Chat streaming error ({exc}); falling back to local synthesizer.")
             async for chunk in self._fallback.astream(messages, temperature):
                 yield chunk
 
@@ -238,15 +191,38 @@ class LLMService:
     def __init__(self, provider: Optional[LLMProvider] = None):
         if provider:
             self.provider = provider
-        elif settings.NVIDIA_API_KEY and settings.NVIDIA_API_KEY.strip() and not settings.NVIDIA_API_KEY.startswith("nvapi-your"):
-            logger.info(f"Initializing NVIDIA Chat LLM: {settings.NVIDIA_MODEL}")
-            self.provider = NVIDIAStreamingLLM(
-                api_key=settings.NVIDIA_API_KEY,
-                model_name=settings.NVIDIA_MODEL,
-            )
         else:
-            logger.info("Initializing Local Deterministic Streaming LLM (No API key set).")
-            self.provider = LocalDeterministicLLM()
+            self.provider = self._resolve_runtime_env_provider()
+
+    @staticmethod
+    def _resolve_runtime_env_provider() -> LLMProvider:
+        """
+        Dynamically resolve LLM provider from runtime environment variables (12-factor / Secrets Manager).
+        Falls back to LocalDeterministicLLM when no environment variables are provided.
+        """
+        env_key = settings.LLM_API_KEY.strip() or settings.OPENAI_API_KEY.strip()
+        env_provider = settings.LLM_PROVIDER.strip().lower()
+
+        if env_key:
+            base_url = settings.LLM_BASE_URL.strip() or "https://api.openai.com/v1"
+            model = settings.LLM_MODEL.strip() or "gpt-4o-mini"
+            logger.info(f"Initializing LLM from runtime environment secrets: {model} at {base_url}")
+            return OpenAICompatibleLLM(base_url=base_url, model_name=model, api_key=env_key)
+
+        if settings.NVIDIA_API_KEY.strip() and not settings.NVIDIA_API_KEY.startswith("nvapi-your"):
+            base_url = settings.LLM_BASE_URL.strip() or "https://integrate.api.nvidia.com/v1"
+            model = settings.LLM_MODEL.strip() or "meta/llama-3.2-3b-instruct"
+            logger.info(f"Initializing NVIDIA NIM via OpenAI spec from runtime secrets: {model}")
+            return OpenAICompatibleLLM(base_url=base_url, model_name=model, api_key=settings.NVIDIA_API_KEY.strip())
+
+        if env_provider == "ollama":
+            base_url = settings.LLM_BASE_URL.strip() or "http://localhost:11434/v1"
+            model = settings.LLM_MODEL.strip() or "llama3.2"
+            logger.info(f"Initializing Ollama from runtime environment: {model} at {base_url}")
+            return OpenAICompatibleLLM(base_url=base_url, model_name=model, api_key="ollama")
+
+        logger.info("Initializing Local Deterministic Streaming LLM (Offline fallback).")
+        return LocalDeterministicLLM()
 
     def configure(
         self,
@@ -258,36 +234,32 @@ class LLMService:
         """Dynamically configure the active LLM provider."""
         provider = (provider or "auto").lower()
 
-        if provider in ["ollama", "openai", "custom"]:
-            url = base_url or ("http://host.docker.internal:11434/v1" if provider == "ollama" else "https://api.openai.com/v1")
-            model = model_name or ("llama3.2" if provider == "ollama" else "gpt-4o-mini")
+        if provider in ["ollama", "openai", "custom", "nvidia"]:
+            if provider == "nvidia":
+                url = base_url or "https://integrate.api.nvidia.com/v1"
+                model = model_name or "meta/llama-3.2-3b-instruct"
+            elif provider == "ollama":
+                url = base_url or "http://localhost:11434/v1"
+                model = model_name or "llama3.2"
+            else:
+                url = base_url or "https://api.openai.com/v1"
+                model = model_name or "gpt-4o-mini"
+
             logger.info(f"Configuring OpenAI-compatible LLM: {model} at {url}")
             self.provider = OpenAICompatibleLLM(
                 base_url=url,
                 model_name=model,
                 api_key=api_key or ("ollama" if provider == "ollama" else ""),
             )
-        elif provider == "nvidia":
-            key = api_key or settings.NVIDIA_API_KEY
-            model = model_name or settings.NVIDIA_MODEL
-            logger.info(f"Configuring NVIDIA NIM Chat LLM: {model}")
-            self.provider = NVIDIAStreamingLLM(api_key=key, model_name=model)
         elif provider == "local":
             logger.info("Configuring Local Deterministic LLM synthesizer.")
             self.provider = LocalDeterministicLLM()
         else:
-            # Auto fallback
-            if settings.NVIDIA_API_KEY and not settings.NVIDIA_API_KEY.startswith("nvapi-your"):
-                self.provider = NVIDIAStreamingLLM(api_key=settings.NVIDIA_API_KEY, model_name=settings.NVIDIA_MODEL)
-            else:
-                self.provider = LocalDeterministicLLM()
+            # "auto" -> fallback to runtime env resolution
+            self.provider = self._resolve_runtime_env_provider()
 
     @classmethod
     def get_instance(cls) -> "LLMService":
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
-
-    @classmethod
-    def reset(cls) -> None:
-        cls._instance = None
