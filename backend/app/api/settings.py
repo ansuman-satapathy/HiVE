@@ -521,16 +521,25 @@ async def test_embedding_connection(
     start = time.monotonic()
     provider = (req.provider or "auto").lower()
 
-    if provider in ["local", "auto"] and not req.api_key:
+    if provider in ["local", "auto", "fastembed"] and not req.api_key:
         from app.services.embedding_service import LocalFeatureEmbeddingProvider
-        p = LocalFeatureEmbeddingProvider()
-        vec = p.embed_query("test semantic vector embedding ping")
-        latency = int((time.monotonic() - start) * 1000)
-        return TestLLMResponse(
-            success=True,
-            latency_ms=latency,
-            message=f"Local embedding provider ready (generated {len(vec)}-dimensional vector in {latency}ms)",
-        )
+        model_to_use = req.model_name or "BAAI/bge-small-en-v1.5"
+        try:
+            p = LocalFeatureEmbeddingProvider()
+            vec = p.embed_query("test semantic vector embedding ping")
+            latency = int((time.monotonic() - start) * 1000)
+            return TestLLMResponse(
+                success=True,
+                latency_ms=latency,
+                message=f"Local FastEmbed provider ready ({model_to_use}: {len(vec)}-dimensional vector in {latency}ms)",
+            )
+        except Exception as e:
+            latency = int((time.monotonic() - start) * 1000)
+            return TestLLMResponse(
+                success=False,
+                latency_ms=latency,
+                message=f"FastEmbed initialization error: {str(e)}",
+            )
 
     base_url = (req.base_url or ("http://localhost:11434/v1" if provider == "ollama" else "https://api.openai.com/v1")).rstrip("/")
     model = req.model_name or ("nomic-embed-text" if provider == "ollama" else "text-embedding-3-small")
@@ -545,7 +554,7 @@ async def test_embedding_connection(
         headers["Authorization"] = f"Bearer {req.api_key.strip()}"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             res = await client.post(endpoint, json={"model": model, "input": "test embedding ping"}, headers=headers)
             latency = int((time.monotonic() - start) * 1000)
             if res.status_code == 200:
@@ -563,16 +572,30 @@ async def test_embedding_connection(
                     latency_ms=latency,
                     message=f"Authentication failed (HTTP 401): Invalid API key for {base_url}.",
                 )
+            elif res.status_code == 404:
+                return TestLLMResponse(
+                    success=False,
+                    latency_ms=latency,
+                    message=f"Model '{model}' not found in Ollama (HTTP 404). Run 'ollama pull {model}' on your host.",
+                )
             else:
                 return TestLLMResponse(
                     success=False,
                     latency_ms=latency,
                     message=f"Endpoint returned HTTP {res.status_code}: {res.text[:150]}",
                 )
-    except Exception as exc:
+    except httpx.TimeoutException:
         latency = int((time.monotonic() - start) * 1000)
         return TestLLMResponse(
             success=False,
             latency_ms=latency,
-            message=f"Connection failed to {endpoint}: {str(exc)}",
+            message=f"Embedding request to {endpoint} timed out ({latency}ms). Ollama may still be loading '{model}'.",
+        )
+    except Exception as exc:
+        latency = int((time.monotonic() - start) * 1000)
+        err_msg = str(exc) or exc.__class__.__name__
+        return TestLLMResponse(
+            success=False,
+            latency_ms=latency,
+            message=f"Connection failed to {endpoint}: {err_msg}",
         )

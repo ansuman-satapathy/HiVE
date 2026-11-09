@@ -60,6 +60,8 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
   const [savingEmbedding, setSavingEmbedding] = useState(false)
   const [embeddingSuccessMsg, setEmbeddingSuccessMsg] = useState(null)
   const [embeddingErrorMsg, setEmbeddingErrorMsg] = useState(null)
+  const [detectingOllamaEmbedding, setDetectingOllamaEmbedding] = useState(false)
+  const [detectedOllamaEmbeddingModels, setDetectedOllamaEmbeddingModels] = useState([])
 
   // Local detection & Test state
   const [detectingLocal, setDetectingLocal] = useState(false)
@@ -437,6 +439,49 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
       setEmbeddingTestResult({ success: false, message: `Embedding test error: ${err.message}` })
     } finally {
       setTestingEmbedding(false)
+    }
+  }
+
+  // Detect local Ollama embedding models
+  const handleDetectOllamaEmbedding = async () => {
+    setDetectingOllamaEmbedding(true)
+    setEmbeddingTestResult(null)
+    const token = tokenStorage.getToken()
+    try {
+      const res = await fetch('/api/settings/detect-local-models', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.available && data.models.length > 0) {
+          setDetectedOllamaEmbeddingModels(data.models)
+          if (data.endpoint) setEmbeddingBaseUrl(data.endpoint)
+          const embedCandidates = data.models.filter((m) =>
+            m.includes('embed') || m.includes('minilm') || m.includes('bge') || m.includes('arctic')
+          )
+          if (embedCandidates.length > 0) {
+            setEmbeddingModel(embedCandidates[0])
+            setEmbeddingTestResult({
+              success: true,
+              message: `Found local embedding model: ${embedCandidates.join(', ')}`,
+            })
+          } else {
+            setEmbeddingTestResult({
+              success: false,
+              message: `Found Ollama models: ${data.models.join(', ')}. No dedicated embedding model detected. Run 'ollama pull nomic-embed-text' on your host.`,
+            })
+          }
+        } else {
+          setEmbeddingTestResult({
+            success: false,
+            message: 'No active Ollama instance detected at host.docker.internal:11434.',
+          })
+        }
+      }
+    } catch (err) {
+      setEmbeddingTestResult({ success: false, message: `Detection error: ${err.message}` })
+    } finally {
+      setDetectingOllamaEmbedding(false)
     }
   }
 
@@ -1286,27 +1331,88 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
 
                     {/* Embedding Model Identifier */}
                     <div>
-                      <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
-                        Embedding Model Identifier
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={embeddingModel}
-                        onChange={(e) => setEmbeddingModel(e.target.value)}
-                        placeholder={
-                          embeddingProvider === 'ollama'
-                            ? 'nomic-embed-text'
-                            : embeddingProvider === 'openai'
-                            ? 'text-embedding-3-small'
-                            : 'BAAI/bge-small-en-v1.5'
-                        }
-                        className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs text-[var(--text-primary)] font-mono focus:outline-none focus:border-blue-500"
-                      />
-                      {embeddingProvider === 'ollama' && (
-                        <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                          Ensure you have run <code>ollama pull nomic-embed-text</code> on your host.
-                        </p>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-[var(--text-primary)]">
+                          Embedding Model Identifier
+                        </label>
+                        {embeddingProvider === 'ollama' && (
+                          <button
+                            type="button"
+                            onClick={handleDetectOllamaEmbedding}
+                            disabled={detectingOllamaEmbedding}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-500 hover:text-blue-600 transition-colors cursor-pointer"
+                          >
+                            <Sparkles size={11} className={detectingOllamaEmbedding ? 'animate-spin' : ''} />
+                            <span>Auto-Detect Ollama Models</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {embeddingProvider === 'fastembed' || embeddingProvider === 'auto' ? (
+                        <div className="space-y-1.5">
+                          <select
+                            value={embeddingModel}
+                            onChange={(e) => setEmbeddingModel(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs text-[var(--text-primary)] font-mono focus:outline-none focus:border-blue-500 cursor-pointer"
+                          >
+                            <option value="BAAI/bge-small-en-v1.5">BAAI/bge-small-en-v1.5 (384d • Recommended)</option>
+                            <option value="sentence-transformers/all-MiniLM-L6-v2">sentence-transformers/all-MiniLM-L6-v2 (384d • Ultra-fast)</option>
+                            <option value="BAAI/bge-base-en-v1.5">BAAI/bge-base-en-v1.5 (768d • High Accuracy)</option>
+                          </select>
+                          <span className="text-[10px] text-emerald-500 flex items-center gap-1 font-medium">
+                            <Check size={10} /> Local in-container FastEmbed (zero external GPU or network setup required)
+                          </span>
+                        </div>
+                      ) : embeddingProvider === 'ollama' ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            required
+                            value={embeddingModel}
+                            onChange={(e) => setEmbeddingModel(e.target.value)}
+                            placeholder="nomic-embed-text"
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs text-[var(--text-primary)] font-mono focus:outline-none focus:border-blue-500"
+                          />
+
+                          {/* Quick suggestions / detected badges */}
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                            <span className="text-[var(--text-muted)]">Presets:</span>
+                            {['nomic-embed-text', 'all-minilm', 'bge-m3'].map((cand) => (
+                              <button
+                                key={cand}
+                                type="button"
+                                onClick={() => setEmbeddingModel(cand)}
+                                className={`px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                                  embeddingModel === cand
+                                    ? 'bg-blue-500/15 border-blue-500/30 text-blue-500 font-semibold'
+                                    : 'bg-[var(--bg-canvas)] border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500/30'
+                                }`}
+                              >
+                                {cand}
+                              </button>
+                            ))}
+                          </div>
+
+                          {detectedOllamaEmbeddingModels.length > 0 && (
+                            <div className="text-[10px] text-[var(--text-muted)] p-2 rounded-lg bg-[var(--bg-canvas)] border border-[var(--border-default)]">
+                              <span className="font-semibold text-[var(--text-primary)]">Installed on host Ollama: </span>
+                              {detectedOllamaEmbeddingModels.join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          required
+                          value={embeddingModel}
+                          onChange={(e) => setEmbeddingModel(e.target.value)}
+                          placeholder={
+                            embeddingProvider === 'openai'
+                              ? 'text-embedding-3-small'
+                              : 'nvidia/llama-3.2-nv-embedqa-1b-v2'
+                          }
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs text-[var(--text-primary)] font-mono focus:outline-none focus:border-blue-500"
+                        />
                       )}
                     </div>
 
