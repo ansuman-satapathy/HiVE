@@ -456,80 +456,78 @@ input[type="range"].theme-slider::-moz-range-thumb {
 }
 
 /* ==========================================================================
-   Material 3 Expressive Navigation Bar Tokens & Motion
-   Emphasized easing: cubic-bezier(0.2, 0, 0, 1.0)
-   Squircle morph and active container indicator
+   Modern Workspace Segmented Navigation
+   Refined, sleek desktop aesthetic inspired by Linear / Vercel
    ========================================================================== */
-.m3-nav-container {
+.workspace-nav-container {
   position: relative;
   display: flex;
   align-items: center;
-  padding: 2px;
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: 9999px; /* full pill stadium container */
+  padding: 3px;
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
 }
 
-.m3-nav-pill-indicator {
+.workspace-nav-indicator {
   position: absolute;
-  top: 2px;
-  bottom: 2px;
-  border-radius: 9999px;
-  background-color: #2563eb;
-  transition: left 0.32s cubic-bezier(0.2, 0, 0, 1), width 0.32s cubic-bezier(0.2, 0, 0, 1);
+  top: 3px;
+  bottom: 3px;
+  border-radius: 9px;
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  transition: left 0.22s cubic-bezier(0.16, 1, 0.3, 1), width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
-  box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.4), 0 1px 2px 0 rgba(37, 99, 235, 0.25);
 }
 
-.dark .m3-nav-pill-indicator {
-  background-color: #3b82f6;
-  box-shadow: 0 2px 8px -1px rgba(59, 130, 246, 0.5), 0 1px 3px 0 rgba(59, 130, 246, 0.35);
+.dark .workspace-nav-indicator {
+  background-color: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.37);
 }
 
-.m3-nav-item {
+.workspace-nav-item {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 11px;
-  border-radius: 9999px;
-  font-size: 11.5px;
+  gap: 7px;
+  padding: 5px 13px;
+  border-radius: 9px;
+  font-size: 12.5px;
   font-weight: 500;
-  color: var(--text-secondary);
-  transition: color 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+  color: var(--text-muted);
+  transition: color 0.15s ease, background-color 0.15s ease;
   text-decoration: none;
   cursor: pointer;
   user-select: none;
+  white-space: nowrap;
 }
 
-.m3-nav-item:hover:not(.is-active) {
+.workspace-nav-item:hover:not(.is-active) {
   color: var(--text-primary);
   background-color: var(--bg-surface-hover);
 }
 
-.m3-nav-item:active {
-  transform: scale(0.96);
-}
-
-.m3-nav-item.is-active {
-  color: #ffffff;
+.workspace-nav-item.is-active {
+  color: var(--text-primary);
   font-weight: 600;
 }
 
-.m3-icon-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+.workspace-nav-item .nav-icon {
+  color: var(--text-muted);
+  transition: color 0.15s ease, transform 0.15s ease;
 }
 
-.m3-nav-item.is-active .m3-icon-badge {
-  transform: scale(1.08);
+.workspace-nav-item:hover:not(.is-active) .nav-icon {
+  color: var(--text-secondary);
 }
 
-.m3-nav-item:hover:not(.is-active) .m3-icon-badge {
-  transform: scale(1.05);
+.workspace-nav-item.is-active .nav-icon {
+  color: #3b82f6;
+}
+
+.dark .workspace-nav-item.is-active .nav-icon {
+  color: #60a5fa;
 }
