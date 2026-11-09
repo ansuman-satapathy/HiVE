@@ -79,3 +79,4 @@ def is_encrypted(value: Optional[str]) -> bool:
     if not value:
         return False
     return value.startswith(ENCRYPTED_PREFIX) or value.startswith("gAAAAA")
+
