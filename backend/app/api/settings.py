@@ -273,10 +273,25 @@ async def detect_local_models(
     Returns the list of installed local models if detected.
     """
     candidates = [
-        "http://localhost:11434",
         "http://host.docker.internal:11434",
+        "http://localhost:11434",
         "http://127.0.0.1:11434",
     ]
+
+    # Dynamically resolve default gateway on Linux Docker
+    try:
+        with open("/proc/net/route", "r") as f:
+            for line in f:
+                fields = line.strip().split()
+                if len(fields) >= 3 and fields[1] == "00000000":
+                    gw_hex = fields[2]
+                    gw_ip = ".".join(str(int(gw_hex[i:i+2], 16)) for i in (6, 4, 2, 0))
+                    gw_url = f"http://{gw_ip}:11434"
+                    if gw_url not in candidates:
+                        candidates.append(gw_url)
+                    break
+    except Exception:
+        pass
 
     async with httpx.AsyncClient(timeout=2.0) as client:
         for base in candidates:
