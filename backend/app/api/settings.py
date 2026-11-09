@@ -20,8 +20,8 @@ router = APIRouter(prefix="/settings", tags=["Settings"])
 # ── Pydantic Request / Response Schemas ─────────────────────────────────────
 
 class ModelProfile(BaseModel):
-    id: str
-    name: str
+    id: Optional[str] = None
+    name: Optional[str] = None
     provider: str
     base_url: Optional[str] = None
     model_name: str
@@ -451,12 +451,19 @@ async def save_workspace_model(
     setting = await get_or_create_workspace_settings(db)
     current_models = setting.models_list
 
+    # Ensure id and name are generated if omitted
+    target_id = model.id or f"{model.provider}_{model.model_name.replace(':', '_').replace('/', '_')}"
+    target_name = model.name or f"{model.model_name} ({model.provider.capitalize()})"
+
+    entry = model.model_dump()
+    entry["id"] = target_id
+    entry["name"] = target_name
+
     # Update existing or append new
     updated = False
     new_list = []
     for m in current_models:
-        if m.get("id") == model.id:
-            entry = model.model_dump()
+        if m.get("id") == target_id or (m.get("model_name") == model.model_name and m.get("provider") == model.provider):
             if model.is_active:
                 entry["is_active"] = True
             new_list.append(entry)
@@ -467,7 +474,6 @@ async def save_workspace_model(
             new_list.append(m)
 
     if not updated:
-        entry = model.model_dump()
         new_list.append(entry)
 
     if model.is_active:
