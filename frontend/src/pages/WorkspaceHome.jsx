@@ -162,14 +162,14 @@ export default function WorkspaceHome() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 pb-2 border-b border-[var(--border-default)]">
         <div>
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-500 text-xs font-semibold mb-2.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-            HiVE RUNTIME v0.2.0 • OPERATIONAL
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+            HiVE v0.2.0
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)]">
             Welcome back{user?.full_name ? `, ${user.full_name}` : ''}
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1 max-w-2xl leading-relaxed">
-            Monitor documents, hybrid search pipelines, agent runtime, and MCP integrations.
+            Search documents, ask questions with verified citations, and connect external tools.
           </p>
         </div>
 
@@ -189,7 +189,7 @@ export default function WorkspaceHome() {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-semibold text-[var(--text-primary)] transition-all shadow-2xs hover:border-[var(--border-strong)]"
           >
             <UploadCloud size={14} className="text-blue-500" />
-            <span>Upload Corpus</span>
+            <span>Upload Documents</span>
           </Link>
 
           <Link
@@ -197,7 +197,7 @@ export default function WorkspaceHome() {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-semibold text-[var(--text-primary)] transition-all shadow-2xs hover:border-[var(--border-strong)]"
           >
             <SlidersHorizontal size={14} className="text-purple-500" />
-            <span>Benchmark Studio</span>
+            <span>Search Studio</span>
           </Link>
 
           <Link
@@ -237,17 +237,17 @@ export default function WorkspaceHome() {
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <Layers size={13} className="text-sky-500" />
-              Sections & Chunks
+              Document Chunks
             </span>
             <span className="text-[10.5px] font-medium text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">
-              Structured
+              Indexed
             </span>
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tabular-nums">
             {loading ? '—' : stats.totalChunks.toLocaleString()}
           </div>
           <p className="text-[11px] text-[var(--text-muted)] truncate">
-            Heading hierarchy &amp; breadcrumbs
+            Passages indexed for search
           </p>
         </div>
 
@@ -256,7 +256,7 @@ export default function WorkspaceHome() {
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <Hash size={13} className="text-violet-500" />
-              Corpus Volume
+              Total Tokens
             </span>
             <span className="text-[10.5px] font-medium text-violet-500 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/20">
               Tokens
@@ -266,7 +266,7 @@ export default function WorkspaceHome() {
             {loading ? '—' : stats.totalTokens.toLocaleString()}
           </div>
           <p className="text-[11px] text-[var(--text-muted)] truncate">
-            384-dim dense embeddings stored
+            Across all uploaded documents
           </p>
         </div>
 
@@ -275,18 +275,18 @@ export default function WorkspaceHome() {
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <SlidersHorizontal size={13} className="text-amber-500" />
-              Retrieval Profiles
+              Search Modes
             </span>
             <span className="text-[10.5px] font-medium text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              RRF k=60
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Hybrid Search
             </span>
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tabular-nums">
             {loading ? '—' : profilesCount}
           </div>
           <p className="text-[11px] text-[var(--text-muted)] truncate">
-            Balanced, Deep Research, Exact
+            Balanced, Deep, and Exact
           </p>
         </div>
       </div>
@@ -295,10 +295,10 @@ export default function WorkspaceHome() {
       <div>
         <div className="flex items-center justify-between mb-3.5">
           <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
-            Active Engine Subsystems
+            How It Works
           </h2>
           <span className="text-xs text-[var(--text-muted)]">
-            Production Pipeline Components
+            Core capabilities
           </span>
         </div>
 
@@ -318,41 +318,41 @@ export default function WorkspaceHome() {
 
               <div>
                 <h3 className="text-base font-bold text-[var(--text-primary)] group-hover:text-blue-500 transition-colors">
-                  Hybrid Retrieval Funnel
+                  Hybrid Search
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">
-                  Dual sparse (BM25Plus) &amp; dense (ChromaDB) search fused through Reciprocal Rank Fusion ($k=60$) and cross-encoder reranking.
+                  Combines keyword search and semantic vector search with cross-encoder reranking for accurate matches.
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-1.5 pt-1">
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--bg-canvas)] border border-[var(--border-default)] text-[var(--text-secondary)]">
-                  BM25 Lexical
+                  Keyword Search
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--bg-canvas)] border border-[var(--border-default)] text-[var(--text-secondary)]">
-                  Dense ANN
+                  Vector Search
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--bg-canvas)] border border-[var(--border-default)] text-[var(--text-secondary)]">
-                  Cross-Encoder
+                  Reranker
                 </span>
               </div>
             </div>
 
             <div className="pt-4 mt-4 border-t border-[var(--border-subtle)] flex items-center justify-between">
               <span className="text-[11px] text-[var(--text-muted)] font-medium">
-                Stage Diagnostics
+                Diagnostics
               </span>
               <Link
                 to="/workspace/retrieval"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-blue-500 hover:text-blue-600 transition-colors"
               >
-                <span>Inspect in Studio</span>
+                <span>Open Studio</span>
                 <ArrowUpRight size={13} />
               </Link>
             </div>
           </div>
 
-          {/* Pillar 2: Autonomous ReAct & CRAG */}
+          {/* Pillar 2: Chat & Citations */}
           <div className="p-6 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-[var(--border-strong)] transition-all flex flex-col justify-between shadow-2xs group">
             <div className="space-y-3.5">
               <div className="flex items-center justify-between">
@@ -367,35 +367,35 @@ export default function WorkspaceHome() {
 
               <div>
                 <h3 className="text-base font-bold text-[var(--text-primary)] group-hover:text-purple-500 transition-colors">
-                  Agent Loop &amp; CRAG
+                  Chat with Citations
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">
-                  Fast-path router, Corrective RAG (self-reflective query rewriter), verified inline citation badges, and source grounding drawer.
+                  Answers questions from your documents, automatically rewrites unclear queries, and cites exact sources inline.
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-1.5 pt-1">
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--bg-canvas)] border border-[var(--border-default)] text-[var(--text-secondary)]">
-                  CRAG Rewriter
+                  Query Rewriter
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--bg-canvas)] border border-[var(--border-default)] text-[var(--text-secondary)]">
-                  SSE Streaming
+                  Live Streaming
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--bg-canvas)] border border-[var(--border-default)] text-[var(--text-secondary)]">
-                  Verified Citations
+                  Source Citations
                 </span>
               </div>
             </div>
 
             <div className="pt-4 mt-4 border-t border-[var(--border-subtle)] flex items-center justify-between">
               <span className="text-[11px] text-[var(--text-muted)] font-medium">
-                Grounded Chat
+                Direct Chat
               </span>
               <Link
                 to="/workspace/chat"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-purple-500 hover:text-purple-600 transition-colors"
               >
-                <span>Launch Assistant</span>
+                <span>Open Chat</span>
                 <ArrowUpRight size={13} />
               </Link>
             </div>
@@ -416,19 +416,19 @@ export default function WorkspaceHome() {
 
               <div>
                 <h3 className="text-base font-bold text-[var(--text-primary)] group-hover:text-emerald-500 transition-colors">
-                  Model Context Protocol
+                  External Tools (MCP)
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">
-                  HiVE is exposed as an official MCP server. Claude Desktop, Cursor, and IDE agents can query your workspace corpus directly.
+                  Lets external tools like Claude Desktop or Cursor search your workspace documents directly over standard MCP.
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-1.5 pt-1">
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--bg-canvas)] border border-[var(--border-default)] text-[var(--text-secondary)]">
-                  spec v2024-11-05
+                  Standard MCP
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--bg-canvas)] border border-[var(--border-default)] text-[var(--text-secondary)]">
-                  tools/call
+                  Tools API
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--bg-canvas)] border border-[var(--border-default)] text-[var(--text-secondary)]">
                   Claude &amp; Cursor
@@ -438,7 +438,7 @@ export default function WorkspaceHome() {
 
             <div className="pt-4 mt-4 border-t border-[var(--border-subtle)] flex items-center justify-between">
               <span className="text-[11px] text-[var(--text-muted)] font-medium">
-                External Tool Access
+                Integrations
               </span>
               <button
                 onClick={handleCopyMcp}
@@ -469,7 +469,7 @@ export default function WorkspaceHome() {
             <div className="flex items-center gap-2">
               <Database size={16} className="text-blue-500" />
               <h2 className="text-sm font-bold text-[var(--text-primary)]">
-                Recent Corpus Documents
+                Recent Documents
               </h2>
             </div>
             <Link

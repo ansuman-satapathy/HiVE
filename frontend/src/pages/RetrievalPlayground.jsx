@@ -572,7 +572,7 @@ export default function RetrievalPlayground() {
           </div>
           <h3 className="text-sm font-bold text-[var(--text-primary)]">Ready to test retrieval</h3>
           <p className="text-xs text-[var(--text-secondary)] max-w-md mx-auto mt-1">
-            Type any question, keyword, or error code above and click <span className="font-semibold text-blue-500">Run Pipeline</span> to evaluate your workspace's multi-stage retrieval funnel.
+            Type any question, keyword, or error code above and click <span className="font-semibold text-blue-500">Run Pipeline</span> to inspect your workspace's multi-stage search pipeline.
           </p>
         </div>
       )}
@@ -640,7 +640,7 @@ export default function RetrievalPlayground() {
         </div>
       )}
 
-      {/* 4-Stage Side-by-Side Funnel Grid */}
+      {/* 4-Stage Side-by-Side Pipeline Grid */}
       {data && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Column 1: Sparse BM25 */}
