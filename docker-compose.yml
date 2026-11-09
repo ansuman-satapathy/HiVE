@@ -34,8 +34,9 @@ services:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic
       - ./backend/tests:/app/tests
+      - ./backend/uploads:/app/uploads
       - chroma_data:/app/chroma_db
-    command: sh -c "uv run alembic upgrade head && uv run python -m app.seed && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: sh -c "/app/.venv/bin/alembic upgrade head && /app/.venv/bin/python -m app.seed && /app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:
