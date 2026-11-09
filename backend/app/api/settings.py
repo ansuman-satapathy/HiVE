@@ -1,6 +1,6 @@
 import time
 import httpx
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlmodel import select
@@ -10,6 +10,7 @@ from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.models.workspace_setting import WorkspaceSetting
 from app.services.llm_service import LLMService
+from app.services.embedding_service import EmbeddingFactory
 from app.core.config import settings as app_settings
 from app.core.encryption import encrypt_field, decrypt_field
 
@@ -18,6 +19,16 @@ router = APIRouter(prefix="/settings", tags=["Settings"])
 
 # ── Pydantic Request / Response Schemas ─────────────────────────────────────
 
+class ModelProfile(BaseModel):
+    id: str
+    name: str
+    provider: str
+    base_url: Optional[str] = None
+    model_name: str
+    api_key: Optional[str] = None
+    is_active: bool = False
+
+
 class WorkspaceSettingsResponse(BaseModel):
     llm_provider: str
     llm_base_url: Optional[str] = None
@@ -25,6 +36,12 @@ class WorkspaceSettingsResponse(BaseModel):
     llm_api_key_masked: Optional[str] = None
     has_api_key: bool = False
     allow_demo_autofill: bool = True
+    models: List[Dict[str, Any]] = Field(default_factory=list)
+    embedding_provider: str = "auto"
+    embedding_model: Optional[str] = None
+    embedding_base_url: Optional[str] = None
+    embedding_api_key_masked: Optional[str] = None
+    has_embedding_api_key: bool = False
 
 
 class WorkspaceSettingsUpdate(BaseModel):
@@ -33,6 +50,11 @@ class WorkspaceSettingsUpdate(BaseModel):
     llm_model: Optional[str] = None
     llm_api_key: Optional[str] = None
     allow_demo_autofill: Optional[bool] = None
+    models: Optional[List[Dict[str, Any]]] = None
+    embedding_provider: Optional[str] = None
+    embedding_model: Optional[str] = None
+    embedding_base_url: Optional[str] = None
+    embedding_api_key: Optional[str] = None
 
 
 class PublicSettingsResponse(BaseModel):
@@ -41,6 +63,13 @@ class PublicSettingsResponse(BaseModel):
 
 
 class TestLLMRequest(BaseModel):
+    provider: str
+    base_url: Optional[str] = None
+    model_name: Optional[str] = None
+    api_key: Optional[str] = None
+
+
+class TestEmbeddingRequest(BaseModel):
     provider: str
     base_url: Optional[str] = None
     model_name: Optional[str] = None
@@ -100,6 +129,19 @@ async def get_settings(
     """Retrieve workspace model and operational settings."""
     setting = await get_or_create_workspace_settings(db)
     plain_key = setting.decrypted_api_key or app_settings.LLM_API_KEY or app_settings.OPENAI_API_KEY
+    plain_embed_key = setting.decrypted_embedding_api_key
+
+    models = setting.models_list
+    if not models and setting.llm_model:
+        models = [{
+            "id": f"{setting.llm_provider}_{setting.llm_model.replace(':', '_')}",
+            "name": f"{setting.llm_model} ({setting.llm_provider.capitalize()})",
+            "provider": setting.llm_provider,
+            "base_url": setting.llm_base_url,
+            "model_name": setting.llm_model,
+            "is_active": True,
+        }]
+
     return WorkspaceSettingsResponse(
         llm_provider=setting.llm_provider,
         llm_base_url=setting.llm_base_url,
@@ -107,6 +149,12 @@ async def get_settings(
         llm_api_key_masked=mask_api_key(plain_key),
         has_api_key=bool(plain_key and plain_key.strip()),
         allow_demo_autofill=setting.allow_demo_autofill,
+        models=models,
+        embedding_provider=setting.embedding_provider or "auto",
+        embedding_model=setting.embedding_model or "BAAI/bge-small-en-v1.5",
+        embedding_base_url=setting.embedding_base_url,
+        embedding_api_key_masked=mask_api_key(plain_embed_key),
+        has_embedding_api_key=bool(plain_embed_key and plain_embed_key.strip()),
     )
 
 
@@ -131,6 +179,18 @@ async def update_settings(
     if payload.allow_demo_autofill is not None:
         setting.allow_demo_autofill = payload.allow_demo_autofill
 
+    if payload.models is not None:
+        setting.set_models_list(payload.models)
+
+    if payload.embedding_provider is not None:
+        setting.embedding_provider = payload.embedding_provider
+    if payload.embedding_model is not None:
+        setting.embedding_model = payload.embedding_model.strip() if payload.embedding_model else None
+    if payload.embedding_base_url is not None:
+        setting.embedding_base_url = payload.embedding_base_url.strip() if payload.embedding_base_url else None
+    if payload.embedding_api_key is not None:
+        setting.set_embedding_api_key(payload.embedding_api_key)
+
     db.add(setting)
     await db.commit()
     await db.refresh(setting)
@@ -145,6 +205,26 @@ async def update_settings(
         api_key=plain_key,
     )
 
+    # Immediately reconfigure EmbeddingFactory
+    EmbeddingFactory.configure(
+        provider=setting.embedding_provider,
+        model=setting.embedding_model,
+        base_url=setting.embedding_base_url,
+        api_key=setting.decrypted_embedding_api_key,
+    )
+
+    plain_embed_key = setting.decrypted_embedding_api_key
+    models = setting.models_list
+    if not models and setting.llm_model:
+        models = [{
+            "id": f"{setting.llm_provider}_{setting.llm_model.replace(':', '_')}",
+            "name": f"{setting.llm_model} ({setting.llm_provider.capitalize()})",
+            "provider": setting.llm_provider,
+            "base_url": setting.llm_base_url,
+            "model_name": setting.llm_model,
+            "is_active": True,
+        }]
+
     return WorkspaceSettingsResponse(
         llm_provider=setting.llm_provider,
         llm_base_url=setting.llm_base_url,
@@ -152,6 +232,12 @@ async def update_settings(
         llm_api_key_masked=mask_api_key(plain_key),
         has_api_key=bool(plain_key and plain_key.strip()),
         allow_demo_autofill=setting.allow_demo_autofill,
+        models=models,
+        embedding_provider=setting.embedding_provider or "auto",
+        embedding_model=setting.embedding_model or "BAAI/bge-small-en-v1.5",
+        embedding_base_url=setting.embedding_base_url,
+        embedding_api_key_masked=mask_api_key(plain_embed_key),
+        has_embedding_api_key=bool(plain_embed_key and plain_embed_key.strip()),
     )
 
 
@@ -226,7 +312,8 @@ async def test_llm_connection(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        # Allow up to 45s for local models that need to load into GPU/RAM on cold start
+        async with httpx.AsyncClient(timeout=45.0) as client:
             res = await client.post(endpoint, json=payload, headers=headers)
             latency_ms = int((time.monotonic() - start) * 1000)
 
@@ -260,12 +347,20 @@ async def test_llm_connection(
                     latency_ms=latency_ms,
                     message=f"Endpoint returned HTTP {res.status_code}: {err_detail}",
                 )
-    except Exception as exc:
+    except httpx.TimeoutException:
         latency_ms = int((time.monotonic() - start) * 1000)
         return TestLLMResponse(
             success=False,
             latency_ms=latency_ms,
-            message=f"Connection failed to {endpoint}: {str(exc)}",
+            message=f"Connection timed out after {latency_ms}ms. If Ollama is loading '{model}' into memory for the first time, it may take a moment. Please click Test Connection again.",
+        )
+    except Exception as exc:
+        latency_ms = int((time.monotonic() - start) * 1000)
+        err_msg = str(exc) or exc.__class__.__name__
+        return TestLLMResponse(
+            success=False,
+            latency_ms=latency_ms,
+            message=f"Connection failed to {endpoint}: {err_msg}",
         )
 
 
@@ -318,3 +413,166 @@ async def detect_local_models(
         endpoint=None,
         models=[],
     )
+
+
+@router.get("/models")
+async def list_workspace_models(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve all saved models in the workspace catalog and the currently active model."""
+    setting = await get_or_create_workspace_settings(db)
+    models = setting.models_list
+
+    if not models and setting.llm_model:
+        models = [{
+            "id": f"{setting.llm_provider}_{setting.llm_model.replace(':', '_')}",
+            "name": f"{setting.llm_model} ({setting.llm_provider.capitalize()})",
+            "provider": setting.llm_provider,
+            "base_url": setting.llm_base_url,
+            "model_name": setting.llm_model,
+            "is_active": True,
+        }]
+
+    return {
+        "models": models,
+        "active_model": setting.llm_model,
+        "active_provider": setting.llm_provider,
+    }
+
+
+@router.post("/models")
+async def save_workspace_model(
+    model: ModelProfile,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add or update a model profile in the workspace catalog."""
+    setting = await get_or_create_workspace_settings(db)
+    current_models = setting.models_list
+
+    # Update existing or append new
+    updated = False
+    new_list = []
+    for m in current_models:
+        if m.get("id") == model.id:
+            entry = model.model_dump()
+            if model.is_active:
+                entry["is_active"] = True
+            new_list.append(entry)
+            updated = True
+        else:
+            if model.is_active:
+                m["is_active"] = False
+            new_list.append(m)
+
+    if not updated:
+        entry = model.model_dump()
+        new_list.append(entry)
+
+    if model.is_active:
+        setting.llm_provider = model.provider
+        setting.llm_base_url = model.base_url.strip() if model.base_url else None
+        setting.llm_model = model.model_name.strip() if model.model_name else None
+        if model.api_key:
+            setting.set_api_key(model.api_key)
+
+        # Reconfigure LLMService immediately
+        plain_key = setting.decrypted_api_key or app_settings.LLM_API_KEY or app_settings.OPENAI_API_KEY
+        llm_service = LLMService.get_instance()
+        llm_service.configure(
+            provider=setting.llm_provider,
+            base_url=setting.llm_base_url,
+            model_name=setting.llm_model,
+            api_key=plain_key,
+        )
+
+    setting.set_models_list(new_list)
+    db.add(setting)
+    await db.commit()
+    await db.refresh(setting)
+
+    return {"status": "success", "models": setting.models_list}
+
+
+@router.delete("/models/{model_id}")
+async def delete_workspace_model(
+    model_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a model profile from the workspace catalog."""
+    setting = await get_or_create_workspace_settings(db)
+    current_models = setting.models_list
+    new_list = [m for m in current_models if m.get("id") != model_id]
+    setting.set_models_list(new_list)
+    db.add(setting)
+    await db.commit()
+    return {"status": "deleted", "models": setting.models_list}
+
+
+@router.post("/test-embedding", response_model=TestLLMResponse)
+async def test_embedding_connection(
+    req: TestEmbeddingRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Test embedding model connection and vector dimension generation."""
+    start = time.monotonic()
+    provider = (req.provider or "auto").lower()
+
+    if provider in ["local", "auto"] and not req.api_key:
+        from app.services.embedding_service import LocalFeatureEmbeddingProvider
+        p = LocalFeatureEmbeddingProvider()
+        vec = p.embed_query("test semantic vector embedding ping")
+        latency = int((time.monotonic() - start) * 1000)
+        return TestLLMResponse(
+            success=True,
+            latency_ms=latency,
+            message=f"Local embedding provider ready (generated {len(vec)}-dimensional vector in {latency}ms)",
+        )
+
+    base_url = (req.base_url or ("http://localhost:11434/v1" if provider == "ollama" else "https://api.openai.com/v1")).rstrip("/")
+    model = req.model_name or ("nomic-embed-text" if provider == "ollama" else "text-embedding-3-small")
+
+    clean_url = base_url
+    if not clean_url.endswith("/v1") and not clean_url.endswith("/embeddings"):
+        clean_url = f"{clean_url}/v1"
+    endpoint = f"{clean_url}/embeddings" if not clean_url.endswith("/embeddings") else clean_url
+
+    headers = {"Content-Type": "application/json"}
+    if req.api_key:
+        headers["Authorization"] = f"Bearer {req.api_key.strip()}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.post(endpoint, json={"model": model, "input": "test embedding ping"}, headers=headers)
+            latency = int((time.monotonic() - start) * 1000)
+            if res.status_code == 200:
+                data = res.json()
+                raw = data.get("data", [])
+                dim = len(raw[0].get("embedding", [])) if raw else 0
+                return TestLLMResponse(
+                    success=True,
+                    latency_ms=latency,
+                    message=f"Connected successfully to {model} via {base_url} (Dimension: {dim}, Latency: {latency}ms)",
+                )
+            elif res.status_code == 401:
+                return TestLLMResponse(
+                    success=False,
+                    latency_ms=latency,
+                    message=f"Authentication failed (HTTP 401): Invalid API key for {base_url}.",
+                )
+            else:
+                return TestLLMResponse(
+                    success=False,
+                    latency_ms=latency,
+                    message=f"Endpoint returned HTTP {res.status_code}: {res.text[:150]}",
+                )
+    except Exception as exc:
+        latency = int((time.monotonic() - start) * 1000)
+        return TestLLMResponse(
+            success=False,
+            latency_ms=latency,
+            message=f"Connection failed to {endpoint}: {str(exc)}",
+        )

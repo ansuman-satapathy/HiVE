@@ -33,3 +33,4 @@ export function formatCompactNumber(num) {
   }
   return val.toLocaleString('en-US')
 }
+

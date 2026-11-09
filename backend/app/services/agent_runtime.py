@@ -164,7 +164,36 @@ class AgentRuntime:
           status / thought / tool_call / tool_result / context / token / done
         """
         start_time = time.monotonic()
-        llm_service = LLMService.get_instance()
+        
+        # Resolve active LLM provider (supports dynamic per-message model switching)
+        active_llm = None
+        if getattr(req, "model_id", None) and isinstance(req.model_id, str):
+            try:
+                from app.models.workspace_setting import WorkspaceSetting
+                from sqlmodel import select
+                stmt = select(WorkspaceSetting)
+                exec_res = await db.exec(stmt)
+                setting_row = exec_res.first() if hasattr(exec_res, "first") else None
+                if setting_row and hasattr(setting_row, "models_list") and isinstance(setting_row.models_list, list):
+                    for m in setting_row.models_list:
+                        if isinstance(m, dict) and (m.get("id") == req.model_id or m.get("model_name") == req.model_id):
+                            p = m.get("provider", "openai")
+                            if p in ["ollama", "openai", "nvidia"]:
+                                from app.services.llm_service import OpenAICompatibleLLM
+                                active_llm = OpenAICompatibleLLM(
+                                    base_url=m.get("base_url") or ("http://localhost:11434/v1" if p == "ollama" else "https://api.openai.com/v1"),
+                                    model_name=m.get("model_name") or req.model_id,
+                                    api_key=m.get("api_key") or ("ollama" if p == "ollama" else getattr(setting_row, "decrypted_api_key", None) or ""),
+                                )
+                            elif p == "local":
+                                from app.services.llm_service import LocalDeterministicLLM
+                                active_llm = LocalDeterministicLLM()
+                            break
+            except Exception as e:
+                logger.warning(f"Failed to resolve custom model {req.model_id}: {e}")
+
+        if not active_llm:
+            active_llm = LLMService.get_instance().provider
 
         # ── Path 1: Conversational short-circuit ────────────────────────────
         if _is_conversational(req.query):
@@ -185,7 +214,7 @@ class AgentRuntime:
                     direct_messages.append({"role": m.role, "content": m.content})
             direct_messages.append({"role": "user", "content": req.query})
 
-            async for token in llm_service.provider.astream(direct_messages, temperature=0.7):
+            async for token in active_llm.astream(direct_messages, temperature=0.7):
                 yield {"type": "token", "data": {"delta": token}}
 
             elapsed_ms = int((time.monotonic() - start_time) * 1000)
@@ -334,7 +363,7 @@ class AgentRuntime:
                 synthesis_messages.append({"role": m.role, "content": m.content})
         synthesis_messages.append({"role": "user", "content": used_query})
 
-        async for token in llm_service.provider.astream(synthesis_messages, temperature=req.temperature):
+        async for token in active_llm.astream(synthesis_messages, temperature=req.temperature):
             yield {"type": "token", "data": {"delta": token}}
 
         elapsed_ms = int((time.monotonic() - start_time) * 1000)

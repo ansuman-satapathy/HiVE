@@ -85,6 +85,10 @@ async def test_chat_stream_endpoint_sse_protocol(db_session, client: AsyncClient
         for c in created_chunks
     ])
 
+    # Ensure local deterministic synthesizer is active for offline testing
+    from app.services.llm_service import LLMService
+    LLMService.get_instance().configure(provider="local")
+
     # 2. Execute streaming request
     payload = {
         "query": "How do I configure the nginx reverse proxy?",
