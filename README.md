@@ -145,12 +145,46 @@ If your organization prefers not to store API keys in the database at all, you c
 
 > **Precedence:** Explicit settings configured in the UI take precedence over environment defaults. If the database row is empty or set to `auto`, HiVE automatically falls back to your injected runtime environment secrets.
 
-### 3. OpenAI-Compatible Providers (OpenAI, Groq, NVIDIA NIM, Ollama)
-All LLM providers in HiVE adhere to the standard OpenAI `/v1/chat/completions` specification:
-- **Local Ollama:** `http://localhost:11434/v1` (or `http://host.docker.internal:11434/v1` inside Docker)
+### 3. Connecting to Local LLMs (Ollama & vLLM)
+
+HiVE connects to any local model through the standard OpenAI specification. When running HiVE inside Docker:
+
+#### Running Ollama on Linux Host (Recommended)
+On Linux, Ollama runs as a systemd service that binds strictly to `127.0.0.1:11434` for loopback security. Because HiVE runs inside Docker, the container communicates with your host machine via `host.docker.internal`.
+
+To allow local Docker containers to reach Ollama:
+```bash
+# 1. Edit the Ollama systemd unit
+sudo systemctl edit ollama.service
+
+# 2. Add these two lines and save:
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0"
+
+# 3. Restart Ollama
+sudo systemctl restart ollama
+```
+
+In HiVE **Workspace Settings** → **LLM & Provider**:
+- Click **"Auto-Detect Local Ollama"** (or click the **Ollama (Docker)** preset: `http://host.docker.internal:11434/v1`).
+- Installed models (e.g. `gemma4:e2b`, `llama3.2`) will automatically populate the dropdown.
+
+#### Running Ollama inside Docker
+If you prefer running Ollama completely containerized with GPU passthrough:
+```bash
+docker run -d --gpus=all \
+  -v ollama:/root/.ollama \
+  -p 11434:11434 \
+  --name ollama \
+  ollama/ollama
+```
+*(When Ollama is containerized with `-p 11434:11434`, it listens on `0.0.0.0` automatically, and `http://host.docker.internal:11434/v1` connects out of the box).*
+
+#### Cloud & Custom Endpoints (OpenAI Spec)
 - **OpenAI:** `https://api.openai.com/v1` (`gpt-4o-mini`, `gpt-4o`)
 - **Groq:** `https://api.groq.com/openai/v1` (`llama-3.3-70b-versatile`)
 - **NVIDIA NIM:** `https://integrate.api.nvidia.com/v1` (`meta/llama-3.2-3b-instruct`)
+- **DeepSeek:** `https://api.deepseek.com/v1` (`deepseek-chat`)
 
 ---
 
