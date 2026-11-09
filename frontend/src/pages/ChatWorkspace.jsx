@@ -49,6 +49,10 @@ export default function ChatWorkspace() {
   const [profiles, setProfiles] = useState([])
   const [selectedProfileId, setSelectedProfileId] = useState(null)
 
+  // Configured AI Models State
+  const [configuredModels, setConfiguredModels] = useState([])
+  const [activeModelId, setActiveModelId] = useState(null)
+
   // Document Scope State
   const [documents, setDocuments] = useState([])
   const [selectedDocIds, setSelectedDocIds] = useState([])
@@ -162,6 +166,35 @@ export default function ChatWorkspace() {
       }
     }
     loadProfiles()
+  }, [])
+
+  // Fetch configured models for Model Switcher
+  useEffect(() => {
+    async function loadModels() {
+      try {
+        const token = tokenStorage.getToken()
+        const res = await fetch('/api/settings/models', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (res.ok) {
+          const data = await res.json()
+          const list = data.models || []
+          setConfiguredModels(list)
+          if (data.active_model_id) {
+            setActiveModelId(data.active_model_id)
+          } else if (list.length > 0) {
+            setActiveModelId(list[0].id || list[0].model_name)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load configured models for chat workspace:', err)
+      }
+    }
+    loadModels()
+
+    const handleUpdate = () => loadModels()
+    window.addEventListener('models-updated', handleUpdate)
+    return () => window.removeEventListener('models-updated', handleUpdate)
   }, [])
 
   // Initialize or ensure active session
@@ -331,6 +364,7 @@ export default function ChatWorkspace() {
     await startStream({
       query: queryText,
       documentIds: effectiveDocIds,
+      modelId: activeModelId,
       messages: previousTurns,
       topK: effectiveTopK,
       windowSize: effectiveWindowSize,
@@ -828,6 +862,9 @@ export default function ChatWorkspace() {
           onKeyDown={handleKeyDown}
           showScrollBottom={showScrollBottom}
           hasMessages={hasMessages}
+          models={configuredModels}
+          activeModelId={activeModelId}
+          onSelectModel={setActiveModelId}
           onScrollToBottom={() => {
             userHasScrolledUp.current = false
             setShowScrollBottom(false)

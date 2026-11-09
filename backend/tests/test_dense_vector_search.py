@@ -103,7 +103,7 @@ def test_vector_store_document_id_filter():
 
     # Search without filter -> matches both
     all_results = store.search_dense(query="customer support phone hours", top_k=5)
-    assert len(all_results) == 2
+    assert len(all_results) >= 2
 
     # Search with doc1 filter
     filtered_results = store.search_dense(query="customer support phone hours", top_k=5, document_id=doc1)

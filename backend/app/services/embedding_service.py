@@ -113,10 +113,118 @@ class NVIDIAEmbeddingProvider(EmbeddingProvider):
             return self._fallback.embed_query(text)
 
 
+class OpenAICompatibleEmbeddingProvider(EmbeddingProvider):
+    """
+    OpenAI-compatible embedding provider supporting Ollama, OpenAI, and cloud providers.
+    Uses standard POST {base_url}/embeddings endpoint.
+    """
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:11434/v1",
+        model_name: str = "nomic-embed-text",
+        api_key: Optional[str] = None,
+        dimension: int = 768,
+        timeout: float = 30.0,
+    ):
+        self.base_url = base_url.rstrip("/")
+        if not self.base_url.endswith("/v1") and not self.base_url.endswith("/embeddings"):
+            self.endpoint_url = f"{self.base_url}/v1/embeddings"
+        elif self.base_url.endswith("/embeddings"):
+            self.endpoint_url = self.base_url
+        else:
+            self.endpoint_url = f"{self.base_url}/embeddings"
+
+        self.model_name = model_name
+        self.api_key = api_key or ""
+        self.timeout = timeout
+        self._dim = dimension
+        self._fallback = LocalFeatureEmbeddingProvider(dimension=dimension)
+
+    @property
+    def dimension(self) -> int:
+        return self._dim
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        if not texts:
+            return []
+        import httpx
+        headers = {"Content-Type": "application/json"}
+        if self.api_key and self.api_key.strip():
+            headers["Authorization"] = f"Bearer {self.api_key.strip()}"
+
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                res = client.post(
+                    self.endpoint_url,
+                    json={"model": self.model_name, "input": texts},
+                    headers=headers,
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    raw_data = data.get("data", [])
+                    raw_data.sort(key=lambda x: x.get("index", 0))
+                    embeddings = [item["embedding"] for item in raw_data if "embedding" in item]
+                    if embeddings:
+                        self._dim = len(embeddings[0])
+                        return embeddings
+                logger.warning(
+                    f"OpenAICompatible embedding endpoint returned HTTP {res.status_code}: {res.text[:200]}"
+                )
+        except Exception as exc:
+            logger.warning(f"Error calling embedding endpoint {self.endpoint_url}: {exc}")
+
+        return self._fallback.embed_documents(texts)
+
+    def embed_query(self, text: str) -> List[float]:
+        res = self.embed_documents([text])
+        return res[0] if res else self._fallback.embed_query(text)
+
+
 class EmbeddingFactory:
-    """Factory to instantiate the appropriate EmbeddingProvider based on runtime settings."""
+    """Factory to instantiate and reconfigure EmbeddingProvider based on runtime/DB settings."""
 
     _instance: Optional[EmbeddingProvider] = None
+
+    @classmethod
+    def configure(
+        cls,
+        provider: str,
+        model: Optional[str] = None,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+    ) -> EmbeddingProvider:
+        """Dynamically reconfigure the active embedding provider from database settings."""
+        p = (provider or "auto").lower()
+
+        if p == "ollama":
+            url = base_url or "http://localhost:11434/v1"
+            m = model or "nomic-embed-text"
+            logger.info(f"Configuring Ollama embedding provider: {m} at {url}")
+            cls._instance = OpenAICompatibleEmbeddingProvider(
+                base_url=url, model_name=m, api_key=api_key or "ollama"
+            )
+            return cls._instance
+
+        if p == "openai":
+            url = base_url or "https://api.openai.com/v1"
+            m = model or "text-embedding-3-small"
+            logger.info(f"Configuring OpenAI embedding provider: {m}")
+            cls._instance = OpenAICompatibleEmbeddingProvider(
+                base_url=url, model_name=m, api_key=api_key
+            )
+            return cls._instance
+
+        if p == "nvidia" and api_key:
+            try:
+                cls._instance = NVIDIAEmbeddingProvider(api_key=api_key, model=model)
+                logger.info(f"Configuring NVIDIA NIM embedding provider: {model}")
+                return cls._instance
+            except Exception as exc:
+                logger.warning(f"Failed to initialize NVIDIA NIM embeddings: {exc}")
+
+        cls._instance = LocalFeatureEmbeddingProvider()
+        return cls._instance
 
     @classmethod
     def get_provider(cls, force_local: bool = False) -> EmbeddingProvider:

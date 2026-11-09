@@ -69,6 +69,7 @@ export function useEventStream() {
       topK = 5,
       windowSize = 1,
       temperature = 0.2,
+      modelId = null,
       onToken = null,
       onDone = null,
       onError = null,
@@ -109,6 +110,7 @@ export function useEventStream() {
           body: JSON.stringify({
             query: query.trim(),
             document_ids: cleanDocIds && cleanDocIds.length > 0 ? cleanDocIds : null,
+            model_id: modelId || null,
             messages: messages.map((m) => ({
               role: m.role,
               content: m.content,

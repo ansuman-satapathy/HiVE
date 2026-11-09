@@ -15,14 +15,24 @@ import {
   KeyRound,
   User,
   Lock,
-  ExternalLink
+  ExternalLink,
+  Layers,
+  Trash2,
+  Plus,
+  CheckCircle2
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { tokenStorage } from '../utils/storage'
 
-export default function SettingsModal({ isOpen, onClose }) {
+export default function SettingsModal({ isOpen, initialTab = 'model', onClose }) {
   const { user, setSession } = useAuth()
-  const [activeTab, setActiveTab] = useState('model') // 'model' | 'security' | 'mcp'
+  const [activeTab, setActiveTab] = useState(initialTab || 'model') // 'model' | 'embeddings' | 'security' | 'mcp'
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab)
+    }
+  }, [isOpen, initialTab])
 
   // Model Settings State
   const [loadingSettings, setLoadingSettings] = useState(true)
@@ -34,6 +44,22 @@ export default function SettingsModal({ isOpen, onClose }) {
   const [hasApiKey, setHasApiKey] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
   const [allowDemoAutofill, setAllowDemoAutofill] = useState(true)
+
+  // Multi-Model Catalog State
+  const [modelsList, setModelsList] = useState([])
+
+  // Embedding Settings State
+  const [embeddingProvider, setEmbeddingProvider] = useState('fastembed')
+  const [embeddingModel, setEmbeddingModel] = useState('BAAI/bge-small-en-v1.5')
+  const [embeddingBaseUrl, setEmbeddingBaseUrl] = useState('http://host.docker.internal:11434/v1')
+  const [embeddingApiKey, setEmbeddingApiKey] = useState('')
+  const [hasEmbeddingApiKey, setHasEmbeddingApiKey] = useState(false)
+  const [showEmbeddingApiKey, setShowEmbeddingApiKey] = useState(false)
+  const [testingEmbedding, setTestingEmbedding] = useState(false)
+  const [embeddingTestResult, setEmbeddingTestResult] = useState(null)
+  const [savingEmbedding, setSavingEmbedding] = useState(false)
+  const [embeddingSuccessMsg, setEmbeddingSuccessMsg] = useState(null)
+  const [embeddingErrorMsg, setEmbeddingErrorMsg] = useState(null)
 
   // Local detection & Test state
   const [detectingLocal, setDetectingLocal] = useState(false)
@@ -102,6 +128,11 @@ export default function SettingsModal({ isOpen, onClose }) {
           setModelName(data.llm_model || 'llama3.2')
           setHasApiKey(data.has_api_key)
           setAllowDemoAutofill(data.allow_demo_autofill ?? true)
+          setModelsList(data.models || [])
+          setEmbeddingProvider(data.embedding_provider || 'fastembed')
+          setEmbeddingModel(data.embedding_model || 'BAAI/bge-small-en-v1.5')
+          if (data.embedding_base_url) setEmbeddingBaseUrl(data.embedding_base_url)
+          setHasEmbeddingApiKey(data.has_embedding_api_key || false)
         }
       } catch (err) {
         console.warn('Failed to load settings:', err)
@@ -241,12 +272,171 @@ export default function SettingsModal({ isOpen, onClose }) {
       const data = await res.json()
       setHasApiKey(data.has_api_key)
       setApiKey('')
+      if (data.models) setModelsList(data.models)
       setModelSuccessMsg('Model configuration saved and active!')
+      window.dispatchEvent(new CustomEvent('models-updated'))
       setTimeout(() => setModelSuccessMsg(null), 3000)
     } catch (err) {
       setModelErrorMsg(err.message)
     } finally {
       setSavingModel(false)
+    }
+  }
+
+  // Activate model from catalog
+  const handleActivateModel = async (modelItem) => {
+    const token = tokenStorage.getToken()
+    try {
+      const res = await fetch('/api/settings/models', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          ...modelItem,
+          is_active: true,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setModelsList(data.models || [])
+        setModelName(modelItem.model_name || modelItem.name)
+        setProvider(modelItem.provider)
+        if (modelItem.base_url) setBaseUrl(modelItem.base_url)
+        window.dispatchEvent(new CustomEvent('models-updated'))
+      }
+    } catch (err) {
+      console.error('Failed to activate model:', err)
+    }
+  }
+
+  // Delete model from catalog
+  const handleDeleteModel = async (modelId) => {
+    const token = tokenStorage.getToken()
+    try {
+      const res = await fetch(`/api/settings/models/${modelId}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setModelsList(data.models || [])
+        window.dispatchEvent(new CustomEvent('models-updated'))
+      }
+    } catch (err) {
+      console.error('Failed to delete model:', err)
+    }
+  }
+
+  // Add model to catalog
+  const handleAddModelToCatalog = async () => {
+    const token = tokenStorage.getToken()
+    try {
+      const res = await fetch('/api/settings/models', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: `${modelName} (${provider})`,
+          provider,
+          base_url: baseUrl,
+          model_name: modelName,
+          api_key: apiKey.trim() || undefined,
+          is_active: false,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setModelsList(data.models || [])
+        setModelSuccessMsg(`Added '${modelName}' to models catalog!`)
+        setTimeout(() => setModelSuccessMsg(null), 3000)
+        window.dispatchEvent(new CustomEvent('models-updated'))
+      }
+    } catch (err) {
+      setModelErrorMsg(err.message)
+    }
+  }
+
+  // Save Embedding Settings
+  const handleSaveEmbeddingSettings = async (e) => {
+    e.preventDefault()
+    setSavingEmbedding(true)
+    setEmbeddingSuccessMsg(null)
+    setEmbeddingErrorMsg(null)
+    const token = tokenStorage.getToken()
+
+    try {
+      const payload = {
+        embedding_provider: embeddingProvider,
+        embedding_model: embeddingModel,
+        embedding_base_url: embeddingBaseUrl,
+      }
+      if (embeddingApiKey.trim()) {
+        payload.embedding_api_key = embeddingApiKey.trim()
+      }
+
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || 'Failed to update embedding settings')
+      }
+
+      const data = await res.json()
+      setHasEmbeddingApiKey(data.has_embedding_api_key)
+      setEmbeddingApiKey('')
+      setEmbeddingSuccessMsg('Embedding settings saved successfully!')
+      setTimeout(() => setEmbeddingSuccessMsg(null), 3500)
+    } catch (err) {
+      setEmbeddingErrorMsg(err.message)
+    } finally {
+      setSavingEmbedding(false)
+    }
+  }
+
+  // Test Embedding Connection
+  const handleTestEmbedding = async () => {
+    setTestingEmbedding(true)
+    setEmbeddingTestResult(null)
+    const token = tokenStorage.getToken()
+    try {
+      const res = await fetch('/api/settings/test-embedding', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          provider: embeddingProvider,
+          model_name: embeddingModel,
+          base_url: embeddingBaseUrl,
+          api_key: embeddingApiKey.trim() || undefined,
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        const errorMsg = data?.message || data?.detail || `Server returned error HTTP ${res.status}`
+        setEmbeddingTestResult({
+          success: false,
+          message: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg),
+        })
+      } else {
+        setEmbeddingTestResult(data)
+      }
+    } catch (err) {
+      setEmbeddingTestResult({ success: false, message: `Embedding test error: ${err.message}` })
+    } finally {
+      setTestingEmbedding(false)
     }
   }
 
@@ -398,6 +588,18 @@ export default function SettingsModal({ isOpen, onClose }) {
           </button>
 
           <button
+            onClick={() => setActiveTab('embeddings')}
+            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+              activeTab === 'embeddings'
+                ? 'border-blue-500 text-blue-500'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <Layers size={14} />
+            <span>Embeddings</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('security')}
             className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'security'
@@ -434,10 +636,83 @@ export default function SettingsModal({ isOpen, onClose }) {
                 </div>
               ) : (
                 <>
+                  {/* Configured Models Catalog */}
+                  {modelsList.length > 0 && (
+                    <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-[var(--text-primary)]">
+                          Connected Models Catalog ({modelsList.length})
+                        </label>
+                        <span className="text-[10px] text-[var(--text-muted)]">
+                          Switch between these in the chat composer
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {modelsList.map((m) => {
+                          const isActive = m.is_active || (m.model_name === modelName && m.provider === provider)
+                          return (
+                            <div
+                              key={m.id || m.model_name}
+                              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
+                                isActive
+                                  ? 'border-blue-500/50 bg-blue-500/5 ring-1 ring-blue-500/20'
+                                  : 'border-[var(--border-default)] bg-[var(--bg-surface)]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                  isActive ? 'bg-blue-500 text-white' : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
+                                }`}>
+                                  <Cpu size={14} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-[var(--text-primary)] font-mono text-[11px] truncate">
+                                    {m.model_name || m.name}
+                                  </div>
+                                  <div className="text-[10px] text-[var(--text-muted)] flex items-center gap-1.5 truncate">
+                                    <span className="capitalize">{m.provider}</span>
+                                    <span>•</span>
+                                    <span className="truncate max-w-[200px]">{m.base_url || 'local synthesizer'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {isActive ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                                    <Check size={10} /> Active
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleActivateModel(m)}
+                                    className="px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:bg-blue-500/10 hover:border-blue-500/30 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 font-medium transition-colors cursor-pointer"
+                                  >
+                                    Set Active
+                                  </button>
+                                )}
+                                {modelsList.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteModel(m.id || m.model_name)}
+                                    className="p-1 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                    title="Delete from catalog"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Provider Radio Cards */}
                   <div>
                     <label className="block text-xs font-bold text-[var(--text-primary)] mb-2.5">
-                      Select LLM Provider
+                      Configure or Add Model
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {/* Ollama / Local */}
@@ -796,13 +1071,336 @@ export default function SettingsModal({ isOpen, onClose }) {
                       )}
                     </div>
 
+                    <div className="flex items-center gap-2 ml-auto">
+                      <button
+                        type="button"
+                        onClick={handleAddModelToCatalog}
+                        disabled={savingModel || !modelName.trim()}
+                        className="px-3 py-2 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-canvas)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-semibold transition-all cursor-pointer disabled:opacity-40"
+                        title="Add this model configuration to the catalog without overriding the current active model"
+                      >
+                        + Add to Catalog
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={savingModel}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                      >
+                        {savingModel && <Loader2 size={13} className="animate-spin" />}
+                        <span>Save &amp; Activate Model</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </form>
+          )}
+
+          {/* ── TAB: Embeddings Configuration ── */}
+          {activeTab === 'embeddings' && (
+            <form onSubmit={handleSaveEmbeddingSettings} className="space-y-5">
+              {loadingSettings ? (
+                <div className="py-12 text-center text-xs text-[var(--text-muted)] flex items-center justify-center gap-2">
+                  <Loader2 size={16} className="animate-spin text-blue-500" />
+                  <span>Loading embedding settings...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Embedding Provider Selection */}
+                  <div>
+                    <label className="block text-xs font-bold text-[var(--text-primary)] mb-2.5">
+                      Select Embedding Provider
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Local FastEmbed */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmbeddingProvider('fastembed')
+                          setEmbeddingModel('BAAI/bge-small-en-v1.5')
+                        }}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          embeddingProvider === 'fastembed' || embeddingProvider === 'auto'
+                            ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/30'
+                            : 'border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)]'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                              embeddingProvider === 'fastembed' || embeddingProvider === 'auto'
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-[var(--border-strong)]'
+                            }`}>
+                              {(embeddingProvider === 'fastembed' || embeddingProvider === 'auto') && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                              )}
+                            </div>
+                            <span className="text-xs font-bold text-[var(--text-primary)]">
+                              Local FastEmbed (In-Container)
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] leading-relaxed pl-6">
+                            Zero external network requests. 384-dimensional dense vectors calculated directly inside backend.
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* Ollama Embeddings */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmbeddingProvider('ollama')
+                          setEmbeddingBaseUrl('http://host.docker.internal:11434/v1')
+                          setEmbeddingModel('nomic-embed-text')
+                        }}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          embeddingProvider === 'ollama'
+                            ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/30'
+                            : 'border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)]'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                              embeddingProvider === 'ollama'
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-[var(--border-strong)]'
+                            }`}>
+                              {embeddingProvider === 'ollama' && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                              )}
+                            </div>
+                            <span className="text-xs font-bold text-[var(--text-primary)]">
+                              Local Ollama Embeddings
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] leading-relaxed pl-6">
+                            Connects to host Ollama using nomic-embed-text or all-minilm via /v1/embeddings.
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* OpenAI Cloud Embeddings */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmbeddingProvider('openai')
+                          setEmbeddingBaseUrl('https://api.openai.com/v1')
+                          setEmbeddingModel('text-embedding-3-small')
+                        }}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          embeddingProvider === 'openai'
+                            ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/30'
+                            : 'border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)]'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                              embeddingProvider === 'openai'
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-[var(--border-strong)]'
+                            }`}>
+                              {embeddingProvider === 'openai' && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                              )}
+                            </div>
+                            <span className="text-xs font-bold text-[var(--text-primary)]">
+                              OpenAI Embeddings
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] leading-relaxed pl-6">
+                            Industry-standard cloud embeddings with text-embedding-3-small or large.
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* NVIDIA NIM */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmbeddingProvider('nvidia')
+                          setEmbeddingBaseUrl('https://integrate.api.nvidia.com/v1')
+                          setEmbeddingModel('nvidia/llama-3.2-nv-embedqa-1b-v2')
+                        }}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          embeddingProvider === 'nvidia'
+                            ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/30'
+                            : 'border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)]'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                              embeddingProvider === 'nvidia'
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-[var(--border-strong)]'
+                            }`}>
+                              {embeddingProvider === 'nvidia' && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                              )}
+                            </div>
+                            <span className="text-xs font-bold text-[var(--text-primary)]">
+                              NVIDIA NIM Embeddings
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] leading-relaxed pl-6">
+                            NVIDIA NeMo & NV-EmbedQA models with high throughput.
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Embedding Details Configuration */}
+                  <div className="space-y-3.5">
+                    {/* Base URL (if not fastembed) */}
+                    {embeddingProvider !== 'fastembed' && embeddingProvider !== 'auto' && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-[var(--text-primary)]">
+                            Embedding API Base URL
+                          </label>
+                          {embeddingProvider === 'ollama' && (
+                            <button
+                              type="button"
+                              onClick={() => setEmbeddingBaseUrl('http://host.docker.internal:11434/v1')}
+                              className="text-[10px] text-blue-500 hover:underline cursor-pointer"
+                            >
+                              Reset to Host Ollama
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          value={embeddingBaseUrl}
+                          onChange={(e) => setEmbeddingBaseUrl(e.target.value)}
+                          placeholder="http://host.docker.internal:11434/v1"
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs text-[var(--text-primary)] font-mono focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    )}
+
+                    {/* Embedding Model Identifier */}
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                        Embedding Model Identifier
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={embeddingModel}
+                        onChange={(e) => setEmbeddingModel(e.target.value)}
+                        placeholder={
+                          embeddingProvider === 'ollama'
+                            ? 'nomic-embed-text'
+                            : embeddingProvider === 'openai'
+                            ? 'text-embedding-3-small'
+                            : 'BAAI/bge-small-en-v1.5'
+                        }
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs text-[var(--text-primary)] font-mono focus:outline-none focus:border-blue-500"
+                      />
+                      {embeddingProvider === 'ollama' && (
+                        <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                          Ensure you have run <code>ollama pull nomic-embed-text</code> on your host.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* API Key (if cloud) */}
+                    {(embeddingProvider === 'openai' || embeddingProvider === 'nvidia') && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-[var(--text-primary)]">
+                            Embedding API Key
+                          </label>
+                          {hasEmbeddingApiKey && !embeddingApiKey && (
+                            <span className="text-[10px] text-emerald-500 flex items-center gap-1 font-medium">
+                              <Check size={10} /> Key configured
+                            </span>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <input
+                            type={showEmbeddingApiKey ? 'text' : 'password'}
+                            value={embeddingApiKey}
+                            onChange={(e) => setEmbeddingApiKey(e.target.value)}
+                            placeholder={hasEmbeddingApiKey ? '•••••••••••••••• (Leave blank to keep existing)' : 'sk-... or nvapi-...'}
+                            className="w-full pl-3 pr-9 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs text-[var(--text-primary)] font-mono focus:outline-none focus:border-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowEmbeddingApiKey((prev) => !prev)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                          >
+                            {showEmbeddingApiKey ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Embedding Test Result Banner */}
+                  {embeddingTestResult && (
+                    <div className={`p-3 rounded-xl border text-xs flex items-start gap-2 animate-in fade-in ${
+                      embeddingTestResult.success
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'border-rose-500/30 bg-rose-500/10 text-rose-500'
+                    }`}>
+                      {embeddingTestResult.success ? (
+                        <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <span className="font-semibold">{embeddingTestResult.message}</span>
+                        {embeddingTestResult.dimension && (
+                          <div className="text-[10px] opacity-80 mt-0.5">
+                            Vector dimension: {embeddingTestResult.dimension} | Latency: {embeddingTestResult.latency_ms}ms
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Embedding Success Banner */}
+                  {embeddingSuccessMsg && (
+                    <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
+                      <CheckCircle2 size={14} className="shrink-0" />
+                      <span className="font-medium">{embeddingSuccessMsg}</span>
+                    </div>
+                  )}
+
+                  {/* Embedding Error Banner */}
+                  {embeddingErrorMsg && (
+                    <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-500 text-xs flex items-center gap-2">
+                      <AlertCircle size={14} className="shrink-0" />
+                      <span className="font-medium">{String(embeddingErrorMsg)}</span>
+                    </div>
+                  )}
+
+                  {/* Form Actions */}
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--border-default)]">
+                    <button
+                      type="button"
+                      onClick={handleTestEmbedding}
+                      disabled={testingEmbedding}
+                      className="px-3.5 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-surface-hover)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40"
+                    >
+                      {testingEmbedding && <Loader2 size={13} className="animate-spin text-blue-500" />}
+                      <span>Test Embedding</span>
+                    </button>
+
                     <button
                       type="submit"
-                      disabled={savingModel}
-                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60 ml-auto"
+                      disabled={savingEmbedding}
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                     >
-                      {savingModel && <Loader2 size={13} className="animate-spin" />}
-                      <span>Save &amp; Activate Model</span>
+                      {savingEmbedding && <Loader2 size={13} className="animate-spin" />}
+                      <span>Save Embedding Settings</span>
                     </button>
                   </div>
                 </>

@@ -99,11 +99,11 @@ class OpenAICompatibleLLM(LLMProvider):
                 ) as response:
                     if response.status_code != 200:
                         error_body = await response.aread()
-                        logger.warning(
-                            f"OpenAI-compatible endpoint {self.endpoint_url} returned HTTP {response.status_code}: {error_body.decode('utf-8', errors='ignore')[:250]}. Falling back to local synthesizer."
+                        err_text = error_body.decode('utf-8', errors='ignore')[:300]
+                        logger.error(
+                            f"OpenAI-compatible endpoint {self.endpoint_url} returned HTTP {response.status_code}: {err_text}"
                         )
-                        async for chunk in self._fallback.astream(messages, temperature):
-                            yield chunk
+                        yield f"\n\n[Model Error (HTTP {response.status_code}): Could not generate response from '{self.model_name}' at {self.base_url}. Details: {err_text}]"
                         return
 
                     async for line in response.aiter_lines():
@@ -126,11 +126,8 @@ class OpenAICompatibleLLM(LLMProvider):
                                 continue
 
         except Exception as exc:
-            logger.warning(
-                f"OpenAI-compatible streaming error ({exc}) connecting to {self.endpoint_url}; falling back to local synthesizer."
-            )
-            async for chunk in self._fallback.astream(messages, temperature):
-                yield chunk
+            logger.error(f"OpenAI-compatible streaming error ({exc}) connecting to {self.endpoint_url}")
+            yield f"\n\n[Connection Error: Failed to connect to '{self.model_name}' at {self.endpoint_url} ({str(exc)}). Please check that your LLM provider is running and reachable.]"
 
 
 class LocalDeterministicLLM(LLMProvider):

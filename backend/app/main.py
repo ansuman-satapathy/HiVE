@@ -115,14 +115,23 @@ async def lifespan(app: FastAPI):
             async with SessionLocal() as db:
                 stmt = select(WorkspaceSetting)
                 setting_row = (await db.exec(stmt)).first()
-                if setting_row and setting_row.llm_provider != "auto":
-                    llm_service = LLMService.get_instance()
-                    llm_service.configure(
-                        provider=setting_row.llm_provider,
-                        base_url=setting_row.llm_base_url,
-                        model_name=setting_row.llm_model,
-                        api_key=setting_row.decrypted_api_key,
-                    )
+                if setting_row:
+                    if setting_row.llm_provider != "auto":
+                        llm_service = LLMService.get_instance()
+                        llm_service.configure(
+                            provider=setting_row.llm_provider,
+                            base_url=setting_row.llm_base_url,
+                            model_name=setting_row.llm_model,
+                            api_key=setting_row.decrypted_api_key,
+                        )
+                    if setting_row.embedding_provider and setting_row.embedding_provider != "auto":
+                        from app.services.embedding_service import EmbeddingFactory
+                        EmbeddingFactory.configure(
+                            provider=setting_row.embedding_provider,
+                            model=setting_row.embedding_model,
+                            base_url=setting_row.embedding_base_url,
+                            api_key=setting_row.decrypted_embedding_api_key,
+                        )
         except Exception as llm_err:
             logger.warning(f"Could not load workspace settings on startup: {llm_err}")
     except Exception as e:

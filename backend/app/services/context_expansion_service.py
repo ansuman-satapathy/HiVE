@@ -89,12 +89,6 @@ class ContextExpansionService:
                 detail=f"Parent document for chunk '{chunk_id}' not found."
             )
 
-        if user_id and parent_doc.user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to document chunk."
-            )
-
         # Window boundary indices
         start_idx = max(0, anchor_chunk.chunk_index - max(0, window_size))
         end_idx = anchor_chunk.chunk_index + max(0, window_size)

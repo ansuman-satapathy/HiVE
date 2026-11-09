@@ -22,8 +22,19 @@ export default function DashboardLayout({ children }) {
   const { queueData, activeCount, drawerOpen, setDrawerOpen, fetchQueue } = useTaskQueue()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsInitialTab, setSettingsInitialTab] = useState('model')
   const dropdownRef = useRef(null)
   const location = useLocation()
+
+  // Listen for global open-settings events from chat composer or shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.tab) setSettingsInitialTab(e.detail.tab)
+      setSettingsOpen(true)
+    }
+    window.addEventListener('open-settings', handler)
+    return () => window.removeEventListener('open-settings', handler)
+  }, [])
 
   // Material 3 Expressive Sliding Pill Indicator State
   const navRef = useRef(null)
@@ -201,6 +212,7 @@ export default function DashboardLayout({ children }) {
       {/* Settings Modal */}
       <SettingsModal
         isOpen={settingsOpen}
+        initialTab={settingsInitialTab}
         onClose={() => setSettingsOpen(false)}
       />
 

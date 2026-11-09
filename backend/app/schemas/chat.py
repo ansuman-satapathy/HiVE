@@ -17,6 +17,7 @@ class ChatStreamRequest(BaseModel):
     top_k: int = Field(5, ge=1, le=20, description="Number of context chunks to retrieve")
     window_size: int = Field(1, ge=0, le=3, description="Neighboring chunk expansion window (± chunks)")
     temperature: float = Field(0.2, ge=0.0, le=1.0, description="Sampling temperature for generation")
+    model_id: Optional[str] = Field(None, description="Optional ID or name of configured model to use for this prompt")
 
 
 class CitationChunk(BaseModel):

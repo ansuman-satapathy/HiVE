@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   Sparkles,
   FileText,
@@ -6,6 +6,12 @@ import {
   Square,
   ArrowUp,
   ArrowDown,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Cpu,
+  Settings,
+  Plus
 } from 'lucide-react'
 
 export default function ChatComposer({
@@ -22,7 +28,31 @@ export default function ChatComposer({
   showScrollBottom,
   hasMessages,
   onScrollToBottom,
+  models = [],
+  activeModelId = null,
+  onSelectModel,
 }) {
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setModelDropdownOpen(false)
+      }
+    }
+    if (modelDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [modelDropdownOpen])
+
+  // Find currently active model details
+  const currentModel = models.find((m) => m.id === activeModelId || m.model_name === activeModelId)
+  const activeLabel = currentModel
+    ? (currentModel.model_name || currentModel.name || currentModel.id)
+    : (activeModelId || 'Default Model')
   return (
     <>
       {/* Floating "Scroll to Bottom" Pill */}
@@ -64,13 +94,89 @@ export default function ChatComposer({
             <div className="px-3.5 pb-2.5 pt-1.5 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)]/60 bg-[var(--bg-canvas)]/30">
               {/* Active Scope & Model in Composer Toolbar */}
               <div className="flex items-center gap-2 truncate">
-                {/* Model Selector Pill */}
-                <div
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-default)] text-[11px] text-[var(--text-secondary)] shadow-2xs shrink-0 cursor-default select-none"
-                  title="Current Active Model (Custom API models coming soon)"
-                >
-                  <Sparkles size={11} className="text-blue-500" />
-                  <span className="font-mono text-[10px] text-[var(--text-primary)] font-semibold">Llama 3.2 11B</span>
+                {/* Interactive Model Selector Dropdown */}
+                <div className="relative shrink-0" ref={dropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setModelDropdownOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] hover:bg-blue-500/10 border border-[var(--border-default)] hover:border-blue-500/30 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 shadow-2xs transition-all cursor-pointer select-none group"
+                    title="Click to switch active AI model"
+                  >
+                    <Sparkles size={11} className="text-blue-500 transition-transform group-hover:scale-110" />
+                    <span className="font-mono text-[10px] text-[var(--text-primary)] font-semibold truncate max-w-[130px]">
+                      {activeLabel}
+                    </span>
+                    {modelDropdownOpen ? (
+                      <ChevronUp size={11} className="text-[var(--text-muted)] group-hover:text-blue-500" />
+                    ) : (
+                      <ChevronDown size={11} className="text-[var(--text-muted)] group-hover:text-blue-500" />
+                    )}
+                  </button>
+
+                  {/* Dropdown Menu Popup (Opens Upwards) */}
+                  {modelDropdownOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-64 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-2xl backdrop-blur-md p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="px-2.5 py-1.5 border-b border-[var(--border-subtle)] mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                          Active Model Switcher
+                        </span>
+                      </div>
+
+                      {/* Models List */}
+                      <div className="max-h-48 overflow-y-auto space-y-0.5">
+                        {models.length > 0 ? (
+                          models.map((m) => {
+                            const isSelected = m.id === activeModelId || m.model_name === activeModelId
+                            return (
+                              <button
+                                key={m.id || m.model_name}
+                                type="button"
+                                onClick={() => {
+                                  if (onSelectModel) onSelectModel(m.id || m.model_name)
+                                  setModelDropdownOpen(false)
+                                }}
+                                className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium'
+                                    : 'text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <Cpu size={12} className={isSelected ? 'text-blue-500' : 'text-[var(--text-muted)]'} />
+                                  <div className="truncate">
+                                    <div className="font-mono text-[11px] truncate">{m.model_name || m.name || m.id}</div>
+                                    <div className="text-[9px] text-[var(--text-muted)] capitalize">
+                                      {m.provider || 'cloud'}
+                                    </div>
+                                  </div>
+                                </div>
+                                {isSelected && <Check size={12} className="text-blue-500 shrink-0" />}
+                              </button>
+                            )
+                          })
+                        ) : (
+                          <div className="px-2.5 py-2 text-center text-[11px] text-[var(--text-muted)]">
+                            No custom models added yet.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Manage Models Action */}
+                      <div className="border-t border-[var(--border-subtle)] mt-1 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModelDropdownOpen(false)
+                            window.dispatchEvent(new CustomEvent('open-settings', { detail: { tab: 'model' } }))
+                          }}
+                          className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-left text-[11px] text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 transition-colors font-medium cursor-pointer"
+                        >
+                          <Settings size={12} />
+                          <span>Manage Models in Settings...</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Active Scope Pill */}
