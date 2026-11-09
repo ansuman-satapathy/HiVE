@@ -439,7 +439,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                     <label className="block text-xs font-bold text-[var(--text-primary)] mb-2.5">
                       Select LLM Provider
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {/* Ollama / Local */}
                       <button
                         type="button"
@@ -448,23 +448,34 @@ export default function SettingsModal({ isOpen, onClose }) {
                           setBaseUrl('http://localhost:11434/v1')
                           setModelName('llama3.2')
                         }}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           provider === 'ollama'
                             ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/30'
                             : 'border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)]'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-bold text-[var(--text-primary)]">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                                provider === 'ollama'
+                                  ? 'border-blue-500 bg-blue-500'
+                                  : 'border-[var(--border-strong)] bg-transparent'
+                              }`}
+                            >
+                              {provider === 'ollama' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 font-semibold border border-emerald-500/20 whitespace-nowrap shrink-0">
+                              Zero Cost
+                            </span>
+                          </div>
+                          <div className="text-xs font-bold text-[var(--text-primary)] mb-1">
                             Local Ollama / vLLM
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 font-semibold border border-emerald-500/20">
-                            Zero Cost
-                          </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                            Connects to local Ollama or vLLM container.
+                          </p>
                         </div>
-                        <p className="text-[11px] text-[var(--text-muted)]">
-                          Connects to local Ollama or vLLM container.
-                        </p>
                       </button>
 
                       {/* OpenAI / Custom */}
@@ -475,46 +486,68 @@ export default function SettingsModal({ isOpen, onClose }) {
                           setBaseUrl('https://api.openai.com/v1')
                           setModelName('gpt-4o-mini')
                         }}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           provider === 'openai'
                             ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/30'
                             : 'border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)]'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-bold text-[var(--text-primary)]">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                                provider === 'openai'
+                                  ? 'border-blue-500 bg-blue-500'
+                                  : 'border-[var(--border-strong)] bg-transparent'
+                              }`}
+                            >
+                              {provider === 'openai' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-500 font-semibold border border-sky-500/20 whitespace-nowrap shrink-0">
+                              OpenAI Spec
+                            </span>
+                          </div>
+                          <div className="text-xs font-bold text-[var(--text-primary)] mb-1">
                             OpenAI / Custom Cloud
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/10 text-sky-500 font-semibold border border-sky-500/20">
-                            OpenAI Spec
-                          </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                            OpenAI, Groq, NVIDIA NIM, or DeepSeek.
+                          </p>
                         </div>
-                        <p className="text-[11px] text-[var(--text-muted)]">
-                          OpenAI, Groq, NVIDIA NIM, or DeepSeek.
-                        </p>
                       </button>
 
                       {/* Offline Fallback */}
                       <button
                         type="button"
                         onClick={() => setProvider('local')}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           provider === 'local'
                             ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500/30'
                             : 'border-[var(--border-default)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)]'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-bold text-[var(--text-primary)]">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                                provider === 'local'
+                                  ? 'border-blue-500 bg-blue-500'
+                                  : 'border-[var(--border-strong)] bg-transparent'
+                              }`}
+                            >
+                              {provider === 'local' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-semibold border border-amber-500/20 whitespace-nowrap shrink-0">
+                              Demo Mode
+                            </span>
+                          </div>
+                          <div className="text-xs font-bold text-[var(--text-primary)] mb-1">
                             Offline Synthesizer
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-semibold border border-amber-500/20">
-                            Demo Mode
-                          </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                            Rule-based local synthesis with zero external requests.
+                          </p>
                         </div>
-                        <p className="text-[11px] text-[var(--text-muted)]">
-                          Rule-based local synthesis with zero external requests.
-                        </p>
                       </button>
                     </div>
                   </div>
@@ -554,60 +587,87 @@ export default function SettingsModal({ isOpen, onClose }) {
                         />
 
                         {/* Quick URL & Model Presets */}
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          <span className="text-[10px] text-[var(--text-muted)] self-center mr-1">
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          <span className="text-[10px] text-[var(--text-muted)] mr-1">
                             Presets:
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBaseUrl('http://localhost:11434/v1')
-                              setModelName('llama3.2')
-                            }}
-                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
-                          >
-                            Ollama (Host)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBaseUrl('http://host.docker.internal:11434/v1')
-                              setModelName('llama3.2')
-                            }}
-                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
-                          >
-                            Ollama (Docker)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBaseUrl('https://api.openai.com/v1')
-                              setModelName('gpt-4o-mini')
-                            }}
-                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
-                          >
-                            OpenAI
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBaseUrl('https://api.groq.com/openai/v1')
-                              setModelName('llama-3.3-70b-versatile')
-                            }}
-                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
-                          >
-                            Groq
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBaseUrl('https://integrate.api.nvidia.com/v1')
-                              setModelName('meta/llama-3.2-3b-instruct')
-                            }}
-                            className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-purple-500 cursor-pointer"
-                          >
-                            NVIDIA NIM
-                          </button>
+                          {provider === 'ollama' ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBaseUrl('http://localhost:11434/v1')
+                                  setModelName('llama3.2')
+                                }}
+                                className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                              >
+                                Ollama (Host)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBaseUrl('http://host.docker.internal:11434/v1')
+                                  setModelName('llama3.2')
+                                }}
+                                className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                              >
+                                Ollama (Docker)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBaseUrl('http://localhost:8000/v1')
+                                  setModelName('default')
+                                }}
+                                className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                              >
+                                vLLM (Port 8000)
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBaseUrl('https://api.openai.com/v1')
+                                  setModelName('gpt-4o-mini')
+                                }}
+                                className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                              >
+                                OpenAI
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBaseUrl('https://api.groq.com/openai/v1')
+                                  setModelName('llama-3.3-70b-versatile')
+                                }}
+                                className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                              >
+                                Groq
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBaseUrl('https://integrate.api.nvidia.com/v1')
+                                  setModelName('meta/llama-3.2-3b-instruct')
+                                }}
+                                className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-purple-500 cursor-pointer"
+                              >
+                                NVIDIA NIM
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBaseUrl('https://api.deepseek.com/v1')
+                                  setModelName('deepseek-chat')
+                                }}
+                                className="px-2 py-0.5 rounded-md text-[10px] bg-[var(--bg-surface)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-blue-500 cursor-pointer"
+                              >
+                                DeepSeek
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -684,7 +744,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   {/* Test Connection Result Feedback */}
                   {testResult && (
                     <div
-                      className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
+                      className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
                         testResult.success
                           ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
                           : 'border-rose-500/30 bg-rose-500/10 text-rose-500'
@@ -695,9 +755,9 @@ export default function SettingsModal({ isOpen, onClose }) {
                       ) : (
                         <AlertCircle size={14} className="shrink-0 mt-0.5" />
                       )}
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <p className="font-semibold break-words">
-                          {testResult.message || testResult.detail || (typeof testResult === 'string' ? testResult : 'Connection test failed')}
+                          {String(testResult.message || testResult.detail || (testResult.success ? 'Connection successful' : 'Connection test failed'))}
                         </p>
                         {testResult.latency_ms != null && (
                           <p className="text-[10.5px] opacity-80 mt-0.5">
@@ -708,43 +768,47 @@ export default function SettingsModal({ isOpen, onClose }) {
                     </div>
                   )}
 
-                  {modelSuccessMsg && (
+                  {Boolean(modelSuccessMsg) && (
                     <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-xs flex items-center gap-2">
-                      <Check size={14} />
-                      <span>{modelSuccessMsg}</span>
+                      <Check size={14} className="shrink-0" />
+                      <span className="font-medium">{String(modelSuccessMsg)}</span>
                     </div>
                   )}
 
-                  {modelErrorMsg && (
+                  {Boolean(modelErrorMsg && String(modelErrorMsg).trim()) && (
                     <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-500 text-xs flex items-center gap-2">
-                      <AlertCircle size={14} />
-                      <span>{modelErrorMsg}</span>
+                      <AlertCircle size={14} className="shrink-0" />
+                      <span className="font-medium">{String(modelErrorMsg)}</span>
                     </div>
                   )}
 
                   {/* Form Actions */}
                   <div className="flex items-center justify-between pt-3 border-t border-[var(--border-default)]">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleTestConnection}
-                        disabled={!canTestConnection}
-                        className="px-3.5 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-surface-hover)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {testingConnection && <Loader2 size={13} className="animate-spin text-blue-500" />}
-                        <span>Test Connection</span>
-                      </button>
-                      {!canTestConnection && isCloudProvider && !apiKey.trim() && !hasApiKey && (
-                        <span className="text-[11px] text-[var(--text-muted)]">
-                          API key required to test
-                        </span>
+                    <div>
+                      {provider !== 'local' && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleTestConnection}
+                            disabled={!canTestConnection}
+                            className="px-3.5 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-surface-hover)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {testingConnection && <Loader2 size={13} className="animate-spin text-blue-500" />}
+                            <span>Test Connection</span>
+                          </button>
+                          {!canTestConnection && isCloudProvider && !apiKey.trim() && !hasApiKey && (
+                            <span className="text-[11px] text-[var(--text-muted)]">
+                              API key required to test
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
 
                     <button
                       type="submit"
                       disabled={savingModel}
-                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60 ml-auto"
                     >
                       {savingModel && <Loader2 size={13} className="animate-spin" />}
                       <span>Save &amp; Activate Model</span>
