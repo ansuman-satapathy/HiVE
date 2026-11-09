@@ -75,47 +75,50 @@ export default function DashboardLayout({ children }) {
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-200" style={{ backgroundColor: 'var(--bg-canvas)' }}>
       {/* Navigation Header */}
-      <header className="sticky top-0 z-40 h-14 flex items-center justify-between px-6 lg:px-8 border-b border-[var(--border-default)] bg-[var(--bg-surface)]/95 backdrop-blur-md transition-colors">
-        {/* Brand & Nav */}
-        <div className="flex items-center gap-7">
-          <HiveLogo size="md" />
+      <header className="sticky top-0 z-40 h-14 px-6 lg:px-8 border-b border-[var(--border-default)] bg-[var(--bg-surface)]/95 backdrop-blur-md transition-colors">
+        <div className="relative h-full flex items-center justify-between">
+          {/* Brand Logo (Left) */}
+          <div className="flex items-center gap-3 shrink-0">
+            <HiveLogo size="md" />
+          </div>
 
-          {/* Workspace Segmented Navigation Bar */}
-          <nav ref={navRef} className="workspace-nav-container">
-            {/* Sliding Active Card Indicator */}
-            <div
-              className="workspace-nav-indicator"
-              style={{
-                left: `${indicatorStyle.left}px`,
-                width: `${indicatorStyle.width}px`,
-                opacity: indicatorStyle.opacity,
-              }}
-            />
-
-            {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                ref={(el) => {
-                  if (el) itemRefs.current[to] = el
+          {/* Centered Segmented Navigation Bar */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
+            <nav ref={navRef} className="workspace-nav-container">
+              {/* Sliding Active Card Indicator */}
+              <div
+                className="workspace-nav-indicator"
+                style={{
+                  left: `${indicatorStyle.left}px`,
+                  width: `${indicatorStyle.width}px`,
+                  opacity: indicatorStyle.opacity,
                 }}
-                className={({ isActive }) =>
-                  `workspace-nav-item ${isActive ? 'is-active' : ''}`
-                }
-              >
-                <Icon
-                  size={14}
-                  className="nav-icon shrink-0"
-                />
-                <span>{label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </div>
+              />
 
-        {/* Right Section: Theme Toggle + Task Indicator + Profile */}
-        <div className="flex items-center gap-2.5">
+              {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  ref={(el) => {
+                    if (el) itemRefs.current[to] = el
+                  }}
+                  className={({ isActive }) =>
+                    `workspace-nav-item ${isActive ? 'is-active' : ''}`
+                  }
+                >
+                  <Icon
+                    size={14}
+                    className="nav-icon shrink-0"
+                  />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+
+          {/* Right Section: Theme Toggle + Task Indicator + Profile */}
+          <div className="flex items-center gap-2.5 shrink-0">
           {/* Dark / Light Toggle */}
           <button
             onClick={toggleTheme}
@@ -186,6 +189,7 @@ export default function DashboardLayout({ children }) {
               )}
             </div>
           )}
+        </div>
         </div>
       </header>
 
