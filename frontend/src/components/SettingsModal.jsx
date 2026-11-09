@@ -71,6 +71,12 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
   const [modelSuccessMsg, setModelSuccessMsg] = useState(null)
   const [modelErrorMsg, setModelErrorMsg] = useState(null)
 
+  // Advanced LLM, Thinking & Timeout parameters
+  const [enableThinking, setEnableThinking] = useState(false)
+  const [timeoutSeconds, setTimeoutSeconds] = useState(180)
+  const [temperature, setTemperature] = useState(0.2)
+  const [showAdvancedLlm, setShowAdvancedLlm] = useState(false)
+
   const isCloudProvider = useMemo(() => {
     if (provider === 'local' || provider === 'ollama') return false
     return !baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1') && !baseUrl.includes('host.docker.internal')
@@ -131,6 +137,12 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
           setHasApiKey(data.has_api_key)
           setAllowDemoAutofill(data.allow_demo_autofill ?? true)
           setModelsList(data.models || [])
+          const activeM = data.models?.find((m) => m.is_active)
+          if (activeM) {
+            if (activeM.enable_thinking !== undefined) setEnableThinking(Boolean(activeM.enable_thinking))
+            if (activeM.timeout_seconds) setTimeoutSeconds(Number(activeM.timeout_seconds))
+            if (activeM.temperature !== undefined) setTemperature(Number(activeM.temperature))
+          }
           setEmbeddingProvider(data.embedding_provider || 'fastembed')
           setEmbeddingModel(data.embedding_model || 'BAAI/bge-small-en-v1.5')
           if (data.embedding_base_url) setEmbeddingBaseUrl(data.embedding_base_url)
@@ -213,6 +225,7 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
           base_url: baseUrl,
           model_name: modelName,
           api_key: apiKey || undefined,
+          timeout_seconds: Number(timeoutSeconds) || 180,
         }),
       })
       const data = await res.json().catch(() => null)
@@ -245,32 +258,33 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
     const token = tokenStorage.getToken()
 
     try {
-      const payload = {
-        llm_provider: provider,
-        llm_base_url: baseUrl,
-        llm_model: modelName,
-        allow_demo_autofill: allowDemoAutofill,
-      }
-      if (apiKey.trim()) {
-        payload.llm_api_key = apiKey.trim()
-      }
-
-      const res = await fetch('/api/settings', {
-        method: 'PATCH',
+      const res = await fetch('/api/settings/models', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          id: `${provider}_${modelName.replace(/[:/]/g, '_')}`,
+          name: `${modelName} (${provider})`,
+          provider,
+          base_url: baseUrl,
+          model_name: modelName,
+          api_key: apiKey.trim() || undefined,
+          is_active: true,
+          enable_thinking: enableThinking,
+          timeout_seconds: Number(timeoutSeconds) || 180,
+          temperature: Number(temperature) || 0.2,
+        }),
       })
 
       if (!res.ok) {
-        const err = await res.json()
+        const err = await res.json().catch(() => ({}))
         throw new Error(err.detail || 'Failed to update settings')
       }
 
       const data = await res.json()
-      setHasApiKey(data.has_api_key)
+      if (apiKey.trim()) setHasApiKey(true)
       setApiKey('')
       if (data.models) setModelsList(data.models)
       setModelSuccessMsg('Model configuration saved and active!')
@@ -347,6 +361,9 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
           model_name: modelName,
           api_key: apiKey.trim() || undefined,
           is_active: false,
+          enable_thinking: enableThinking,
+          timeout_seconds: Number(timeoutSeconds) || 180,
+          temperature: Number(temperature) || 0.2,
         }),
       })
       if (!res.ok) {
@@ -726,14 +743,32 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                                 }`}>
                                   <Cpu size={14} />
                                 </div>
-                                <div className="min-w-0">
+                                <div
+                                  className="min-w-0 cursor-pointer"
+                                  onClick={() => {
+                                    setProvider(m.provider)
+                                    if (m.base_url) setBaseUrl(m.base_url)
+                                    setModelName(m.model_name || m.name)
+                                    setEnableThinking(Boolean(m.enable_thinking))
+                                    setTimeoutSeconds(m.timeout_seconds || 180)
+                                    setTemperature(m.temperature ?? 0.2)
+                                  }}
+                                  title="Click to load parameters into editor"
+                                >
                                   <div className="font-bold text-[var(--text-primary)] font-mono text-[11px] truncate">
                                     {m.model_name || m.name}
                                   </div>
                                   <div className="text-[10px] text-[var(--text-muted)] flex items-center gap-1.5 truncate">
                                     <span className="capitalize">{m.provider}</span>
                                     <span>•</span>
-                                    <span className="truncate max-w-[200px]">{m.base_url || 'local synthesizer'}</span>
+                                    <span className="truncate max-w-[150px]">{m.base_url || 'local synthesizer'}</span>
+                                    <span>•</span>
+                                    <span className="font-mono">{m.timeout_seconds || 180}s</span>
+                                    {m.enable_thinking ? (
+                                      <span className="text-blue-500 font-semibold">• thinking on</span>
+                                    ) : (
+                                      <span className="text-[var(--text-muted)] opacity-70">• direct (fast)</span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -1064,6 +1099,120 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                             {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
                           </button>
                         </div>
+                      </div>
+
+                      {/* Advanced LLM, Thinking & Generation Parameters */}
+                      <div className="border border-[var(--border-subtle)] rounded-xl bg-[var(--bg-canvas)]/40 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvancedLlm(!showAdvancedLlm)}
+                          className="w-full flex items-center justify-between px-3.5 py-2 hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer text-xs"
+                        >
+                          <div className="flex items-center gap-2 text-[var(--text-secondary)] font-medium">
+                            <Sparkles size={12} className="text-blue-500" />
+                            <span className="font-semibold text-[var(--text-primary)]">Reasoning &amp; Generation Parameters</span>
+                            <span className="text-[10px] text-[var(--text-muted)]">
+                              (Timeout: {timeoutSeconds}s, Thinking: {enableThinking ? 'Enabled' : 'Disabled'})
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-blue-500 flex items-center gap-1 font-medium">
+                            {showAdvancedLlm ? 'Hide' : 'Configure'}
+                            <ChevronDown size={13} className={`transition-transform duration-200 ${showAdvancedLlm ? 'rotate-180' : ''}`} />
+                          </span>
+                        </button>
+
+                        {showAdvancedLlm && (
+                          <div className="p-3.5 border-t border-[var(--border-subtle)] space-y-4 text-xs animate-in fade-in">
+                            {/* Enable Thinking / Reasoning Toggle */}
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-0.5">
+                                <label className="font-semibold text-[var(--text-primary)] flex items-center gap-1.5 cursor-pointer">
+                                  <span>Enable Model Thinking / Reasoning Trace</span>
+                                </label>
+                                <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                                  When enabled, captures and displays the model's internal step-by-step thinking process.
+                                  <strong className="text-[var(--text-secondary)]"> Recommended: Off by default</strong> to prevent long delays and timeouts on local models.
+                                </p>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={enableThinking}
+                                onChange={(e) => setEnableThinking(e.target.checked)}
+                                className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              />
+                            </div>
+
+                            {/* Request Timeout (seconds) */}
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="font-semibold text-[var(--text-primary)]">
+                                  Generation Timeout (Seconds)
+                                </label>
+                                <span className="font-mono text-[11px] text-blue-500 font-bold">
+                                  {timeoutSeconds}s
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2 mb-2">
+                                {[
+                                  { label: '60s (Cloud)', val: 60 },
+                                  { label: '180s (Local)', val: 180 },
+                                  { label: '300s (Heavy)', val: 300 },
+                                  { label: '600s (Deep)', val: 600 },
+                                ].map((preset) => (
+                                  <button
+                                    key={preset.val}
+                                    type="button"
+                                    onClick={() => setTimeoutSeconds(preset.val)}
+                                    className={`py-1 px-2 rounded-lg border text-[10.5px] font-medium transition-all cursor-pointer ${
+                                      Number(timeoutSeconds) === preset.val
+                                        ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold shadow-2xs'
+                                        : 'border-[var(--border-default)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
+                                    }`}
+                                  >
+                                    {preset.label}
+                                  </button>
+                                ))}
+                              </div>
+                              <input
+                                type="number"
+                                min="10"
+                                max="1200"
+                                value={timeoutSeconds}
+                                onChange={(e) => setTimeoutSeconds(Math.max(10, parseInt(e.target.value) || 180))}
+                                className="w-full px-3 py-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs font-mono text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
+                              />
+                              <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                                High timeout prevents local models from aborting while thinking or processing large document excerpts.
+                              </p>
+                            </div>
+
+                            {/* Temperature */}
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="font-semibold text-[var(--text-primary)]">
+                                  Sampling Temperature
+                                </label>
+                                <span className="font-mono text-[11px] text-blue-500 font-bold">
+                                  {temperature}
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0.0"
+                                max="1.0"
+                                step="0.05"
+                                value={temperature}
+                                onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                                className="w-full accent-blue-600 cursor-pointer"
+                              />
+                              <div className="flex justify-between text-[10px] text-[var(--text-muted)]">
+                                <span>0.0 (Factual / Strict)</span>
+                                <span>0.2 (Default RAG)</span>
+                                <span>1.0 (Creative)</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

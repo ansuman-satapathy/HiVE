@@ -13,6 +13,7 @@ export function useEventStream() {
   const [status, setStatus] = useState(null) // { stage: string, message: string }
   const [citations, setCitations] = useState([])
   const [reasoningSteps, setReasoningSteps] = useState([])
+  const [modelThought, setModelThought] = useState('')
   const [error, setError] = useState(null)
   const [elapsedMs, setElapsedMs] = useState(0)        // live counter while streaming (100ms ticks)
   const [finalElapsedMs, setFinalElapsedMs] = useState(null) // server-reported total on done
@@ -84,6 +85,7 @@ export function useEventStream() {
 
       setIsStreaming(true)
       setStreamedText('')
+      setModelThought('')
       setStatus({ stage: 'agent_reasoning', message: 'Analyzing question and reasoning...' })
       setCitations([])
       setReasoningSteps([])
@@ -94,6 +96,7 @@ export function useEventStream() {
       let accumulated = ''
       let capturedCitations = []
       let capturedSteps = []
+      let capturedModelThought = ''
 
       try {
         const token = tokenStorage.getToken()
@@ -200,6 +203,10 @@ export function useEventStream() {
                   capturedCitations = data.citations
                   setCitations(data.citations)
                 }
+              } else if (eventType === 'thought_stream') {
+                const delta = data.delta || ''
+                capturedModelThought += delta
+                setModelThought((prev) => prev + delta)
               } else if (eventType === 'token') {
                 const delta = data.delta || ''
                 accumulated += delta
@@ -217,6 +224,7 @@ export function useEventStream() {
                     finishReason: data.finish_reason,
                     citations: capturedCitations,
                     reasoningSteps: capturedSteps,
+                    modelThought: capturedModelThought,
                     elapsedMs: serverMs,
                   })
                 }
@@ -259,6 +267,7 @@ export function useEventStream() {
     abortStream,
     isStreaming,
     streamedText,
+    modelThought,
     status,
     citations,
     reasoningSteps,

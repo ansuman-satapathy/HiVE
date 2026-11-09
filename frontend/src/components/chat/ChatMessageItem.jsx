@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   FileText,
   Copy,
@@ -7,6 +7,9 @@ import {
   Edit2,
   RefreshCw,
   Clock,
+  Sparkles,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import StreamingMarkdown from '../StreamingMarkdown'
 import { HiveLogoIcon } from '../HiveLogo'
@@ -93,6 +96,7 @@ export default function ChatMessageItem({
   }
 
   // ── Assistant message ─────────────────────────────────────────────────────
+  const [showThought, setShowThought] = useState(false)
   const hasReasoningSteps = message.reasoningSteps && message.reasoningSteps.length > 0
   const elapsedLabel = formatElapsed(message.elapsedMs)
 
@@ -113,6 +117,31 @@ export default function ChatMessageItem({
               isLive={false}
               onCitationClick={onCitationClick}
             />
+          </div>
+        )}
+
+        {/* Model Thinking Trace (when reasoning is enabled) */}
+        {message.modelThought && (
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 overflow-hidden transition-all shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setShowThought(!showThought)}
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-500/10 cursor-pointer"
+            >
+              <div className="flex items-center gap-1.5">
+                <Sparkles size={12} className="text-blue-500" />
+                <span className="font-semibold">Model Reasoning &amp; Thought Process</span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] opacity-80">
+                <span>{showThought ? 'Hide trace' : 'Show trace'}</span>
+                {showThought ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+              </div>
+            </button>
+            {showThought && (
+              <div className="p-3 border-t border-blue-500/15 font-mono text-[11.5px] leading-relaxed text-[var(--text-secondary)] whitespace-pre-wrap max-h-60 overflow-y-auto bg-[var(--bg-canvas)]/60 select-text">
+                {message.modelThought}
+              </div>
+            )}
           </div>
         )}
 
