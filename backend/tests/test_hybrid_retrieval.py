@@ -168,7 +168,7 @@ async def test_hybrid_search_document_id_filter():
 @pytest.mark.asyncio
 async def test_hybrid_search_api_endpoint(client, db_session):
     """Verify GET /api/documents/search/hybrid returns valid fused results with schema fields."""
-    user = await create_test_user(db_session, "hybrid_user@docagent.com")
+    user = await create_test_user(db_session, "hybrid_user@hive.com")
     headers = auth_header(user)
 
     bm25 = BM25IndexService.get_instance()

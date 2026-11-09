@@ -22,7 +22,7 @@ import HiveLogo from '../components/HiveLogo'
 export default function Onboarding() {
   const [step, setStep] = useState(1) // 1: Admin, 2: AI Model, 3: Security & Launch
   const [fullName, setFullName] = useState('Workspace Admin')
-  const [email, setEmail] = useState('demo@docagent.com')
+  const [email, setEmail] = useState('admin@hive.com')
   const [password, setPassword] = useState('password123')
 
   // Step 2: AI Model Choice
@@ -200,7 +200,7 @@ export default function Onboarding() {
             Setup Your HiVE Workspace
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
-            Configure root credentials, AI model connectivity, and security
+            Configure admin credentials, LLM provider, and security
           </p>
         </div>
 
@@ -226,7 +226,7 @@ export default function Onboarding() {
               {step > 2 ? <Check size={13} /> : '2'}
             </div>
             <span className={`text-xs ${step === 2 ? 'font-semibold text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
-              AI Model
+              LLM Provider
             </span>
           </div>
 
@@ -277,7 +277,7 @@ export default function Onboarding() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="demo@docagent.com"
+                placeholder="admin@hive.com"
                 className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -300,7 +300,7 @@ export default function Onboarding() {
               type="submit"
               className="w-full mt-3 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
             >
-              <span>Next: Connect AI Intelligence</span>
+              <span>Next: Connect LLM</span>
               <ArrowRight size={15} />
             </button>
           </form>
@@ -526,7 +526,7 @@ export default function Onboarding() {
                   <strong>Admin User:</strong> {fullName} (<code className="font-mono">{email}</code>)
                 </p>
                 <p>
-                  <strong>Intelligence:</strong>{' '}
+                  <strong>LLM Provider:</strong>{' '}
                   {modelMode === 'ollama'
                     ? `Local Ollama (${ollamaModel})`
                     : modelMode === 'cloud'
@@ -553,10 +553,10 @@ export default function Onboarding() {
                 type="button"
                 onClick={handleCompleteSetup}
                 disabled={loading}
-                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-60"
+                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-60"
               >
                 {loading && <Loader2 size={14} className="animate-spin" />}
-                <span>Complete Setup &amp; Launch HiVE 🚀</span>
+                <span>Complete Setup &amp; Launch</span>
               </button>
             </div>
           </div>

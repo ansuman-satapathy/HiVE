@@ -36,7 +36,7 @@ async def test_expand_chunk_context_window(db_session, client: AsyncClient):
     Chunk 0, Chunk 1 (anchor), Chunk 2, Chunk 3.
     window_size=1 should fetch Chunk 0, 1, 2.
     """
-    user = await create_test_user(db_session, "expander@quickdesk.com")
+    user = await create_test_user(db_session, "expander@hive.com")
     
     doc = await DocumentRepository.create_document(
         db=db_session,
@@ -110,7 +110,7 @@ async def test_expand_chunk_context_boundary_clamping(db_session):
     1. Expanding Chunk 0 with window_size=2 clamps to lower bound 0 (returns 0, 1, 2).
     2. Expanding Chunk 3 with window_size=2 clamps to upper bound (returns 1, 2, 3).
     """
-    user = await create_test_user(db_session, "boundary@quickdesk.com")
+    user = await create_test_user(db_session, "boundary@hive.com")
     doc = await DocumentRepository.create_document(
         db=db_session,
         user_id=user.id,
@@ -150,7 +150,7 @@ async def test_expand_chunk_context_boundary_clamping(db_session):
 @pytest.mark.asyncio
 async def test_expand_chunk_token_budget_cap(db_session):
     """Verify that max_tokens budget constrains expansion while prioritizing the anchor chunk."""
-    user = await create_test_user(db_session, "budget@quickdesk.com")
+    user = await create_test_user(db_session, "budget@hive.com")
     doc = await DocumentRepository.create_document(
         db=db_session,
         user_id=user.id,
@@ -181,7 +181,7 @@ async def test_expand_chunk_token_budget_cap(db_session):
 @pytest.mark.asyncio
 async def test_expand_chunk_context_api_endpoint(db_session, client: AsyncClient):
     """Verify the POST /api/documents/chunks/{chunk_id}/expand HTTP endpoint."""
-    user = await create_test_user(db_session, "api_expander@quickdesk.com")
+    user = await create_test_user(db_session, "api_expander@hive.com")
     headers = auth_header(user)
     
     doc = await DocumentRepository.create_document(

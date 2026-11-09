@@ -1,7 +1,7 @@
 # Hardware Provisioning & Laptop Request Policy
 
 ## Overview
-QuickDesk provides standardized laptops and workstations to all employees based on job function and department requirements.
+HiVE provides standardized laptops and workstations to all employees based on job function and department requirements.
 
 ## Hardware Options
 - **Standard Engineering/Product**: Apple MacBook Pro 14" (M-Series, 32GB RAM) or Dell XPS 15 (32GB RAM).

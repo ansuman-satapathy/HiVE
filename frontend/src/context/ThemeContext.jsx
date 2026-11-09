@@ -5,9 +5,12 @@ const ThemeContext = createContext({
   toggleTheme: () => {},
 })
 
+const THEME_KEY = 'hive_theme'
+const LEGACY_THEME_KEY = 'quickdesk_theme'
+
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('quickdesk_theme')
+    const saved = localStorage.getItem(THEME_KEY) || localStorage.getItem(LEGACY_THEME_KEY)
     if (saved) return saved
     // Default to dark mode for ultra-modern aesthetic
     return 'dark'
@@ -20,7 +23,7 @@ export function ThemeProvider({ children }) {
     } else {
       root.classList.remove('dark')
     }
-    localStorage.setItem('quickdesk_theme', theme)
+    localStorage.setItem(THEME_KEY, theme)
   }, [theme])
 
   const toggleTheme = () => {

@@ -81,7 +81,7 @@ export default function Register() {
             <HiveLogo size="lg" />
           </div>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Set up your document intelligence workspace
+            Create your HiVE account
           </p>
         </div>
 

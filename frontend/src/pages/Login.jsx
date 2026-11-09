@@ -76,7 +76,7 @@ export default function Login() {
             <HiveLogo size="lg" />
           </div>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Sign in to your document intelligence workspace
+            Sign in to your workspace
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export default function Login() {
             <input
               type="email"
               required
-              placeholder="demo@docagent.com"
+              placeholder="admin@hive.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm transition-all"
@@ -129,12 +129,12 @@ export default function Login() {
             <button
               type="button"
               onClick={() => {
-                setEmail('demo@docagent.com')
+                setEmail('admin@hive.com')
                 setPassword('password123')
               }}
               className="w-full py-2 px-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <span>⚡ Fill Default Admin Credentials</span>
+              <span>Fill Default Admin Credentials</span>
             </button>
           )}
         </form>

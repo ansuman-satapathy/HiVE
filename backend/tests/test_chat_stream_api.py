@@ -29,7 +29,7 @@ async def test_chat_stream_endpoint_sse_protocol(db_session, client: AsyncClient
     3. Grounding citations are provided with document titles.
     4. Tokens stream the synthesized answer.
     """
-    user = await create_test_user(db_session, "chat_tester@quickdesk.com")
+    user = await create_test_user(db_session, "chat_tester@hive.com")
     headers = auth_header(user)
 
     # 1. Create document and chunks
@@ -144,7 +144,7 @@ async def test_chat_stream_scoped_document_filter(db_session, client: AsyncClien
     """
     Test that scoping document_ids restricts citations strictly to selected document.
     """
-    user = await create_test_user(db_session, "filter_tester@quickdesk.com")
+    user = await create_test_user(db_session, "filter_tester@hive.com")
     headers = auth_header(user)
 
     # Doc 1: Python guide

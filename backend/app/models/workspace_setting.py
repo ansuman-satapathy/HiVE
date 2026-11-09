@@ -29,3 +29,4 @@ class WorkspaceSetting(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
         nullable=False
     )
+

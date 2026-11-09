@@ -7,7 +7,7 @@ from tests.conftest import create_test_user
 @pytest.mark.asyncio
 async def test_document_lifecycle(db_session):
     """Test full document lifecycle: create, update status, add chunks, query, delete."""
-    user = await create_test_user(db_session, "docuser@docagent.com")
+    user = await create_test_user(db_session, "docuser@hive.com")
 
     # 1. Create document
     doc = await DocumentRepository.create_document(
@@ -36,7 +36,7 @@ async def test_document_lifecycle(db_session):
     chunks_data = [
         {
             "chunk_index": 0,
-            "content": "Introduction to the Document Intelligence System",
+            "content": "Introduction to the Document System",
             "token_count": 8,
             "chunk_metadata": {"section": "# Intro"}
         },
