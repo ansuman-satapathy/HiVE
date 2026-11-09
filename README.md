@@ -129,10 +129,32 @@ The backend runs with a volume mount (`--reload`), so Python changes take effect
 docker compose up -d --build frontend
 ```
 
-Alternatively, for instant Hot Module Replacement (HMR) during frontend UI work, run the local Vite dev server directly:
+### Viewing Container Logs
+
+Stream live logs from individual services or the entire stack:
+
 ```bash
-cd frontend && npm run dev
+# Stream backend API logs (FastAPI, vector search, agent loops):
+docker compose logs -f backend
+
+# Stream frontend logs (Nginx HTTP access & proxy events):
+docker compose logs -f frontend
+
+# Stream all service logs simultaneously:
+docker compose logs -f
 ```
+
+### Quick Commands (Makefile)
+A root `Makefile` is included with standard shortcuts:
+
+| Command | Action |
+|---------|--------|
+| `make logs-backend` | Stream live backend FastAPI logs |
+| `make logs-frontend` | Stream live frontend Nginx logs |
+| `make logs` | Stream logs from all containers |
+| `make build-frontend` | Rebuild frontend and restart its container |
+| `make test` | Run backend test suite |
+| `make up` / `make down` | Start or stop the Docker stack |
 
 ---
 

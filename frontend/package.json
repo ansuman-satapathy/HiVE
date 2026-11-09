@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "docker:build": "docker compose up -d --build frontend"
+    "docker:build": "docker compose up -d --build frontend",
+    "logs": "docker compose logs -f",
+    "logs:backend": "docker compose logs -f backend",
+    "logs:frontend": "docker compose logs -f frontend"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
