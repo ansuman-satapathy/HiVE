@@ -1,8 +1,11 @@
 import re
+import json
+import time
 import asyncio
 import logging
 from typing import AsyncGenerator, List, Dict, Any, Optional
 from abc import ABC, abstractmethod
+import httpx
 
 from app.core.config import settings
 
@@ -38,6 +41,95 @@ class LLMProvider(ABC):
     ) -> AsyncGenerator[str, None]:
         """Yield string tokens one by one asynchronously."""
         pass
+
+
+class OpenAICompatibleLLM(LLMProvider):
+    """
+    Standard OpenAI-compatible streaming LLM provider.
+    Supports local Ollama, vLLM, LM Studio, as well as cloud OpenAI, Groq, DeepSeek.
+    Endpoint: {base_url}/chat/completions
+    """
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:11434/v1",
+        model_name: str = "llama3.2",
+        api_key: Optional[str] = None,
+        timeout: float = 60.0,
+    ):
+        clean_url = base_url.rstrip("/")
+        if not clean_url.endswith("/chat/completions"):
+            if not clean_url.endswith("/v1"):
+                clean_url = f"{clean_url}/v1"
+            clean_url = f"{clean_url}/chat/completions"
+
+        self.endpoint_url = clean_url
+        self.model_name = model_name
+        self.api_key = api_key or ""
+        self.timeout = timeout
+        self._fallback = LocalDeterministicLLM()
+
+    async def astream(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.2,
+    ) -> AsyncGenerator[str, None]:
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        }
+        if self.api_key and self.api_key.strip():
+            headers["Authorization"] = f"Bearer {self.api_key.strip()}"
+
+        payload = {
+            "model": self.model_name,
+            "messages": [
+                {"role": m.get("role", "user"), "content": m.get("content", "")}
+                for m in messages
+            ],
+            "temperature": temperature,
+            "stream": True,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with client.stream(
+                    "POST", self.endpoint_url, json=payload, headers=headers
+                ) as response:
+                    if response.status_code >= 400:
+                        error_body = await response.aread()
+                        logger.warning(
+                            f"OpenAI-compatible LLM returned status {response.status_code}: {error_body.decode(errors='replace')}. Falling back to local synthesizer."
+                        )
+                        async for chunk in self._fallback.astream(messages, temperature):
+                            yield chunk
+                        return
+
+                    async for line in response.aiter_lines():
+                        if not line:
+                            continue
+                        line = line.strip()
+                        if line.startswith("data: "):
+                            data_str = line[6:].strip()
+                            if data_str == "[DONE]":
+                                break
+                            try:
+                                chunk_json = json.loads(data_str)
+                                choices = chunk_json.get("choices", [])
+                                if choices:
+                                    delta = choices[0].get("delta", {})
+                                    content = delta.get("content")
+                                    if content:
+                                        yield content
+                            except json.JSONDecodeError:
+                                continue
+
+        except Exception as exc:
+            logger.warning(
+                f"OpenAI-compatible streaming error ({exc}) connecting to {self.endpoint_url}; falling back to local synthesizer."
+            )
+            async for chunk in self._fallback.astream(messages, temperature):
+                yield chunk
 
 
 class NVIDIAStreamingLLM(LLMProvider):
@@ -100,39 +192,8 @@ class LocalDeterministicLLM(LLMProvider):
         messages: List[Dict[str, str]],
         temperature: float = 0.2,
     ) -> AsyncGenerator[str, None]:
-        # Extract system prompt context and user prompt
         system_content = next((m["content"] for m in messages if m.get("role") == "system"), "")
         user_query = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
-
-        # Check if this is a ReAct reasoning step prompt
-        if "Available Tools:" in system_content and "Thought:" in system_content:
-            # Check if an observation already exists in user_query/scratchpad
-            if "Observation:" in user_query:
-                # Agent has received observation; formulate final answer
-                chunk_ids = re.findall(r"\[ID:\s*([a-zA-Z0-9_\-]+)\]", user_query)
-                cite_tag = f" [doc:{chunk_ids[0]}]" if chunk_ids else ""
-                lines = [l.strip() for l in user_query.split("\n") if l.strip() and not l.startswith("--- Chunk") and not l.startswith("Thought:") and not l.startswith("Action")]
-                excerpt = " ".join(lines[-4:]) if lines else "Relevant excerpts retrieved."
-                if len(excerpt) > 400:
-                    excerpt = excerpt[:400] + "..."
-
-                response_text = (
-                    f"Thought: I now have enough information to answer the user's question.\n"
-                    f"Final Answer: Based on the retrieved documentation, {excerpt}{cite_tag}"
-                )
-            else:
-                # First turn: formulate a search action
-                clean_query = user_query.replace("Question:", "").strip()
-                response_text = (
-                    f"Thought: I need to search the knowledge base for information to answer the user's question.\n"
-                    f"Action: search_knowledge_base\n"
-                    f'Action Input: {{"query": "{clean_query}"}}'
-                )
-
-            for tok in [w + " " for w in response_text.split(" ")]:
-                await asyncio.sleep(0.005)
-                yield tok
-            return
 
         # Extract excerpts from system prompt
         context_body = ""
@@ -174,16 +235,52 @@ class LLMService:
 
     _instance: Optional["LLMService"] = None
 
-    def __init__(self):
-        if settings.NVIDIA_API_KEY and settings.NVIDIA_API_KEY.strip() and not settings.NVIDIA_API_KEY.startswith("nvapi-your"):
+    def __init__(self, provider: Optional[LLMProvider] = None):
+        if provider:
+            self.provider = provider
+        elif settings.NVIDIA_API_KEY and settings.NVIDIA_API_KEY.strip() and not settings.NVIDIA_API_KEY.startswith("nvapi-your"):
             logger.info(f"Initializing NVIDIA Chat LLM: {settings.NVIDIA_MODEL}")
-            self.provider: LLMProvider = NVIDIAStreamingLLM(
+            self.provider = NVIDIAStreamingLLM(
                 api_key=settings.NVIDIA_API_KEY,
                 model_name=settings.NVIDIA_MODEL,
             )
         else:
             logger.info("Initializing Local Deterministic Streaming LLM (No API key set).")
             self.provider = LocalDeterministicLLM()
+
+    def configure(
+        self,
+        provider: str,
+        base_url: Optional[str] = None,
+        model_name: Optional[str] = None,
+        api_key: Optional[str] = None,
+    ) -> None:
+        """Dynamically configure the active LLM provider."""
+        provider = (provider or "auto").lower()
+
+        if provider in ["ollama", "openai", "custom"]:
+            url = base_url or ("http://host.docker.internal:11434/v1" if provider == "ollama" else "https://api.openai.com/v1")
+            model = model_name or ("llama3.2" if provider == "ollama" else "gpt-4o-mini")
+            logger.info(f"Configuring OpenAI-compatible LLM: {model} at {url}")
+            self.provider = OpenAICompatibleLLM(
+                base_url=url,
+                model_name=model,
+                api_key=api_key or ("ollama" if provider == "ollama" else ""),
+            )
+        elif provider == "nvidia":
+            key = api_key or settings.NVIDIA_API_KEY
+            model = model_name or settings.NVIDIA_MODEL
+            logger.info(f"Configuring NVIDIA NIM Chat LLM: {model}")
+            self.provider = NVIDIAStreamingLLM(api_key=key, model_name=model)
+        elif provider == "local":
+            logger.info("Configuring Local Deterministic LLM synthesizer.")
+            self.provider = LocalDeterministicLLM()
+        else:
+            # Auto fallback
+            if settings.NVIDIA_API_KEY and not settings.NVIDIA_API_KEY.startswith("nvapi-your"):
+                self.provider = NVIDIAStreamingLLM(api_key=settings.NVIDIA_API_KEY, model_name=settings.NVIDIA_MODEL)
+            else:
+                self.provider = LocalDeterministicLLM()
 
     @classmethod
     def get_instance(cls) -> "LLMService":

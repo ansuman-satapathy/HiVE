@@ -3,8 +3,9 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useTaskQueue } from '../context/TaskQueueContext'
-import { LogOut, Bot, Files, Activity, Layers, Loader2, Sun, Moon, MessageSquare, SlidersHorizontal } from 'lucide-react'
+import { LogOut, Bot, Files, Activity, Layers, Loader2, Sun, Moon, MessageSquare, SlidersHorizontal, Settings } from 'lucide-react'
 import TaskQueueDrawer from './TaskQueueDrawer'
+import SettingsModal from './SettingsModal'
 
 import HiveLogo from './HiveLogo'
 
@@ -20,6 +21,7 @@ export default function DashboardLayout({ children }) {
   const { theme, toggleTheme } = useTheme()
   const { queueData, activeCount, drawerOpen, setDrawerOpen, fetchQueue } = useTaskQueue()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const dropdownRef = useRef(null)
   const location = useLocation()
 
@@ -171,8 +173,19 @@ export default function DashboardLayout({ children }) {
                   </div>
 
                   <button
+                    onClick={() => {
+                      setDropdownOpen(false)
+                      setSettingsOpen(true)
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-colors text-left cursor-pointer"
+                  >
+                    <Settings size={13} className="text-blue-500" />
+                    <span>Workspace Settings</span>
+                  </button>
+
+                  <button
                     onClick={logout}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
                   >
                     <LogOut size={13} />
                     <span>Log Out</span>
@@ -188,6 +201,12 @@ export default function DashboardLayout({ children }) {
       <main className="flex-1 flex flex-col">
         {children}
       </main>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
 
       {/* Live Slide-out Task Queue Drawer */}
       <TaskQueueDrawer
