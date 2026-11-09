@@ -1,10 +1,10 @@
 # Employee Leave Application Process
 
 ## Overview
-All full-time and part-time employees are entitled to Annual Leave, Sick Leave, and Public Holidays in accordance with QuickDesk HR policies.
+All full-time and part-time employees are entitled to Annual Leave, Sick Leave, and Public Holidays in accordance with HiVE HR policies.
 
 ## Applying for Leave
-1. Log in to the HR Portal at `https://hr.quickdesk.com`.
+1. Log in to the HR Portal at `https://hr.hive.internal`.
 2. Navigate to **Time Off** > **Request Leave**.
 3. Select the Leave Type (Paid Time Off, Sick Leave, Parental Leave, Unpaid Leave).
 4. Select the start date and end date.

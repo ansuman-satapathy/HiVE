@@ -175,8 +175,8 @@ class AgentRuntime:
                 {
                     "role": "system",
                     "content": (
-                        "You are HiVE AI, a helpful document intelligence assistant. "
-                        "Answer the user's conversational message briefly and naturally."
+                        "You are HiVE, a helpful assistant. "
+                        "Answer conversational messages briefly and directly."
                     ),
                 }
             ]

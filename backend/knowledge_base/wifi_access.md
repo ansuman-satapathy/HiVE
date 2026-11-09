@@ -1,16 +1,16 @@
 # Corporate & Guest Wi-Fi Access Guide
 
 ## Overview
-QuickDesk facilities provide high-speed secure Wi-Fi networks for corporate devices and visiting guests.
+HiVE facilities provide high-speed secure Wi-Fi networks for corporate devices and visiting guests.
 
-## Connecting to Corporate Wi-Fi (`QuickDesk-Secure`)
-1. Select the Wi-Fi network **QuickDesk-Secure** on your device.
+## Connecting to Corporate Wi-Fi (`HiVE-Secure`)
+1. Select the Wi-Fi network **HiVE-Secure** on your device.
 2. When prompted for security protocol, select **WPA3 Enterprise** or **802.1X EAP**.
 3. Enter your corporate email address as the Username and your SSO password.
-4. Trust the security certificate `cert.quickdesk.internal` when prompted.
+4. Trust the security certificate `cert.hive.internal` when prompted.
 
-## Guest Wi-Fi (`QuickDesk-Guest`)
-1. Select **QuickDesk-Guest**.
+## Guest Wi-Fi (`HiVE-Guest`)
+1. Select **HiVE-Guest**.
 2. Open your web browser; you will be automatically redirected to the Guest Captive Portal.
 3. Enter your full name, email address, and sponsoring employee's email.
 4. Guest passes expire after 24 hours.

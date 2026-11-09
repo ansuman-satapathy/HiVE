@@ -12,7 +12,7 @@ export default function DocumentStatsHeader({
           Knowledge Base
         </h1>
         <p className="text-xs text-[var(--text-secondary)]">
-          Manage indexed corpus manuals, technical guides, and documents for autonomous agent reasoning.
+          Manage indexed manuals, technical guides, and documents for search and chat.
         </p>
       </div>
 

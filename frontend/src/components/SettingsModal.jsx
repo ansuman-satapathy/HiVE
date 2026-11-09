@@ -329,7 +329,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 Workspace Settings
               </h2>
               <p className="text-[11px] text-[var(--text-muted)]">
-                Manage LLM intelligence, credentials, security, and MCP integrations
+                Manage LLM provider, credentials, security, and MCP integrations
               </p>
             </div>
           </div>
@@ -353,7 +353,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             }`}
           >
             <Cpu size={14} />
-            <span>AI Model &amp; Provider</span>
+            <span>LLM &amp; Provider</span>
           </button>
 
           <button
@@ -396,7 +396,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                   {/* Provider Radio Cards */}
                   <div>
                     <label className="block text-xs font-bold text-[var(--text-primary)] mb-2.5">
-                      Select Intelligence Engine
+                      Select LLM Provider
                     </label>
                     <div className="grid grid-cols-2 gap-2.5">
                       {/* Ollama / Local */}
@@ -967,3 +967,4 @@ export default function SettingsModal({ isOpen, onClose }) {
     </div>
   )
 }
+

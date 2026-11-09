@@ -115,8 +115,8 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 app = FastAPI(
-    title="DocAgent Runtime API",
-    description="Autonomous Document Intelligence & Agentic RAG Platform",
+    title="HiVE API",
+    description="Self-Hosted Knowledge & Agent Workspace",
     version="0.2.0",
     lifespan=lifespan,
 )
@@ -144,6 +144,6 @@ app.include_router(settings_router, prefix="/api")
 async def health_check():
     return {
         "status": "healthy",
-        "service": "docagent-api",
+        "service": "hive-api",
         "version": "0.2.0",
     }

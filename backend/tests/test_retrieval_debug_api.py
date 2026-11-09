@@ -25,7 +25,7 @@ async def test_retrieval_debug_pipeline_endpoint(db_session, client: AsyncClient
     Validates that Sparse, Dense, Hybrid RRF, Cross-Encoder Rerank,
     and Context Expansion stages return structured data and latency metrics.
     """
-    user = await create_test_user(db_session, "debugger@quickdesk.com")
+    user = await create_test_user(db_session, "debugger@hive.com")
     headers = auth_header(user)
 
     # 1. Create document and chunks

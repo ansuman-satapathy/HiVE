@@ -27,7 +27,8 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { tokenStorage } from '../utils/storage'
 
-const SESSIONS_STORAGE_KEY = 'quickdesk_chat_sessions_v1'
+const SESSIONS_STORAGE_KEY = 'hive_chat_sessions_v1'
+const LEGACY_SESSIONS_STORAGE_KEY = 'quickdesk_chat_sessions_v1'
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B'
@@ -85,7 +86,7 @@ export default function WorkspaceHome() {
   // Read chat sessions from localStorage
   const recentSessions = useMemo(() => {
     try {
-      const raw = localStorage.getItem(SESSIONS_STORAGE_KEY)
+      const raw = localStorage.getItem(SESSIONS_STORAGE_KEY) || localStorage.getItem(LEGACY_SESSIONS_STORAGE_KEY)
       if (!raw) return []
       const parsed = JSON.parse(raw)
       return Array.isArray(parsed)
@@ -168,7 +169,7 @@ export default function WorkspaceHome() {
             Welcome back{user?.full_name ? `, ${user.full_name}` : ''}
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1 max-w-2xl leading-relaxed">
-            Monitor your document knowledge base, hybrid sparse-dense retrieval pipeline, autonomous agent runtime, and external tool integrations.
+            Monitor documents, hybrid search pipelines, agent runtime, and MCP integrations.
           </p>
         </div>
 
@@ -366,7 +367,7 @@ export default function WorkspaceHome() {
 
               <div>
                 <h3 className="text-base font-bold text-[var(--text-primary)] group-hover:text-purple-500 transition-colors">
-                  Autonomous ReAct &amp; CRAG
+                  Agent Loop &amp; CRAG
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">
                   Fast-path router, Corrective RAG (self-reflective query rewriter), verified inline citation badges, and source grounding drawer.

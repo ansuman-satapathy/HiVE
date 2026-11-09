@@ -21,7 +21,8 @@ import ChatComposer from '../components/chat/ChatComposer'
 import DeleteSessionModal from '../components/chat/DeleteSessionModal'
 import ReasoningTimeline from '../components/chat/ReasoningTimeline'
 
-const STORAGE_KEY = 'quickdesk_chat_sessions_v1'
+const STORAGE_KEY = 'hive_chat_sessions_v1'
+const LEGACY_STORAGE_KEY = 'quickdesk_chat_sessions_v1'
 
 const SUGGESTED_PROMPTS = [
   'What is quantum entanglement according to the Feynman lectures?',
@@ -34,7 +35,7 @@ export default function ChatWorkspace() {
   // Session State
   const [sessions, setSessions] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY)
       return saved ? JSON.parse(saved) : []
     } catch {
       return []
@@ -520,7 +521,7 @@ export default function ChatWorkspace() {
   const handleExportMarkdown = () => {
     if (!activeSession || activeSession.messages.length === 0) return
 
-    let md = `# ${activeSession.title || 'QuickDesk Conversation'}\n`
+    let md = `# ${activeSession.title || 'HiVE Conversation'}\n`
     md += `*Exported on ${new Date().toLocaleString()}*\n\n---\n\n`
 
     activeSession.messages.forEach((msg) => {

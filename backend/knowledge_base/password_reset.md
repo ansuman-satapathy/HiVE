@@ -1,11 +1,11 @@
 # Password Reset & Account Security Policy
 
 ## Overview
-QuickDesk uses Single Sign-On (SSO) to secure access across all corporate tools and internal applications.
+HiVE uses Single Sign-On (SSO) to secure access across all corporate tools and internal applications.
 
 ## Self-Service Password Reset
-1. Visit the SSO Self-Service portal at `https://sso.quickdesk.com/reset`.
-2. Enter your registered corporate email address (`user@quickdesk.com`).
+1. Visit the SSO Self-Service portal at `https://sso.hive.internal/reset`.
+2. Enter your registered corporate email address (`user@hive.com`).
 3. Select your preferred verification method: SMS OTP or Authenticator Push Notification.
 4. Enter the verification code and set a new password.
 

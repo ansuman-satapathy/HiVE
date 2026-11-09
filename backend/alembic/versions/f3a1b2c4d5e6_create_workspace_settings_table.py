@@ -56,3 +56,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index('ix_workspace_settings_id', table_name='workspace_settings')
     op.drop_table('workspace_settings')
+

@@ -6,7 +6,7 @@ from tests.conftest import create_test_user, auth_header
 @pytest.mark.asyncio
 async def test_upload_markdown_document_and_list(client, db_session):
     """Test streaming upload of a Markdown file, background parsing, and document listing."""
-    user = await create_test_user(db_session, "uploader@docagent.com")
+    user = await create_test_user(db_session, "uploader@hive.com")
     headers = auth_header(user)
 
     md_content = b"# Architecture Overview\n\nThis is a test documentation file for RAG.\n"
@@ -85,7 +85,7 @@ async def test_upload_markdown_document_and_list(client, db_session):
 @pytest.mark.asyncio
 async def test_upload_unsupported_file_rejected(client, db_session):
     """Test that unsupported file extensions are rejected with 400 Bad Request."""
-    user = await create_test_user(db_session, "tester@docagent.com")
+    user = await create_test_user(db_session, "tester@hive.com")
     headers = auth_header(user)
 
     files = {"file": ("malicious.exe", io.BytesIO(b"fake executable binary"), "application/octet-stream")}
@@ -97,7 +97,7 @@ async def test_upload_unsupported_file_rejected(client, db_session):
 @pytest.mark.asyncio
 async def test_batch_upload_multiple_formats_and_limits(client, db_session):
     """Verify batch upload endpoint accepts up to 10 files (markdown, csv, txt) and enforces limits."""
-    user = await create_test_user(db_session, "batch_user@docagent.com")
+    user = await create_test_user(db_session, "batch_user@hive.com")
     headers = auth_header(user)
 
     # 1. Batch upload valid mixed formats
@@ -159,7 +159,7 @@ async def test_batch_upload_multiple_formats_and_limits(client, db_session):
 @pytest.mark.asyncio
 async def test_batch_delete_and_search_filter(client, db_session):
     """Test searching, format filtering, and batch deleting multiple documents."""
-    user = await create_test_user(db_session, "batchdelete@docagent.com")
+    user = await create_test_user(db_session, "batchdelete@hive.com")
     headers = auth_header(user)
 
     # 1. Upload 3 distinct documents

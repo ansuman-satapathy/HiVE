@@ -71,7 +71,7 @@ class AuthService:
         has_users = result.first() is not None
         return {
             "initialized": has_users,
-            "product_name": "DocAgent Runtime",
+            "product_name": "HiVE",
             "version": "0.2.0",
         }
 

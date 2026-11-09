@@ -1,5 +1,5 @@
 """
-Critical path tests for DocAgent Runtime:
+Critical path tests for HiVE Runtime:
   1. Auth: register → login → token works on /me
   2. Auth: invalid credentials are rejected
   3. Health check responds with 200 and healthy status
@@ -17,17 +17,17 @@ async def test_register_login_and_me(client):
     """A user can register, log in, and retrieve their profile via /me."""
     # Register
     reg = await client.post("/api/auth/register", json={
-        "email": "user@docagent.com",
+        "email": "user@hive.com",
         "password": "securepassword123",
         "full_name": "Workspace Owner",
     })
     assert reg.status_code == 201
-    assert reg.json()["email"] == "user@docagent.com"
+    assert reg.json()["email"] == "user@hive.com"
     assert reg.json()["full_name"] == "Workspace Owner"
 
     # Login
     login = await client.post("/api/auth/login", json={
-        "email": "user@docagent.com",
+        "email": "user@hive.com",
         "password": "securepassword123",
     })
     assert login.status_code == 200
@@ -39,7 +39,7 @@ async def test_register_login_and_me(client):
         "Authorization": f"Bearer {token}"
     })
     assert me.status_code == 200
-    assert me.json()["email"] == "user@docagent.com"
+    assert me.json()["email"] == "user@hive.com"
     assert me.json()["full_name"] == "Workspace Owner"
 
 
@@ -49,10 +49,10 @@ async def test_register_login_and_me(client):
 @pytest.mark.asyncio
 async def test_login_wrong_password_rejected(client, db_session):
     """Login with incorrect password returns 401 Unauthorized."""
-    await create_test_user(db_session, "alice@docagent.com")
+    await create_test_user(db_session, "alice@hive.com")
 
     resp = await client.post("/api/auth/login", json={
-        "email": "alice@docagent.com",
+        "email": "alice@hive.com",
         "password": "wrongpassword",
     })
     assert resp.status_code == 401

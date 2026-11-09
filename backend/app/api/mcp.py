@@ -33,7 +33,7 @@ router = APIRouter(prefix="/mcp", tags=["MCP"])
 MCP_PROTOCOL_VERSION = "2024-11-05"
 
 SERVER_INFO = {
-    "name": "hive-document-intelligence",
+    "name": "hive-knowledge-base",
     "version": "1.0.0",
 }
 

@@ -270,3 +270,4 @@ async def detect_local_models(
         endpoint=None,
         models=[],
     )
+

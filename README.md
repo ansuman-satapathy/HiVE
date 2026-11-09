@@ -119,7 +119,7 @@ docker compose up --build -d
 
 Open **http://localhost:5173**
 
-Default workspace account: `admin@quickdesk.com` / `password123`
+Default workspace account: `admin@hive.com` / `password123`
 
 ### Updating Frontend Files in Docker
 The backend runs with a volume mount (`--reload`), so Python changes take effect immediately. For the production frontend container (which serves the compiled bundle via Nginx), rebuild and recreate only the frontend container without resetting PostgreSQL or the backend:

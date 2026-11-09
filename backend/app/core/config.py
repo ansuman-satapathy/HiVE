@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="allow")
 
-    PROJECT_NAME: str = "DocAgent Runtime"
+    PROJECT_NAME: str = "HiVE"
     API_V1_STR: str = "/api"
     
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/quickdesk"

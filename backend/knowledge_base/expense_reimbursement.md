@@ -9,7 +9,7 @@ Employees incurring valid business-related expenses (travel, software subscripti
 - **Software/Peripherals**: Team productivity tools or home office accessories up to $200 per year (requires manager approval).
 
 ## How to Submit an Expense Claim
-1. Access the Finance Portal (`https://finance.quickdesk.com/expenses`).
+1. Access the Finance Portal (`https://finance.hive.internal/expenses`).
 2. Click **New Expense Claim**.
 3. Upload clear scans or digital receipts for all items.
 4. Enter the cost, currency, expense category, and cost center code.

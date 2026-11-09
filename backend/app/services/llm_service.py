@@ -12,7 +12,7 @@ from app.core.config import settings
 logger = logging.getLogger("llm_service")
 
 
-SYSTEM_PROMPT_TEMPLATE = """You are QuickDesk AI, an expert, concise, and helpful document intelligence assistant.
+SYSTEM_PROMPT_TEMPLATE = """You are HiVE, a helpful and precise assistant.
 Answer the user's question accurately using ONLY the provided document context excerpts below.
 If the excerpts do not contain sufficient facts to answer the question, clearly state that the provided documents do not contain the answer.
 

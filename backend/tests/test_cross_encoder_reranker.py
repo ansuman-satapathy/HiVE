@@ -159,7 +159,7 @@ async def test_rerank_api_endpoint(client, db_session):
     End-to-end API test for GET /api/documents/search/rerank.
     Indexes chunks, queries the endpoint, and verifies structured RerankResponse output.
     """
-    user = await create_test_user(db_session, "rerank_user@docagent.com")
+    user = await create_test_user(db_session, "rerank_user@hive.com")
     headers = auth_header(user)
 
     doc_id = uuid.uuid4()
@@ -168,7 +168,7 @@ async def test_rerank_api_endpoint(client, db_session):
             "id": uuid.uuid4(),
             "document_id": doc_id,
             "chunk_index": 0,
-            "content": "DocAgent Runtime supports multi-stage retrieval combining dense vector search and BM25 with cross-encoders.",
+            "content": "HiVE supports multi-stage retrieval combining dense vector search and BM25 with cross-encoders.",
             "token_count": 18,
             "chunk_metadata": {"title": "Architecture Overview"},
         },
