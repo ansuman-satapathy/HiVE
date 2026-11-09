@@ -1,5 +1,6 @@
 from datetime import datetime
 from uuid import UUID
+from typing import Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 class UserRegister(BaseModel):
@@ -18,6 +19,14 @@ class UserResponse(BaseModel):
     email: EmailStr
     full_name: str
     created_at: datetime
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6, description="New password must be at least 6 characters")
 
 class Token(BaseModel):
     access_token: str

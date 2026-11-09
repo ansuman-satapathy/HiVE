@@ -10,6 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [allowDemoAutofill, setAllowDemoAutofill] = useState(true)
 
   const { login } = useAuth()
   const { theme, toggleTheme } = useTheme()
@@ -23,6 +24,15 @@ export default function Login() {
           const data = await res.json()
           if (!data.initialized) {
             navigate('/onboarding')
+            return
+          }
+        }
+
+        const pubSettingsRes = await fetch('/api/settings/public')
+        if (pubSettingsRes.ok) {
+          const pubSettings = await pubSettingsRes.json()
+          if (pubSettings.allow_demo_autofill !== undefined) {
+            setAllowDemoAutofill(pubSettings.allow_demo_autofill)
           }
         }
       } catch (err) {
@@ -115,16 +125,18 @@ export default function Login() {
             {!loading && <ArrowRight size={16} />}
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEmail('demo@docagent.com')
-              setPassword('password123')
-            }}
-            className="w-full py-2 px-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-medium transition-all flex items-center justify-center gap-1.5"
-          >
-            <span>⚡ Fill Default Admin Credentials</span>
-          </button>
+          {allowDemoAutofill && (
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('demo@docagent.com')
+                setPassword('password123')
+              }}
+              className="w-full py-2 px-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>⚡ Fill Default Admin Credentials</span>
+            </button>
+          )}
         </form>
 
         <div className="mt-8 pt-6 border-t border-[var(--border-default)] text-center text-xs text-[var(--text-secondary)]">

@@ -75,3 +75,49 @@ class AuthService:
             "version": "0.2.0",
         }
 
+    @classmethod
+    async def update_user(cls, db: AsyncSession, user: User, update_data: dict) -> User:
+        """Update authenticated user profile information."""
+        new_email = update_data.get("email")
+        new_name = update_data.get("full_name")
+
+        if new_email and new_email != user.email:
+            statement = select(User).where(User.email == new_email)
+            result = await db.exec(statement)
+            existing = result.first()
+            if existing and existing.id != user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already in use by another user",
+                )
+            user.email = new_email
+
+        if new_name and new_name.strip():
+            user.full_name = new_name.strip()
+
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    @classmethod
+    async def change_password(
+        cls, db: AsyncSession, user: User, current_password: str, new_password: str
+    ) -> None:
+        """Change user password after verifying current credentials."""
+        if not verify_password(current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+
+        if len(new_password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be at least 6 characters long",
+            )
+
+        user.password_hash = get_password_hash(new_password)
+        db.add(user)
+        await db.commit()
+
