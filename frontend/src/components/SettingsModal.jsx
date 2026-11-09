@@ -139,7 +139,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         } else {
           setTestResult({
             success: false,
-            message: 'No active Ollama instance detected on localhost:11434. Make sure Ollama is running.',
+            message: 'No active Ollama instance detected. If Ollama is running on your host machine, set OLLAMA_HOST=0.0.0.0 so Docker can connect to host.docker.internal:11434.',
           })
         }
       }
