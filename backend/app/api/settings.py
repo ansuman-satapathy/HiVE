@@ -27,6 +27,10 @@ class ModelProfile(BaseModel):
     model_name: str
     api_key: Optional[str] = None
     is_active: bool = False
+    enable_thinking: bool = False
+    timeout_seconds: int = 180
+    temperature: Optional[float] = 0.2
+    max_tokens: Optional[int] = 4096
 
 
 class WorkspaceSettingsResponse(BaseModel):
@@ -67,6 +71,7 @@ class TestLLMRequest(BaseModel):
     base_url: Optional[str] = None
     model_name: Optional[str] = None
     api_key: Optional[str] = None
+    timeout_seconds: Optional[int] = 180
 
 
 class TestEmbeddingRequest(BaseModel):
@@ -140,6 +145,9 @@ async def get_settings(
             "base_url": setting.llm_base_url,
             "model_name": setting.llm_model,
             "is_active": True,
+            "enable_thinking": False,
+            "timeout_seconds": 180,
+            "temperature": 0.2,
         }]
 
     return WorkspaceSettingsResponse(
@@ -223,6 +231,9 @@ async def update_settings(
             "base_url": setting.llm_base_url,
             "model_name": setting.llm_model,
             "is_active": True,
+            "enable_thinking": False,
+            "timeout_seconds": 180,
+            "temperature": 0.2,
         }]
 
     return WorkspaceSettingsResponse(
@@ -312,8 +323,9 @@ async def test_llm_connection(
     }
 
     try:
-        # Allow up to 45s for local models that need to load into GPU/RAM on cold start
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        # Configurable timeout (default 180s for local models that load into GPU/RAM on cold start)
+        test_timeout = float(req.timeout_seconds or 180.0)
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=30.0, read=test_timeout, write=30.0, pool=30.0)) as client:
             res = await client.post(endpoint, json=payload, headers=headers)
             latency_ms = int((time.monotonic() - start) * 1000)
 
@@ -432,6 +444,9 @@ async def list_workspace_models(
             "base_url": setting.llm_base_url,
             "model_name": setting.llm_model,
             "is_active": True,
+            "enable_thinking": False,
+            "timeout_seconds": 180,
+            "temperature": 0.2,
         }]
 
     active_id = None
@@ -502,6 +517,8 @@ async def save_workspace_model(
             base_url=setting.llm_base_url,
             model_name=setting.llm_model,
             api_key=plain_key,
+            timeout=float(model.timeout_seconds or 180.0),
+            enable_thinking=model.enable_thinking,
         )
 
     setting.set_models_list(new_list)

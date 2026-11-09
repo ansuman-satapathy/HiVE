@@ -108,6 +108,7 @@ export default function ChatWorkspace() {
     abortStream,
     isStreaming,
     streamedText,
+    modelThought,
     status,
     citations,
     reasoningSteps,
@@ -116,6 +117,8 @@ export default function ChatWorkspace() {
     elapsedMs,
     finalElapsedMs,
   } = useEventStream()
+
+  const [showLiveThought, setShowLiveThought] = useState(true)
 
   // Save sessions to localStorage
   useEffect(() => {
@@ -369,13 +372,14 @@ export default function ChatWorkspace() {
       topK: effectiveTopK,
       windowSize: effectiveWindowSize,
       temperature: effectiveTemperature,
-      onDone: ({ text: fullAssistantText, citations: doneCitations, reasoningSteps: doneSteps, elapsedMs: doneElapsedMs }) => {
+      onDone: ({ text: fullAssistantText, citations: doneCitations, reasoningSteps: doneSteps, modelThought: doneThought, elapsedMs: doneElapsedMs }) => {
         const assistantMessage = {
           id: `msg_asst_${Date.now()}`,
           role: 'assistant',
           content: fullAssistantText,
           citations: doneCitations && doneCitations.length > 0 ? doneCitations : citations,
           reasoningSteps: doneSteps && doneSteps.length > 0 ? doneSteps : reasoningSteps,
+          modelThought: doneThought || modelThought || null,
           elapsedMs: doneElapsedMs,
           timestamp: new Date().toISOString(),
         }
@@ -791,14 +795,35 @@ export default function ChatWorkspace() {
                 <div className="flex-1 min-w-0 space-y-3">
                   {/* Status Indicator Pill with live elapsed timer */}
                   {status && (
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/25 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-xs font-medium w-fit">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                      <span>{status.message}</span>
-                      <span className="font-mono text-[10px] text-blue-400/70 tabular-nums">
-                        {elapsedMs < 1000
-                          ? `${elapsedMs}ms`
-                          : `${(elapsedMs / 1000).toFixed(1)}s`}
-                      </span>
+                    <div className="flex flex-col gap-2">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/25 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-xs font-medium w-fit">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                        <span>{status.message}</span>
+                        <span className="font-mono text-[10px] text-blue-400/70 tabular-nums">
+                          {elapsedMs < 1000
+                            ? `${elapsedMs}ms`
+                            : `${(elapsedMs / 1000).toFixed(1)}s`}
+                        </span>
+                        {modelThought && (
+                          <button
+                            type="button"
+                            onClick={() => setShowLiveThought((prev) => !prev)}
+                            className="ml-2 text-[10.5px] text-blue-500 underline hover:text-blue-600 cursor-pointer font-normal"
+                          >
+                            {showLiveThought ? 'Hide reasoning' : 'Show reasoning'}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Live streaming model thought / reasoning */}
+                      {modelThought && showLiveThought && (
+                        <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5 text-xs font-mono text-[var(--text-secondary)] whitespace-pre-wrap max-h-52 overflow-y-auto animate-in fade-in select-text">
+                          <div className="text-[10px] uppercase font-bold text-blue-500 tracking-wider mb-1 flex items-center gap-1">
+                            <Sparkles size={11} className="animate-spin" /> Live Model Reasoning
+                          </div>
+                          {modelThought}
+                        </div>
+                      )}
                     </div>
                   )}
 

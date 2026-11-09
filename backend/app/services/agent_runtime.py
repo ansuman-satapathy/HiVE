@@ -165,32 +165,50 @@ class AgentRuntime:
         """
         start_time = time.monotonic()
         
-        # Resolve active LLM provider (supports dynamic per-message model switching)
+        # Resolve active LLM provider (supports dynamic per-message model switching, custom timeouts, and thinking)
         active_llm = None
-        if getattr(req, "model_id", None) and isinstance(req.model_id, str):
-            try:
-                from app.models.workspace_setting import WorkspaceSetting
-                from sqlmodel import select
-                stmt = select(WorkspaceSetting)
-                exec_res = await db.exec(stmt)
-                setting_row = exec_res.first() if hasattr(exec_res, "first") else None
-                if setting_row and hasattr(setting_row, "models_list") and isinstance(setting_row.models_list, list):
+        target_model = None
+        try:
+            from app.models.workspace_setting import WorkspaceSetting
+            from sqlmodel import select
+            stmt = select(WorkspaceSetting)
+            exec_res = await db.exec(stmt)
+            setting_row = exec_res.first() if hasattr(exec_res, "first") else None
+            if setting_row and hasattr(setting_row, "models_list") and isinstance(setting_row.models_list, list):
+                # 1. Match requested model_id
+                if getattr(req, "model_id", None) and isinstance(req.model_id, str):
                     for m in setting_row.models_list:
                         if isinstance(m, dict) and (m.get("id") == req.model_id or m.get("model_name") == req.model_id):
-                            p = m.get("provider", "openai")
-                            if p in ["ollama", "openai", "nvidia"]:
-                                from app.services.llm_service import OpenAICompatibleLLM
-                                active_llm = OpenAICompatibleLLM(
-                                    base_url=m.get("base_url") or ("http://localhost:11434/v1" if p == "ollama" else "https://api.openai.com/v1"),
-                                    model_name=m.get("model_name") or req.model_id,
-                                    api_key=m.get("api_key") or ("ollama" if p == "ollama" else getattr(setting_row, "decrypted_api_key", None) or ""),
-                                )
-                            elif p == "local":
-                                from app.services.llm_service import LocalDeterministicLLM
-                                active_llm = LocalDeterministicLLM()
+                            target_model = m
                             break
-            except Exception as e:
-                logger.warning(f"Failed to resolve custom model {req.model_id}: {e}")
+                # 2. Match active model
+                if not target_model:
+                    for m in setting_row.models_list:
+                        if isinstance(m, dict) and m.get("is_active"):
+                            target_model = m
+                            break
+                # 3. Fallback to first configured model
+                if not target_model and setting_row.models_list:
+                    target_model = setting_row.models_list[0]
+
+            if target_model and isinstance(target_model, dict):
+                p = target_model.get("provider", "openai")
+                timeout_val = float(target_model.get("timeout_seconds") or 180.0)
+                enable_thinking = bool(target_model.get("enable_thinking", False))
+                if p in ["ollama", "openai", "nvidia", "custom"]:
+                    from app.services.llm_service import OpenAICompatibleLLM
+                    active_llm = OpenAICompatibleLLM(
+                        base_url=target_model.get("base_url") or ("http://localhost:11434/v1" if p == "ollama" else "https://api.openai.com/v1"),
+                        model_name=target_model.get("model_name") or target_model.get("id") or "llama3.2",
+                        api_key=target_model.get("api_key") or ("ollama" if p == "ollama" else getattr(setting_row, "decrypted_api_key", None) or ""),
+                        timeout=timeout_val,
+                        enable_thinking=enable_thinking,
+                    )
+                elif p == "local":
+                    from app.services.llm_service import LocalDeterministicLLM
+                    active_llm = LocalDeterministicLLM()
+        except Exception as e:
+            logger.warning(f"Failed to resolve custom model {req.model_id}: {e}")
 
         if not active_llm:
             active_llm = LLMService.get_instance().provider
@@ -214,8 +232,12 @@ class AgentRuntime:
                     direct_messages.append({"role": m.role, "content": m.content})
             direct_messages.append({"role": "user", "content": req.query})
 
-            async for token in active_llm.astream(direct_messages, temperature=0.7):
-                yield {"type": "token", "data": {"delta": token}}
+            async for chunk in active_llm.astream(direct_messages, temperature=0.7):
+                if isinstance(chunk, dict) and chunk.get("type") == "thought":
+                    yield {"type": "thought_stream", "data": {"delta": chunk.get("delta", "")}}
+                else:
+                    text_delta = chunk.get("delta", "") if isinstance(chunk, dict) else str(chunk)
+                    yield {"type": "token", "data": {"delta": text_delta}}
 
             elapsed_ms = int((time.monotonic() - start_time) * 1000)
             yield {
@@ -363,8 +385,12 @@ class AgentRuntime:
                 synthesis_messages.append({"role": m.role, "content": m.content})
         synthesis_messages.append({"role": "user", "content": used_query})
 
-        async for token in active_llm.astream(synthesis_messages, temperature=req.temperature):
-            yield {"type": "token", "data": {"delta": token}}
+        async for chunk in active_llm.astream(synthesis_messages, temperature=req.temperature):
+            if isinstance(chunk, dict) and chunk.get("type") == "thought":
+                yield {"type": "thought_stream", "data": {"delta": chunk.get("delta", "")}}
+            else:
+                text_delta = chunk.get("delta", "") if isinstance(chunk, dict) else str(chunk)
+                yield {"type": "token", "data": {"delta": text_delta}}
 
         elapsed_ms = int((time.monotonic() - start_time) * 1000)
         yield {

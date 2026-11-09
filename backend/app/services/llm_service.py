@@ -3,13 +3,76 @@ import json
 import time
 import asyncio
 import logging
-from typing import AsyncGenerator, List, Dict, Any, Optional
+from typing import AsyncGenerator, List, Dict, Any, Optional, Union
 from abc import ABC, abstractmethod
 import httpx
 
 from app.core.config import settings
 
 logger = logging.getLogger("llm_service")
+
+
+class ThinkTagFilter:
+    """
+    Parses live streaming text for <think>...</think> tags.
+    Extracts thoughts when enable_thinking=True, or suppresses thinking tags completely when enable_thinking=False.
+    """
+    def __init__(self, enable_thinking: bool = False):
+        self.enable_thinking = enable_thinking
+        self.in_think = False
+        self.buffer = ""
+
+    def process(self, text: str) -> List[Dict[str, str]]:
+        results: List[Dict[str, str]] = []
+        self.buffer += text
+
+        while self.buffer:
+            if not self.in_think:
+                if "<think>" in self.buffer:
+                    before, _, self.buffer = self.buffer.partition("<think>")
+                    if before:
+                        results.append({"type": "content", "delta": before})
+                    self.in_think = True
+                elif "<" in self.buffer and any("<think>".startswith(self.buffer[self.buffer.rfind("<"):])):
+                    # Potential partial tag at the end of buffer: wait for next chunk
+                    idx = self.buffer.rfind("<")
+                    if idx > 0:
+                        results.append({"type": "content", "delta": self.buffer[:idx]})
+                        self.buffer = self.buffer[idx:]
+                    break
+                else:
+                    results.append({"type": "content", "delta": self.buffer})
+                    self.buffer = ""
+            else:
+                if "</think>" in self.buffer:
+                    thought, _, self.buffer = self.buffer.partition("</think>")
+                    if thought and self.enable_thinking:
+                        results.append({"type": "thought", "delta": thought})
+                    self.in_think = False
+                elif "<" in self.buffer and any("</think>".startswith(self.buffer[self.buffer.rfind("<"):])):
+                    idx = self.buffer.rfind("<")
+                    thought = self.buffer[:idx]
+                    if thought and self.enable_thinking:
+                        results.append({"type": "thought", "delta": thought})
+                    self.buffer = self.buffer[idx:]
+                    break
+                else:
+                    if self.enable_thinking:
+                        results.append({"type": "thought", "delta": self.buffer})
+                    self.buffer = ""
+
+        return results
+
+    def flush(self) -> List[Dict[str, str]]:
+        results: List[Dict[str, str]] = []
+        if self.buffer:
+            if self.in_think:
+                if self.enable_thinking:
+                    results.append({"type": "thought", "delta": self.buffer})
+            else:
+                results.append({"type": "content", "delta": self.buffer})
+            self.buffer = ""
+        return results
 
 
 SYSTEM_PROMPT_TEMPLATE = """You are HiVE, a helpful and precise assistant.
@@ -55,7 +118,8 @@ class OpenAICompatibleLLM(LLMProvider):
         base_url: str = "http://localhost:11434/v1",
         model_name: str = "llama3.2",
         api_key: Optional[str] = None,
-        timeout: float = 45.0,
+        timeout: float = 180.0,
+        enable_thinking: bool = False,
     ):
         self.base_url = base_url.rstrip("/")
         if not self.base_url.endswith("/v1") and not self.base_url.endswith("/chat/completions"):
@@ -67,14 +131,15 @@ class OpenAICompatibleLLM(LLMProvider):
 
         self.model_name = model_name
         self.api_key = api_key or ""
-        self.timeout = timeout
+        self.timeout = float(timeout or 180.0)
+        self.enable_thinking = enable_thinking
         self._fallback = LocalDeterministicLLM()
 
     async def astream(
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.2,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[Union[str, Dict[str, Any]], None]:
         headers = {
             "Content-Type": "application/json",
             "Accept": "text/event-stream",
@@ -82,15 +147,35 @@ class OpenAICompatibleLLM(LLMProvider):
         if self.api_key and self.api_key.strip():
             headers["Authorization"] = f"Bearer {self.api_key.strip()}"
 
+        effective_messages = [dict(m) for m in messages]
+        if not self.enable_thinking:
+            # Explicitly instruct reasoning models not to output thinking tags when thinking is disabled
+            direct_instruction = "Respond directly and concisely without <think> tags or internal reasoning steps."
+            if effective_messages and effective_messages[0].get("role") == "system":
+                effective_messages[0]["content"] = f"{effective_messages[0]['content']}\n\n{direct_instruction}"
+            else:
+                effective_messages.insert(0, {"role": "system", "content": direct_instruction})
+
         payload = {
             "model": self.model_name,
-            "messages": messages,
+            "messages": effective_messages,
             "temperature": temperature,
             "stream": True,
         }
 
+        # Generous timeout for local models / thinking models
+        timeout_val = float(self.timeout) if self.timeout else 180.0
+        client_timeout = httpx.Timeout(
+            connect=30.0,
+            read=timeout_val,
+            write=60.0,
+            pool=30.0,
+        )
+
+        tag_filter = ThinkTagFilter(enable_thinking=self.enable_thinking)
+
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=client_timeout) as client:
                 async with client.stream(
                     "POST",
                     self.endpoint_url,
@@ -119,11 +204,23 @@ class OpenAICompatibleLLM(LLMProvider):
                                 choices = chunk_json.get("choices", [])
                                 if choices:
                                     delta = choices[0].get("delta", {})
+
+                                    # 1. Reasoning content stream (Ollama / vLLM / DeepSeek / Groq)
+                                    reasoning = delta.get("reasoning_content")
+                                    if reasoning and self.enable_thinking:
+                                        yield {"type": "thought", "delta": reasoning}
+
+                                    # 2. Content stream (with <think> tag handling)
                                     content = delta.get("content")
                                     if content:
-                                        yield content
+                                        for item in tag_filter.process(content):
+                                            yield item
                             except json.JSONDecodeError:
                                 continue
+
+                    # Flush any remainder in tag filter
+                    for item in tag_filter.flush():
+                        yield item
 
         except Exception as exc:
             logger.error(f"OpenAI-compatible streaming error ({exc}) connecting to {self.endpoint_url}")
@@ -227,6 +324,8 @@ class LLMService:
         base_url: Optional[str] = None,
         model_name: Optional[str] = None,
         api_key: Optional[str] = None,
+        timeout: float = 180.0,
+        enable_thinking: bool = False,
     ) -> None:
         """Dynamically configure the active LLM provider."""
         provider = (provider or "auto").lower()
@@ -242,11 +341,13 @@ class LLMService:
                 url = base_url or "https://api.openai.com/v1"
                 model = model_name or "gpt-4o-mini"
 
-            logger.info(f"Configuring OpenAI-compatible LLM: {model} at {url}")
+            logger.info(f"Configuring OpenAI-compatible LLM: {model} at {url} (timeout={timeout}s, thinking={enable_thinking})")
             self.provider = OpenAICompatibleLLM(
                 base_url=url,
                 model_name=model,
                 api_key=api_key or ("ollama" if provider == "ollama" else ""),
+                timeout=timeout,
+                enable_thinking=enable_thinking,
             )
         elif provider == "local":
             logger.info("Configuring Local Deterministic LLM synthesizer.")
