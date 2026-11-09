@@ -97,6 +97,7 @@ export function useEventStream() {
       let capturedCitations = []
       let capturedSteps = []
       let capturedModelThought = ''
+      let isCompleted = false
 
       try {
         const token = tokenStorage.getToken()
@@ -114,10 +115,12 @@ export function useEventStream() {
             query: query.trim(),
             document_ids: cleanDocIds && cleanDocIds.length > 0 ? cleanDocIds : null,
             model_id: modelId || null,
-            messages: messages.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
+            messages: (messages || [])
+              .filter((m) => m && typeof m.content === 'string')
+              .map((m) => ({
+                role: m.role,
+                content: m.content,
+              })),
             top_k: topK,
             window_size: windowSize,
             temperature,
@@ -138,16 +141,14 @@ export function useEventStream() {
         const decoder = new TextDecoder('utf-8')
         let buffer = ''
 
-        let isCompleted = false
-
         while (!isCompleted) {
           let readResult
           try {
             readResult = await reader.read()
           } catch (readErr) {
             if (isCompleted || readErr.name === 'AbortError') break
-            // In Firefox, if connection closed after tokens or done event
-            if (accumulated) {
+            // In Firefox, if connection closed after tokens/thoughts received
+            if (accumulated || capturedModelThought) {
               console.warn('Stream connection closed by server after tokens received:', readErr)
               break
             }

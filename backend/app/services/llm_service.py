@@ -206,7 +206,7 @@ class OpenAICompatibleLLM(LLMProvider):
                                     delta = choices[0].get("delta", {})
 
                                     # 1. Reasoning content stream (Ollama / vLLM / DeepSeek / Groq)
-                                    reasoning = delta.get("reasoning_content")
+                                    reasoning = delta.get("reasoning_content") or delta.get("reasoning")
                                     if reasoning and self.enable_thinking:
                                         yield {"type": "thought", "delta": reasoning}
 
