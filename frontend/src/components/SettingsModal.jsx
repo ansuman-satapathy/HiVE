@@ -340,6 +340,7 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
+          id: `${provider}_${modelName.replace(/[:/]/g, '_')}`,
           name: `${modelName} (${provider})`,
           provider,
           base_url: baseUrl,
@@ -348,13 +349,18 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
           is_active: false,
         }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        setModelsList(data.models || [])
-        setModelSuccessMsg(`Added '${modelName}' to models catalog!`)
-        setTimeout(() => setModelSuccessMsg(null), 3000)
-        window.dispatchEvent(new CustomEvent('models-updated'))
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        const msg = err.detail
+          ? (typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail))
+          : 'Failed to add model to catalog'
+        throw new Error(msg)
       }
+      const data = await res.json()
+      setModelsList(data.models || [])
+      setModelSuccessMsg(`Added '${modelName}' to models catalog!`)
+      setTimeout(() => setModelSuccessMsg(null), 3000)
+      window.dispatchEvent(new CustomEvent('models-updated'))
     } catch (err) {
       setModelErrorMsg(err.message)
     }
