@@ -182,7 +182,12 @@ async def test_llm_connection(
         setting = await get_or_create_workspace_settings(db)
         effective_api_key = (setting.decrypted_api_key or "").strip()
     if not effective_api_key:
-        effective_api_key = (app_settings.LLM_API_KEY or app_settings.OPENAI_API_KEY or app_settings.NVIDIA_API_KEY).strip()
+        if provider == "nvidia":
+            effective_api_key = (app_settings.LLM_API_KEY or app_settings.NVIDIA_API_KEY or "").strip()
+        elif provider == "openai":
+            effective_api_key = (app_settings.LLM_API_KEY or app_settings.OPENAI_API_KEY or "").strip()
+        else:
+            effective_api_key = (app_settings.LLM_API_KEY or "").strip()
 
     # Determine default base_url and model based on provider
     if provider == "nvidia":

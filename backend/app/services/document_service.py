@@ -42,13 +42,24 @@ class DocumentService:
         background_tasks,
         seen_filenames: Optional[set] = None,
         seen_hashes: Optional[set] = None,
+        check_lock: bool = True,
     ) -> Tuple[Document, bool, Optional[str], str]:
         """
         Handle a single file upload with comprehensive duplicate validation:
-        1. Name duplicates (exact filename already in user's workspace or earlier in this batch)
-        2. Content duplicates (sha256 hash matches an existing processed document or earlier in this batch)
+        1. Ingestion lock check (no new uploads while documents are processing)
+        2. Name duplicates (exact filename already in user's workspace or earlier in this batch)
+        3. Content duplicates (sha256 hash matches an existing processed document or earlier in this batch)
         Returns: (doc, is_duplicate, duplicate_type, message)
         """
+        # API-level upload lock: prevent uploads while tasks are actively processing
+        if check_lock:
+            active_docs = await DocumentRepository.list_active_ingestion_tasks(db, user.id)
+            if active_docs:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Cannot upload files: {len(active_docs)} document(s) are currently being processed. Please wait for ingestion to complete before uploading more documents."
+                )
+
         filename = file.filename or "unnamed_document"
         file_type = cls.validate_file_extension(filename)
 
@@ -189,6 +200,14 @@ class DocumentService:
                 detail=f"Maximum {MAX_FILES_PER_BATCH} files can be uploaded at a time. Selected: {len(files)}."
             )
 
+        # API-level upload lock: prevent uploads while tasks are actively processing
+        active_docs = await DocumentRepository.list_active_ingestion_tasks(db, user.id)
+        if active_docs:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Cannot upload files: {len(active_docs)} document(s) are currently being processed. Please wait for ingestion to complete before uploading more documents."
+            )
+
         successful_docs = []
         details = []
         messages = []
@@ -207,6 +226,7 @@ class DocumentService:
                     background_tasks=background_tasks,
                     seen_filenames=seen_filenames,
                     seen_hashes=seen_hashes,
+                    check_lock=False,
                 )
                 if is_dup:
                     dup_count += 1

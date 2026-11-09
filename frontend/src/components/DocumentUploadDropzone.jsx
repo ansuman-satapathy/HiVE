@@ -4,6 +4,7 @@ export default function DocumentUploadDropzone({
   uploading,
   hasActiveDocs,
   activeCount = 0,
+  progress = 0,
   dragOver,
   setDragOver,
   onFileSelect,
@@ -51,12 +52,22 @@ export default function DocumentUploadDropzone({
         {/* Top edge animated progress line while uploading or ingesting */}
         {uploading && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500/20 overflow-hidden">
-            <div className="h-full bg-blue-500 w-1/3 rounded-full shimmer-progress animate-pulse" />
+            <div
+              className="h-full bg-blue-500 rounded-r-full transition-all duration-300 relative overflow-hidden"
+              style={{ width: `${Math.max(15, Math.min(100, progress || 30))}%` }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
+            </div>
           </div>
         )}
         {!uploading && hasActiveDocs && (
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-amber-500/20 overflow-hidden">
-            <div className="h-full bg-amber-500/70 w-1/4 rounded-full shimmer-progress animate-pulse" />
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500/20 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-r-full transition-all duration-500 ease-out relative overflow-hidden"
+              style={{ width: `${Math.max(12, Math.min(100, progress || 25))}%` }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
+            </div>
           </div>
         )}
 
