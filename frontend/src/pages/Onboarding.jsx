@@ -192,10 +192,6 @@ export default function Onboarding() {
           <div className="mb-3">
             <HiveLogo size="lg" />
           </div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[11px] font-semibold mb-2">
-            <Sparkles size={11} />
-            <span>FIRST-RUN SETUP WIZARD</span>
-          </div>
           <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
             Setup Your HiVE Workspace
           </h1>

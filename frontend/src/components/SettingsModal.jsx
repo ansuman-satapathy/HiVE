@@ -455,7 +455,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                         }`}
                       >
                         <div>
-                          <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-2">
                             <div
                               className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                                 provider === 'ollama'
@@ -465,9 +465,6 @@ export default function SettingsModal({ isOpen, onClose }) {
                             >
                               {provider === 'ollama' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                             </div>
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 font-semibold border border-emerald-500/20 whitespace-nowrap shrink-0">
-                              Zero Cost
-                            </span>
                           </div>
                           <div className="text-xs font-bold text-[var(--text-primary)] mb-1">
                             Local Ollama / vLLM
@@ -493,7 +490,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                         }`}
                       >
                         <div>
-                          <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-2">
                             <div
                               className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                                 provider === 'openai'
@@ -503,9 +500,6 @@ export default function SettingsModal({ isOpen, onClose }) {
                             >
                               {provider === 'openai' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                             </div>
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-500 font-semibold border border-sky-500/20 whitespace-nowrap shrink-0">
-                              OpenAI Spec
-                            </span>
                           </div>
                           <div className="text-xs font-bold text-[var(--text-primary)] mb-1">
                             OpenAI / Custom Cloud
@@ -527,7 +521,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                         }`}
                       >
                         <div>
-                          <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-2">
                             <div
                               className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                                 provider === 'local'
@@ -537,9 +531,6 @@ export default function SettingsModal({ isOpen, onClose }) {
                             >
                               {provider === 'local' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                             </div>
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-semibold border border-amber-500/20 whitespace-nowrap shrink-0">
-                              Demo Mode
-                            </span>
                           </div>
                           <div className="text-xs font-bold text-[var(--text-primary)] mb-1">
                             Offline Synthesizer
