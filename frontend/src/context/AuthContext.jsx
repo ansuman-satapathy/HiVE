@@ -66,7 +66,6 @@ export function AuthProvider({ children }) {
 
   // Login action
   const login = async (email, password) => {
-    setLoading(true)
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -76,10 +75,10 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ email, password }),
       })
 
-      const data = await response.json()
+      const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Login failed')
+        throw new Error(data.detail || 'Incorrect email or password')
       }
 
       // Save encrypted token
@@ -104,9 +103,7 @@ export function AuthProvider({ children }) {
       tokenStorage.clearToken()
       setToken(null)
       setUser(null)
-      throw err;
-    } finally {
-      setLoading(false)
+      throw err
     }
   }
 

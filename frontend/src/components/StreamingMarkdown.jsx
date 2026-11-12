@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import CitationBadge from './CitationBadge'
+import { highlightCode } from '../utils/highlighter'
 
 /**
  * Editorial-grade streaming markdown and code block renderer.
@@ -24,15 +25,20 @@ export default function StreamingMarkdown({
     }, 2000)
   }
 
-  // Parse inline elements (bold, italic, code, citation badges)
+  // Parse inline elements (code, bold, italic, bold+italic, citations, links)
   const renderInline = (text) => {
     if (!text) return null
 
-    // Split by inline code first
-    const parts = text.split(/(`[^`]+`)/g)
+    // Comprehensive regex for inline formatting tokens
+    const tokenRegex = /(`[^`\n]+`|\[doc:\s*[^\]]+\]|\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|\*[^*\n]+?\*|_[^_\n]+?_|\[[^\]]+\]\([^)]+\))/g
+
+    const parts = text.split(tokenRegex)
 
     return parts.map((part, i) => {
-      if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
+      if (!part) return null
+
+      // Inline code: `code`
+      if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
         return (
           <code
             key={i}
@@ -43,58 +49,105 @@ export default function StreamingMarkdown({
         )
       }
 
-      // Handle bold **text**
-      const boldParts = part.split(/(\*\*[^*]+\*\*)/g)
-      return boldParts.map((bPart, j) => {
-        if (bPart.startsWith('**') && bPart.endsWith('**') && bPart.length > 4) {
-          return (
-            <strong key={`${i}-${j}`} className="font-semibold text-[var(--text-primary)]">
-              {bPart.slice(2, -2)}
-            </strong>
+      // Citation tag: [doc:CHUNK_ID]
+      const docMatch = part.match(/^\[doc:\s*([^\]]+)\]$/)
+      if (docMatch) {
+        const rawId = docMatch[1].trim()
+        const normalizedId = rawId.toLowerCase()
+
+        // 1. Match chunk_id exactly or case-insensitive
+        // 2. Match chunk_index
+        // 3. Match 1-based index (e.g. [doc:1])
+        // 4. Match document_id
+        // 5. Match partial title
+        let foundIdx = citations.findIndex(
+          (c) =>
+            String(c.chunk_id || '').toLowerCase().trim() === normalizedId ||
+            String(c.chunk_index) === rawId ||
+            String(c.document_id || '').toLowerCase().trim() === normalizedId
+        )
+
+        if (foundIdx === -1 && /^\d+$/.test(rawId)) {
+          const num = parseInt(rawId, 10)
+          if (num >= 1 && num <= citations.length) {
+            foundIdx = num - 1
+          }
+        }
+
+        if (foundIdx === -1 && citations.length > 0) {
+          foundIdx = citations.findIndex(
+            (c) => c.document_title && c.document_title.toLowerCase().includes(normalizedId)
           )
         }
 
-        // Handle italic *text*
-        const italicParts = bPart.split(/(\*[^*]+\*)/g)
-        return italicParts.map((iPart, k) => {
-          if (iPart.startsWith('*') && iPart.endsWith('*') && iPart.length > 2) {
-            return (
-              <em key={`${i}-${j}-${k}`} className="italic text-[var(--text-secondary)]">
-                {iPart.slice(1, -1)}
-              </em>
-            )
-          }
+        const citeData = foundIdx !== -1 ? citations[foundIdx] : null
+        const displayNum =
+          foundIdx !== -1
+            ? foundIdx + 1
+            : /^\d+$/.test(rawId)
+              ? rawId
+              : citations.length === 1
+                ? 1
+                : null
 
-          // Handle [doc:chunk_id] inline citation tags (allow optional space after colon)
-          const citeParts = iPart.split(/(\[doc:\s*[a-zA-Z0-9_-]+\])/g)
-          return citeParts.map((cPart, cIdx) => {
-            const match = cPart.match(/^\[doc:\s*([a-zA-Z0-9_-]+)\]$/)
-            if (match) {
-              const chunkId = match[1].trim()
-              // Normalize comparison: trim and lowercase for robust UUID matching
-              const normalizedChunkId = chunkId.toLowerCase().trim()
-              const foundIdx = citations.findIndex(
-                (c) =>
-                  String(c.chunk_id).toLowerCase().trim() === normalizedChunkId ||
-                  String(c.chunk_index) === chunkId
-              )
-              const citeData = foundIdx !== -1 ? citations[foundIdx] : null
-              const displayNum = foundIdx !== -1 ? foundIdx + 1 : '?'
+        return (
+          <CitationBadge
+            key={i}
+            citation={citeData}
+            chunkId={rawId}
+            index={displayNum !== null ? displayNum : '•'}
+            onClick={onCitationClick}
+          />
+        )
+      }
 
-              return (
-                <CitationBadge
-                  key={`${i}-${j}-${k}-${cIdx}`}
-                  citation={citeData}
-                  chunkId={chunkId}
-                  index={displayNum}
-                  onClick={onCitationClick}
-                />
-              )
-            }
-            return cPart
-          })
-        })
-      })
+      // Bold + Italic: ***text***
+      if (part.startsWith('***') && part.endsWith('***') && part.length > 6) {
+        return (
+          <strong key={i} className="font-semibold text-[var(--text-primary)]">
+            <em className="italic">{part.slice(3, -3)}</em>
+          </strong>
+        )
+      }
+
+      // Bold: **text**
+      if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+        return (
+          <strong key={i} className="font-semibold text-[var(--text-primary)]">
+            {part.slice(2, -2)}
+          </strong>
+        )
+      }
+
+      // Italic: *text* or _text_
+      if (
+        ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) &&
+        part.length > 2
+      ) {
+        return (
+          <em key={i} className="italic text-[var(--text-secondary)]">
+            {part.slice(1, -1)}
+          </em>
+        )
+      }
+
+      // Markdown Link: [text](url)
+      const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+      if (linkMatch) {
+        return (
+          <a
+            key={i}
+            href={linkMatch[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:text-blue-600 underline font-medium"
+          >
+            {linkMatch[1]}
+          </a>
+        )
+      }
+
+      return part
     })
   }
 
@@ -164,7 +217,10 @@ export default function StreamingMarkdown({
             </div>
             {/* Code Content */}
             <pre className="p-4 text-[12.5px] font-mono overflow-x-auto leading-relaxed text-[var(--text-primary)] select-text">
-              <code>{block.code}</code>
+              <code
+                className={`language-${block.language || 'text'}`}
+                dangerouslySetInnerHTML={{ __html: highlightCode(block.code, block.language) }}
+              />
             </pre>
           </div>
         )
@@ -229,6 +285,56 @@ export default function StreamingMarkdown({
                     <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-blue-500 rounded-xs animate-pulse opacity-80 align-middle" />
                   )}
                 </blockquote>
+              )
+            }
+
+            // Tables: check if lines form a markdown table
+            const isTable =
+              lines.length >= 2 &&
+              lines.every((l) => {
+                const t = l.trim()
+                return t.startsWith('|') && t.endsWith('|')
+              })
+
+            if (isTable) {
+              const rows = lines.map((l) =>
+                l
+                  .trim()
+                  .slice(1, -1)
+                  .split('|')
+                  .map((c) => c.trim())
+              )
+              const hasSeparator = rows.length > 1 && rows[1].every((c) => /^:?-+:?$/.test(c))
+              const headerRow = hasSeparator ? rows[0] : null
+              const bodyRows = hasSeparator ? rows.slice(2) : rows
+
+              return (
+                <div key={pIdx} className="my-3 overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)]">
+                  <table className="w-full text-left text-xs border-collapse">
+                    {headerRow && (
+                      <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border-default)]">
+                        <tr>
+                          {headerRow.map((cell, cIdx) => (
+                            <th key={cIdx} className="px-3.5 py-2 font-semibold text-[var(--text-primary)]">
+                              {renderInline(cell)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                    )}
+                    <tbody className="divide-y divide-[var(--border-subtle)]">
+                      {bodyRows.map((row, rIdx) => (
+                        <tr key={rIdx} className="hover:bg-[var(--bg-surface-hover)] transition-colors">
+                          {row.map((cell, cIdx) => (
+                            <td key={cIdx} className="px-3.5 py-2 text-[var(--text-secondary)]">
+                              {renderInline(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )
             }
 

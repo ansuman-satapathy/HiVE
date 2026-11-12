@@ -71,6 +71,7 @@ export function useEventStream() {
       windowSize = 1,
       temperature = 0.2,
       modelId = null,
+      groundingMode = 'hybrid',
       onToken = null,
       onDone = null,
       onError = null,
@@ -115,6 +116,7 @@ export function useEventStream() {
             query: query.trim(),
             document_ids: cleanDocIds && cleanDocIds.length > 0 ? cleanDocIds : null,
             model_id: modelId || null,
+            grounding_mode: groundingMode || 'hybrid',
             messages: (messages || [])
               .filter((m) => m && typeof m.content === 'string')
               .map((m) => ({
@@ -130,7 +132,24 @@ export function useEventStream() {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}))
-          throw new Error(errData.detail || `Server error: ${res.status} ${res.statusText}`)
+          let detailMsg = ''
+          if (typeof errData.detail === 'string') {
+            detailMsg = errData.detail
+          } else if (Array.isArray(errData.detail)) {
+            detailMsg = errData.detail
+              .map((e) => {
+                if (e.loc?.includes('query') && e.type === 'string_too_long') {
+                  return 'Your prompt exceeds the maximum limit of 16,000 characters (~4,000 words). Please shorten your input.'
+                }
+                return e.msg || JSON.stringify(e)
+              })
+              .join('; ')
+          } else if (errData.message) {
+            detailMsg = errData.message
+          } else {
+            detailMsg = `Server error: ${res.status} ${res.statusText}`
+          }
+          throw new Error(detailMsg)
         }
 
         if (!res.body) {
@@ -146,7 +165,7 @@ export function useEventStream() {
           try {
             readResult = await reader.read()
           } catch (readErr) {
-            if (isCompleted || readErr.name === 'AbortError') break
+            if (isCompleted || controller.signal.aborted || readErr.name === 'AbortError') break
             // In Firefox, if connection closed after tokens/thoughts received
             if (accumulated || capturedModelThought) {
               console.warn('Stream connection closed by server after tokens received:', readErr)
@@ -259,6 +278,15 @@ export function useEventStream() {
           }
 
           if (isCompleted) break
+        }
+
+        if (controller.signal.aborted) {
+          isCompleted = true
+          stopTimer()
+          setIsStreaming(false)
+          setStatus(null)
+          abortControllerRef.current = null
+          return
         }
 
         if (!isCompleted) {

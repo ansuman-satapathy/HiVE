@@ -6,7 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.user import User
 from app.schemas.chat import ChatStreamRequest
-from app.services.llm_service import LLMService, SYSTEM_PROMPT_TEMPLATE
+from app.services.llm_service import LLMService, SYSTEM_PROMPT_TEMPLATE, HYBRID_SYSTEM_PROMPT_TEMPLATE
 from app.services.agent_tools import ToolDispatcher
 
 logger = logging.getLogger("agent_runtime")
@@ -368,6 +368,16 @@ class AgentRuntime:
 
             total_steps = 2
 
+        # In hybrid mode, if retrieved context scored very low (< 0.15), the query is unrelated to
+        # the uploaded documents (e.g., coding, general knowledge). Clear irrelevant context so the
+        # model is not distracted by irrelevant documents and does not attach false citations.
+        is_hybrid = getattr(req, "grounding_mode", "hybrid") == "hybrid"
+        best_score = max(relevance_score, corrective_score if total_steps > 1 else 0.0)
+        if is_hybrid and best_score < 0.15:
+            citations = []
+            context_text = "No relevant context excerpts found in uploaded documents. Answer using general AI knowledge."
+            logger.info("Hybrid mode: query appears unrelated to uploaded documents; cleared irrelevant context.")
+
         yield {"type": "context", "data": {"citations": citations, "total_chunks": len(citations)}}
 
         # ── Step 3: Synthesis — one streaming LLM call ───────────────────────
@@ -378,20 +388,26 @@ class AgentRuntime:
         elif (
             isinstance(target_model, dict)
             and (target_model.get("provider") == "ollama" or "11434" in (target_model.get("base_url") or ""))
-            and len(context_text) > 7500
         ):
-            # Ollama /v1/chat/completions defaults to 4096 ctx; keep prompt ~1900 tokens
-            # so thinking + cited answer fit comfortably without hitting finish_reason=length.
-            context_text = context_text[:7500].rsplit("\n", 1)[0] or context_text[:7500]
+            # Ollama /v1/chat/completions defaults to 4096 ctx; dynamically calculate available context
+            # so prompt (query + context) + thinking + answer fit comfortably within 4,096 tokens.
+            max_context_chars = max(1200, 7500 - len(req.query))
+            if len(context_text) > max_context_chars:
+                context_text = context_text[:max_context_chars].rsplit("\n", 1)[0] or context_text[:max_context_chars]
 
-        synthesis_system = SYSTEM_PROMPT_TEMPLATE.format(context_text=context_text)
+        prompt_template = (
+            SYSTEM_PROMPT_TEMPLATE
+            if getattr(req, "grounding_mode", "hybrid") == "strict"
+            else HYBRID_SYSTEM_PROMPT_TEMPLATE
+        )
+        synthesis_system = prompt_template.format(context_text=context_text)
         synthesis_messages: List[Dict[str, str]] = [
             {"role": "system", "content": synthesis_system}
         ]
         if req.messages:
             for m in req.messages[-4:]:
                 synthesis_messages.append({"role": m.role, "content": m.content})
-        synthesis_messages.append({"role": "user", "content": used_query})
+        synthesis_messages.append({"role": "user", "content": req.query})
 
         async for chunk in active_llm.astream(synthesis_messages, temperature=req.temperature):
             if isinstance(chunk, dict) and chunk.get("type") == "thought":

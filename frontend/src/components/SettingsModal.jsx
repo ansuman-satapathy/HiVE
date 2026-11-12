@@ -23,6 +23,7 @@ import {
   ChevronDown
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { tokenStorage } from '../utils/storage'
 
 export default function SettingsModal({ isOpen, initialTab = 'model', onClose }) {
@@ -42,12 +43,13 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
   const [baseUrl, setBaseUrl] = useState('http://localhost:11434/v1')
   const [modelName, setModelName] = useState('llama3.2')
   const [apiKey, setApiKey] = useState('')
-  const [hasApiKey, setHasApiKey] = useState(false)
+  const [workspaceHasApiKey, setWorkspaceHasApiKey] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
   const [allowDemoAutofill, setAllowDemoAutofill] = useState(true)
 
   // Multi-Model Catalog State
   const [modelsList, setModelsList] = useState([])
+  const [modelToDelete, setModelToDelete] = useState(null)
 
   // Embedding Settings State
   const [embeddingProvider, setEmbeddingProvider] = useState('fastembed')
@@ -82,6 +84,22 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
     if (provider === 'local' || provider === 'ollama') return false
     return !baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1') && !baseUrl.includes('host.docker.internal')
   }, [provider, baseUrl])
+
+  const matchingSavedModel = useMemo(() => {
+    return modelsList.find(
+      (m) => m.provider === provider && m.model_name === modelName
+    ) || null
+  }, [modelsList, provider, modelName])
+
+  const hasApiKey = useMemo(() => {
+    if (matchingSavedModel) {
+      return Boolean(matchingSavedModel.has_api_key)
+    }
+    if (modelsList.length === 0 && isCloudProvider) {
+      return workspaceHasApiKey
+    }
+    return false
+  }, [matchingSavedModel, modelsList.length, isCloudProvider, workspaceHasApiKey])
 
   const canTestConnection = useMemo(() => {
     if (testingConnection) return false
@@ -136,7 +154,8 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
           setProvider(activeM?.provider || data.llm_provider || 'ollama')
           setBaseUrl(activeM?.base_url || data.llm_base_url || 'http://host.docker.internal:11434/v1')
           setModelName(activeM?.model_name || data.llm_model || 'llama3.2')
-          setHasApiKey(data.has_api_key)
+          setWorkspaceHasApiKey(Boolean(data.has_api_key))
+          setApiKey('')
           setAllowDemoAutofill(data.allow_demo_autofill ?? true)
           setModelsList(data.models || [])
           if (activeM) {
@@ -302,7 +321,6 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
       }
 
       const data = await res.json()
-      if (apiKey.trim()) setHasApiKey(true)
       setApiKey('')
       if (data.models) setModelsList(data.models)
       setModelSuccessMsg(
@@ -764,6 +782,7 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                                 setProvider(m.provider)
                                 setBaseUrl(m.base_url || '')
                                 setModelName(m.model_name || m.name)
+                                setApiKey('')
                                 setEnableThinking(Boolean(m.enable_thinking))
                                 setTimeoutSeconds(m.timeout_seconds || 180)
                                 setTemperature(m.temperature ?? 0.2)
@@ -820,9 +839,9 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                                 {modelsList.length > 1 && (
                                   <button
                                     type="button"
-                                    onClick={() => handleDeleteModel(m.id || m.model_name)}
+                                    onClick={() => setModelToDelete(m)}
                                     className="p-1 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                    title="Delete from catalog"
+                                    title="Delete saved model"
                                   >
                                     <Trash2 size={13} />
                                   </button>
@@ -1120,7 +1139,13 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                             type={showApiKey ? 'text' : 'password'}
                             value={apiKey}
                             onChange={(e) => setApiKey(e.target.value)}
-                            placeholder={hasApiKey ? '•••••••••••••••• (Leave blank to keep saved key)' : 'sk-... or nvapi-...'}
+                            placeholder={
+                              hasApiKey
+                                ? '•••••••••••••••• (Leave blank to keep saved key)'
+                                : provider === 'ollama'
+                                  ? 'Optional (leave blank for local Ollama)'
+                                  : 'sk-... or nvapi-...'
+                            }
                             className="w-full pl-3 pr-10 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] text-xs font-mono text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
                           />
                           <button
@@ -2010,6 +2035,19 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
           </button>
         </div>
       </div>
+
+      <ConfirmDeleteModal
+        isOpen={Boolean(modelToDelete)}
+        title="Delete saved model?"
+        itemName={modelToDelete?.model_name || modelToDelete?.name}
+        onClose={() => setModelToDelete(null)}
+        onConfirm={async () => {
+          if (!modelToDelete) return
+          const targetId = modelToDelete.id || modelToDelete.model_name
+          setModelToDelete(null)
+          await handleDeleteModel(targetId)
+        }}
+      />
     </div>
   )
 }

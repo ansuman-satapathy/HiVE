@@ -11,8 +11,11 @@ import {
   Check,
   Cpu,
   Settings,
-  Plus
+  Plus,
+  ShieldCheck,
 } from 'lucide-react'
+
+export const MAX_PROMPT_CHARS = 16000
 
 export default function ChatComposer({
   inputPrompt,
@@ -31,6 +34,8 @@ export default function ChatComposer({
   models = [],
   activeModelId = null,
   onSelectModel,
+  groundingMode = 'hybrid',
+  onChangeGroundingMode,
 }) {
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -53,6 +58,9 @@ export default function ChatComposer({
   const activeLabel = currentModel
     ? (currentModel.model_name || currentModel.name || currentModel.id)
     : (activeModelId || 'Default Model')
+
+  const isOverLimit = inputPrompt.length > MAX_PROMPT_CHARS
+  const showCharCount = inputPrompt.length > 8000
   return (
     <>
       {/* Floating "Scroll to Bottom" Pill */}
@@ -194,6 +202,34 @@ export default function ChatComposer({
                   )}
                 </div>
 
+                {/* Grounding Mode Toggle Pill */}
+                <button
+                  type="button"
+                  onClick={() => onChangeGroundingMode?.(groundingMode === 'hybrid' ? 'strict' : 'hybrid')}
+                  title={
+                    groundingMode === 'hybrid'
+                      ? 'Mode: Hybrid (Docs + AI) — Uses documents when relevant, and general knowledge for code & open questions. Click to switch to Strict Docs.'
+                      : 'Mode: Strict Docs Only — Answers only using facts found in uploaded documents. Click to switch to Hybrid.'
+                  }
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer ${
+                    groundingMode === 'hybrid'
+                      ? 'border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/15'
+                      : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15'
+                  }`}
+                >
+                  {groundingMode === 'hybrid' ? (
+                    <>
+                      <Sparkles size={11} className="text-blue-500 shrink-0" />
+                      <span>Docs + AI</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck size={11} className="text-amber-500 shrink-0" />
+                      <span>Strict Docs</span>
+                    </>
+                  )}
+                </button>
+
                 {/* Active Scope Pill */}
                 {selectedDocIds.length > 0 ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-600 dark:text-blue-400 font-medium shadow-2xs">
@@ -222,6 +258,23 @@ export default function ChatComposer({
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2 shrink-0">
+                {showCharCount && (
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-md border transition-colors select-none ${
+                      isOverLimit
+                        ? 'text-rose-500 bg-rose-500/10 border-rose-500/30 font-bold'
+                        : 'text-[var(--text-muted)] bg-[var(--bg-subtle)] border-[var(--border-default)]'
+                    }`}
+                    title={
+                      isOverLimit
+                        ? `Prompt exceeds 16,000 characters by ${(inputPrompt.length - MAX_PROMPT_CHARS).toLocaleString()} chars. Please shorten it.`
+                        : `${inputPrompt.length.toLocaleString()} / ${MAX_PROMPT_CHARS.toLocaleString()} characters`
+                    }
+                  >
+                    {inputPrompt.length.toLocaleString()} / {MAX_PROMPT_CHARS.toLocaleString()}
+                  </span>
+                )}
+
                 {isStreaming ? (
                   <button
                     type="button"
@@ -234,13 +287,17 @@ export default function ChatComposer({
                 ) : (
                   <button
                     type="submit"
-                    disabled={!inputPrompt.trim()}
+                    disabled={!inputPrompt.trim() || isOverLimit}
                     className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all cursor-pointer ${
-                      inputPrompt.trim()
+                      inputPrompt.trim() && !isOverLimit
                         ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
                         : 'bg-[var(--bg-subtle)] text-[var(--text-muted)] opacity-40 cursor-not-allowed'
                     }`}
-                    title="Send message (Enter)"
+                    title={
+                      isOverLimit
+                        ? `Prompt is too long (exceeds ${MAX_PROMPT_CHARS.toLocaleString()} characters)`
+                        : 'Send message (Enter)'
+                    }
                   >
                     <ArrowUp size={15} strokeWidth={2.5} />
                   </button>
@@ -252,7 +309,9 @@ export default function ChatComposer({
           {/* AI Accuracy Disclaimer Notice */}
           <div className="text-center">
             <p className="text-[11px] text-[var(--text-muted)] leading-normal select-none">
-              HiVE synthesizes answers from document context. AI may make mistakes; always verify critical information via citations.
+              {groundingMode === 'hybrid'
+                ? 'HiVE incorporates your documents with general AI reasoning. Always verify critical citations.'
+                : 'HiVE answers strictly from uploaded documents and refuses outside knowledge.'}
             </p>
           </div>
         </div>

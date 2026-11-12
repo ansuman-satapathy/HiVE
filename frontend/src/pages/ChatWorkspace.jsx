@@ -21,16 +21,10 @@ import ChatMessageItem from '../components/chat/ChatMessageItem'
 import ChatComposer from '../components/chat/ChatComposer'
 import DeleteSessionModal from '../components/chat/DeleteSessionModal'
 import ReasoningTimeline from '../components/chat/ReasoningTimeline'
+import { getReferencedCitations } from '../utils/citations'
 
 const STORAGE_KEY = 'hive_chat_sessions_v1'
 const LEGACY_STORAGE_KEY = 'quickdesk_chat_sessions_v1'
-
-const SUGGESTED_PROMPTS = [
-  'What is quantum entanglement according to the Feynman lectures?',
-  'Explain the four realms of mechanics and how electrodynamics fits in.',
-  'Summarize the core equations and boundary conditions in electrodynamics.',
-  'What are the key differences between classical and quantum mechanics?',
-]
 
 export default function ChatWorkspace() {
   // Session State
@@ -119,7 +113,24 @@ export default function ChatWorkspace() {
     finalElapsedMs,
   } = useEventStream()
 
+  const [streamingSessionId, setStreamingSessionId] = useState(null)
+  const isActiveSessionStreaming = isStreaming && streamingSessionId === activeSessionId
   const [showLiveThought, setShowLiveThought] = useState(true)
+  const [groundingMode, setGroundingMode] = useState(() => {
+    try {
+      return localStorage.getItem('hive_grounding_mode_v1') || 'hybrid'
+    } catch {
+      return 'hybrid'
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hive_grounding_mode_v1', groundingMode)
+    } catch {
+      // ignore storage errors
+    }
+  }, [groundingMode])
 
   // Save sessions to localStorage
   useEffect(() => {
@@ -295,11 +306,9 @@ export default function ChatWorkspace() {
 
   // Create new session
   const handleCreateNewChat = () => {
-    if (isStreaming) abortStream()
     const existingEmpty = sessions.find((s) => !s.messages || s.messages.length === 0)
     if (existingEmpty) {
       setActiveSessionId(existingEmpty.id)
-      resetStream()
       userHasScrolledUp.current = false
       setShowScrollBottom(false)
       setEditingMessageId(null)
@@ -365,63 +374,72 @@ export default function ChatWorkspace() {
       ? selectedDocIds
       : (activeProf?.document_ids && activeProf.document_ids.length > 0 ? activeProf.document_ids : [])
 
-    await startStream({
-      query: queryText,
-      documentIds: effectiveDocIds,
-      modelId: activeModelId,
-      messages: previousTurns,
-      topK: effectiveTopK,
-      windowSize: effectiveWindowSize,
-      temperature: effectiveTemperature,
-      onDone: ({ text: fullAssistantText, citations: doneCitations, reasoningSteps: doneSteps, modelThought: doneThought, elapsedMs: doneElapsedMs }) => {
-        const assistantMessage = {
-          id: `msg_asst_${Date.now()}`,
-          role: 'assistant',
-          content: fullAssistantText,
-          citations: doneCitations && doneCitations.length > 0 ? doneCitations : citations,
-          reasoningSteps: doneSteps && doneSteps.length > 0 ? doneSteps : reasoningSteps,
-          modelThought: doneThought || modelThought || null,
-          elapsedMs: doneElapsedMs,
-          timestamp: new Date().toISOString(),
-        }
+    setStreamingSessionId(sessionToUpdateId)
+    try {
+      await startStream({
+        query: queryText,
+        documentIds: effectiveDocIds,
+        modelId: activeModelId,
+        groundingMode,
+        messages: previousTurns,
+        topK: effectiveTopK,
+        windowSize: effectiveWindowSize,
+        temperature: effectiveTemperature,
+        onDone: ({ text: fullAssistantText, citations: doneCitations, reasoningSteps: doneSteps, modelThought: doneThought, elapsedMs: doneElapsedMs }) => {
+          const assistantMessage = {
+            id: `msg_asst_${Date.now()}`,
+            role: 'assistant',
+            content: fullAssistantText,
+            citations: getReferencedCitations(
+              fullAssistantText,
+              doneCitations && doneCitations.length > 0 ? doneCitations : citations
+            ),
+            reasoningSteps: doneSteps && doneSteps.length > 0 ? doneSteps : reasoningSteps,
+            modelThought: doneThought || modelThought || null,
+            elapsedMs: doneElapsedMs,
+            timestamp: new Date().toISOString(),
+          }
 
 
-        setSessions((prev) =>
-          prev.map((s) => {
-            if (s.id === sessionToUpdateId) {
-              return {
-                ...s,
-                messages: [...s.messages, assistantMessage],
+          setSessions((prev) =>
+            prev.map((s) => {
+              if (s.id === sessionToUpdateId) {
+                return {
+                  ...s,
+                  messages: [...s.messages, assistantMessage],
+                }
               }
-            }
-            return s
-          })
-        )
-      },
-      onError: (err) => {
-        const errorMsg = {
-          id: `msg_err_${Date.now()}`,
-          role: 'assistant',
-          content: `⚠️ Generation failed: ${err.message || 'Unknown stream error.'}`,
-          isError: true,
-          timestamp: new Date().toISOString(),
-        }
-        setSessions((prev) =>
-          prev.map((s) => {
-            if (s.id === sessionToUpdateId) {
-              return { ...s, messages: [...s.messages, errorMsg] }
-            }
-            return s
-          })
-        )
-      },
-    })
+              return s
+            })
+          )
+        },
+        onError: (err) => {
+          const errorMsg = {
+            id: `msg_err_${Date.now()}`,
+            role: 'assistant',
+            content: `⚠️ Generation failed: ${err.message || 'Unknown stream error.'}`,
+            isError: true,
+            timestamp: new Date().toISOString(),
+          }
+          setSessions((prev) =>
+            prev.map((s) => {
+              if (s.id === sessionToUpdateId) {
+                return { ...s, messages: [...s.messages, errorMsg] }
+              }
+              return s
+            })
+          )
+        },
+      })
+    } finally {
+      setStreamingSessionId(null)
+    }
   }
 
   // Send message
   const handleSendMessage = async (promptToSend = null) => {
     const text = (promptToSend || inputPrompt).trim()
-    if (!text || isStreaming) return
+    if (!text || isActiveSessionStreaming) return
 
     setInputPrompt('')
     if (textareaRef.current) {
@@ -433,6 +451,25 @@ export default function ChatWorkspace() {
       role: 'user',
       content: text,
       timestamp: new Date().toISOString(),
+    }
+
+    if (text.length > 16000) {
+      const errorMsg = {
+        id: `msg_err_${Date.now()}`,
+        role: 'assistant',
+        content: `⚠️ Prompt exceeds the 16,000 character limit (${text.length.toLocaleString()} characters). Please shorten your input so it fits within model context windows.`,
+        isError: true,
+        timestamp: new Date().toISOString(),
+      }
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id === activeSessionId) {
+            return { ...s, messages: [...s.messages, userMessage, errorMsg] }
+          }
+          return s
+        })
+      )
+      return
     }
 
     const updatedTitle =
@@ -605,7 +642,7 @@ export default function ChatWorkspace() {
     setTimeout(() => setCopiedMessageId(null), 2000)
   }
 
-  const hasMessages = activeSession.messages.length > 0 || isStreaming
+  const hasMessages = activeSession.messages.length > 0 || isActiveSessionStreaming
 
   return (
     <div className="flex h-[calc(100vh-65px)] w-full overflow-hidden bg-[var(--bg-canvas)]">
@@ -615,9 +652,7 @@ export default function ChatWorkspace() {
         sessions={sessions}
         activeSessionId={activeSessionId}
         onSelectSession={(sessionId) => {
-          if (isStreaming) abortStream()
           setActiveSessionId(sessionId)
-          resetStream()
           userHasScrolledUp.current = false
           setShowScrollBottom(false)
           setEditingMessageId(null)
@@ -739,23 +774,8 @@ export default function ChatWorkspace() {
                     What would you like to know?
                   </h1>
                   <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-lg mx-auto leading-relaxed">
-                    Ask questions across your entire document repository. All answers are synthesized with verified citations and live streaming.
+                    Ask anything about your uploaded documents.
                   </p>
-                </div>
-
-                {/* Inspiration Prompt Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left pt-2">
-                  {SUGGESTED_PROMPTS.map((prompt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleSendMessage(prompt)}
-                      className="p-3.5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/40 hover:bg-blue-500/[0.03] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-2xs group flex items-start gap-3"
-                    >
-                      <Search size={14} className="text-blue-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <span className="line-clamp-2 leading-relaxed font-medium">{prompt}</span>
-                    </button>
-                  ))}
                 </div>
               </div>
             )}
@@ -771,7 +791,7 @@ export default function ChatWorkspace() {
                   key={msg.id}
                   message={msg}
                   isLastTurn={isLastTurn}
-                  isStreaming={isStreaming}
+                  isStreaming={isActiveSessionStreaming}
                   isCopied={isCopied}
                   onCopy={handleCopyMessage}
                   onRegenerate={handleRegenerateLastResponse}
@@ -787,7 +807,7 @@ export default function ChatWorkspace() {
             })}
 
             {/* ── Active Streaming Turn ──────────────────────────────────── */}
-            {isStreaming && (
+            {isActiveSessionStreaming && (
               <div className="flex gap-3.5 sm:gap-4 w-full animate-in fade-in">
                 <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs overflow-hidden">
                   <HiveLogoIcon size={18} className="animate-pulse" />
@@ -848,24 +868,28 @@ export default function ChatWorkspace() {
                   )}
 
                   {/* Citations Found Live */}
-                  {citations && citations.length > 0 && (
-                    <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1 mr-1">
-                        Sources:
-                      </span>
-                      {citations.map((cite, cIdx) => (
-                        <button
-                          key={cIdx}
-                          type="button"
-                          onClick={() => setSelectedCitation(cite)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/5 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
-                        >
-                          <span className="truncate max-w-[140px] font-medium">{cite.document_title || 'Document'}</span>
-                          <span className="font-mono text-[10px] text-blue-500 font-bold">#{cite.chunk_index}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    const liveCites = getReferencedCitations(streamedText, citations)
+                    if (liveCites.length === 0) return null
+                    return (
+                      <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1 mr-1">
+                          Sources:
+                        </span>
+                        {liveCites.map((cite, cIdx) => (
+                          <button
+                            key={cIdx}
+                            type="button"
+                            onClick={() => setSelectedCitation(cite)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/50 hover:bg-blue-500/5 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
+                          >
+                            <span className="truncate max-w-[140px] font-medium">{cite.document_title || 'Document'}</span>
+                            <span className="font-mono text-[10px] text-blue-500 font-bold">#{cite.chunk_index}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             )}
@@ -879,7 +903,7 @@ export default function ChatWorkspace() {
           inputPrompt={inputPrompt}
           setInputPrompt={setInputPrompt}
           onSubmit={handleSendMessage}
-          isStreaming={isStreaming}
+          isStreaming={isActiveSessionStreaming}
           onAbort={abortStream}
           selectedDocIds={selectedDocIds}
           setSelectedDocIds={setSelectedDocIds}
@@ -891,6 +915,8 @@ export default function ChatWorkspace() {
           models={configuredModels}
           activeModelId={activeModelId}
           onSelectModel={setActiveModelId}
+          groundingMode={groundingMode}
+          onChangeGroundingMode={setGroundingMode}
           onScrollToBottom={() => {
             userHasScrolledUp.current = false
             setShowScrollBottom(false)

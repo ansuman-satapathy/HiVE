@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   FileText,
   Copy,
@@ -14,6 +14,7 @@ import {
 import StreamingMarkdown from '../StreamingMarkdown'
 import { HiveLogoIcon } from '../HiveLogo'
 import ReasoningTimeline from './ReasoningTimeline'
+import { getReferencedCitations } from '../../utils/citations'
 
 /** Format milliseconds into a human-readable string */
 function formatElapsed(ms) {
@@ -38,6 +39,10 @@ export default function ChatMessageItem({
   onConfirmEdit,
 }) {
   const isUser = message.role === 'user'
+
+  const displayedCitations = useMemo(() => {
+    return getReferencedCitations(message.content, message.citations)
+  }, [message.content, message.citations])
 
   // ── User message ──────────────────────────────────────────────────────────
   if (isUser) {
@@ -160,12 +165,12 @@ export default function ChatMessageItem({
         )}
 
         {/* Citations strip */}
-        {message.citations && message.citations.length > 0 && (
+        {displayedCitations.length > 0 && (
           <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1 mr-1">
               <Layers size={12} /> Sources:
             </span>
-            {message.citations.map((cite, cIdx) => (
+            {displayedCitations.map((cite, cIdx) => (
               <button
                 key={cIdx}
                 type="button"

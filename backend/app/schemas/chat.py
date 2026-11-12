@@ -9,7 +9,12 @@ class ChatMessage(BaseModel):
 
 
 class ChatStreamRequest(BaseModel):
-    query: str = Field(..., min_length=1, description="Current user query or prompt")
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=16000,
+        description="Current user query or prompt (maximum 16,000 characters / ~4,000 tokens)",
+    )
     conversation_id: Optional[str] = Field(None, description="Optional conversation session identifier")
     messages: Optional[List[ChatMessage]] = Field(default=[], description="Previous conversation turn history")
     document_ids: Optional[List[uuid.UUID]] = Field(None, description="Optional scoped document UUID filters")
@@ -18,6 +23,10 @@ class ChatStreamRequest(BaseModel):
     window_size: int = Field(1, ge=0, le=3, description="Neighboring chunk expansion window (± chunks)")
     temperature: float = Field(0.2, ge=0.0, le=1.0, description="Sampling temperature for generation")
     model_id: Optional[str] = Field(None, description="Optional ID or name of configured model to use for this prompt")
+    grounding_mode: Optional[Literal["hybrid", "strict"]] = Field(
+        default="hybrid",
+        description="Grounding strategy: 'hybrid' (docs + general AI) or 'strict' (docs only)",
+    )
 
 
 class CitationChunk(BaseModel):
