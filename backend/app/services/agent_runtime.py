@@ -375,6 +375,14 @@ class AgentRuntime:
 
         if not context_text:
             context_text = "No relevant context excerpts found."
+        elif (
+            isinstance(target_model, dict)
+            and (target_model.get("provider") == "ollama" or "11434" in (target_model.get("base_url") or ""))
+            and len(context_text) > 7500
+        ):
+            # Ollama /v1/chat/completions defaults to 4096 ctx; keep prompt ~1900 tokens
+            # so thinking + cited answer fit comfortably without hitting finish_reason=length.
+            context_text = context_text[:7500].rsplit("\n", 1)[0] or context_text[:7500]
 
         synthesis_system = SYSTEM_PROMPT_TEMPLATE.format(context_text=context_text)
         synthesis_messages: List[Dict[str, str]] = [

@@ -261,20 +261,26 @@ export function useEventStream() {
           if (isCompleted) break
         }
 
-        if (!isCompleted && accumulated) {
+        if (!isCompleted) {
           isCompleted = true
           stopTimer()
           setIsStreaming(false)
           setStatus(null)
-          if (onDone) {
-            onDone({
-              text: accumulated,
-              finishReason: 'stop',
-              citations: capturedCitations,
-              reasoningSteps: capturedSteps,
-              modelThought: capturedModelThought,
-              elapsedMs: Math.floor(performance.now() - startTimeRef.current),
-            })
+          if (accumulated || capturedModelThought) {
+            if (onDone) {
+              onDone({
+                text: accumulated,
+                finishReason: 'stop',
+                citations: capturedCitations,
+                reasoningSteps: capturedSteps,
+                modelThought: capturedModelThought,
+                elapsedMs: Math.floor(performance.now() - startTimeRef.current),
+              })
+            }
+          } else {
+            const errMsg = 'Stream ended before any response was received.'
+            setError(errMsg)
+            if (onError) onError(new Error(errMsg))
           }
         }
 
