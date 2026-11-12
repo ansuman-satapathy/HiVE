@@ -171,3 +171,37 @@ async def test_cloud_test_llm_requires_key_when_empty(db_session: AsyncSession, 
     assert data["success"] is False
     assert "API key is required" in data["message"]
 
+
+@pytest.mark.asyncio
+async def test_save_cloud_model_and_embedding_require_api_key(db_session: AsyncSession, client: AsyncClient):
+    """Verify saving cloud LLM models or cloud embeddings without an API key is rejected (422)."""
+    user = await create_test_user(db_session, email="cloud_save_guard@example.com")
+    headers = auth_header(user)
+
+    # 1. Saving cloud LLM model without API key -> 422
+    model_res = await client.post(
+        "/api/settings/models",
+        json={
+            "provider": "openai",
+            "base_url": "https://api.openai.com/v1",
+            "model_name": "gpt-4o-mini",
+            "api_key": "",
+        },
+        headers=headers,
+    )
+    assert model_res.status_code == 422
+    assert "API key is required" in model_res.json()["detail"]
+
+    # 2. Saving cloud embedding provider without API key -> 422
+    embed_res = await client.patch(
+        "/api/settings",
+        json={
+            "embedding_provider": "openai",
+            "embedding_model": "text-embedding-3-small",
+            "embedding_base_url": "https://api.openai.com/v1",
+        },
+        headers=headers,
+    )
+    assert embed_res.status_code == 422
+    assert "API key is required" in embed_res.json()["detail"]
+
