@@ -162,6 +162,12 @@ class OpenAICompatibleLLM(LLMProvider):
             "temperature": temperature,
             "stream": True,
         }
+        # For Ollama / reasoning-capable OpenAI-compatible servers, explicitly disable
+        # native hidden reasoning when thinking is disabled so the model doesn't
+        # burn its context window on suppressed reasoning tokens.
+        is_ollama = "11434" in self.base_url or self.api_key.strip().lower() == "ollama"
+        if is_ollama and not self.enable_thinking:
+            payload["reasoning_effort"] = "none"
 
         # Generous timeout for local models / thinking models
         timeout_val = float(self.timeout) if self.timeout else 180.0
@@ -173,6 +179,8 @@ class OpenAICompatibleLLM(LLMProvider):
         )
 
         tag_filter = ThinkTagFilter(enable_thinking=self.enable_thinking)
+        yielded_content = False
+        last_finish_reason = None
 
         try:
             async with httpx.AsyncClient(timeout=client_timeout) as client:
@@ -203,7 +211,10 @@ class OpenAICompatibleLLM(LLMProvider):
                                 chunk_json = json.loads(data_str)
                                 choices = chunk_json.get("choices", [])
                                 if choices:
-                                    delta = choices[0].get("delta", {})
+                                    choice0 = choices[0]
+                                    if choice0.get("finish_reason"):
+                                        last_finish_reason = choice0["finish_reason"]
+                                    delta = choice0.get("delta", {})
 
                                     # 1. Reasoning content stream (Ollama / vLLM / DeepSeek / Groq)
                                     reasoning = delta.get("reasoning_content") or delta.get("reasoning")
@@ -214,13 +225,23 @@ class OpenAICompatibleLLM(LLMProvider):
                                     content = delta.get("content")
                                     if content:
                                         for item in tag_filter.process(content):
+                                            if item.get("type") == "content" and item.get("delta"):
+                                                yielded_content = True
                                             yield item
                             except json.JSONDecodeError:
                                 continue
 
                     # Flush any remainder in tag filter
                     for item in tag_filter.flush():
+                        if item.get("type") == "content" and item.get("delta"):
+                            yielded_content = True
                         yield item
+
+                    if not yielded_content:
+                        if last_finish_reason == "length":
+                            yield "\n\n[Generation stopped: the model hit its token/context limit before emitting an answer. Try disabling Thinking, reducing Top-K in your retrieval profile, or increasing the model's context window.]"
+                        else:
+                            yield "\n\n[Model returned an empty response. Please try again or check your model configuration.]"
 
         except Exception as exc:
             logger.error(f"OpenAI-compatible streaming error ({exc}) connecting to {self.endpoint_url}")

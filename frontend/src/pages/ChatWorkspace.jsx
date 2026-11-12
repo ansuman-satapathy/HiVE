@@ -6,6 +6,7 @@ import {
   BookOpen,
   Search,
   Download,
+  Sparkles,
 } from 'lucide-react'
 import { tokenStorage } from '../utils/storage'
 import { useEventStream } from '../hooks/useEventStream'
