@@ -111,6 +111,10 @@ Browser
 ```bash
 git clone <repo> && cd quickdesk
 
+# Create backend/.env (required by docker-compose.yml) and set a strong SECRET_KEY
+cp backend/.env.example backend/.env
+sed -i "s/change-me-in-production-use-openssl-rand-hex-32/$(openssl rand -hex 32)/" backend/.env
+
 docker compose up --build -d
 ```
 
@@ -118,11 +122,26 @@ Open **http://localhost:5173**
 
 Default workspace account: `admin@hive.com` / `password123`
 
+> **Self-Hosting Security Note:** Before exposing your instance beyond `localhost`, replace `SECRET_KEY` in `backend/.env`, set custom `POSTGRES_USER` / `POSTGRES_PASSWORD` values, and change the default `admin@hive.com` password in **Workspace Settings → Security & Account**.
+
 ---
 
 ## Configuration & Secrets Management (12-Factor / Vault / Kubernetes)
 
 HiVE supports both in-app configuration via the UI and 12-factor runtime environment variable injection.
+
+### 0. Core Self-Hosting & Security Variables (`backend/.env`)
+All variables below have safe local defaults in [`backend/app/core/config.py`](backend/app/core/config.py) so nothing breaks if omitted, **as long as `backend/.env` exists** for Docker Compose. Override these for your own deployment:
+
+| Variable | Default | Purpose & Security Guidance |
+|---|---|---|
+| `SECRET_KEY` | `password` | Signs JWT auth tokens and derives DB encryption keys. **Must be set to a random 32+ byte hex string (`openssl rand -hex 32`) in production.** |
+| `CONFIG_ENCRYPTION_KEY` | *(derived from `SECRET_KEY`)* | Optional dedicated Fernet/passphrase key for encrypting stored LLM API keys in Postgres. |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `postgres` / `postgres` / `quickdesk` | Used by `docker-compose.yml` to initialize Postgres and build `DATABASE_URL` automatically. Override for production. |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `10080` (7 days) | JWT session lifetime. Shorten (e.g. `1440` for 24h) for stricter security. |
+| `EMBEDDING_PROVIDER` | `auto` | `local` (384d offline) or `auto` (uses `NVIDIA_API_KEY` if set, otherwise local). **Note:** Changing embedding dimensions after indexing documents requires re-indexing. |
+| `RERANKER_PROVIDER` | `local` | `local` (default, offline) or `nvidia`. |
+| `NVIDIA_API_KEY` / `NVIDIA_MODEL` / `NVIDIA_EMBED_MODEL` | *(unset / optional)* | Only needed if you want NVIDIA NIM cloud inference/embeddings. Leave commented out for 100% local/Ollama usage. |
 
 ### 1. Database-Level Encryption at Rest
 When you configure an API key through the In-App **Workspace Settings** or the **Onboarding Wizard**:
