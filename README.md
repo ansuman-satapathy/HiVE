@@ -92,14 +92,14 @@ Browser
 | Layer | Technology | Why |
 |-------|-----------|-----|
 | Backend | FastAPI + SQLModel | Async-native, type-safe ORM, easy SSE via `StreamingResponse` |
-| Database | PostgreSQL 15 | Document & chunk metadata, sessions, retrieval profiles |
+| Database | PostgreSQL 15 | Document & chunk metadata, sessions, retrieval profiles, encrypted settings |
 | Vector store | ChromaDB | Persistent, embedded, no separate server required |
 | Sparse search | `rank_bm25` (BM25Plus) | In-memory, thread-safe, superior to BM25 on short docs |
 | Reranker | NVIDIA NIM `rerank-3` / local heuristic | Full cross-encoder when API key present, deterministic fallback otherwise |
-| Embeddings | NVIDIA NIM `text-embedding-3` / local fallback | Same provider abstraction — works offline |
-| LLM | NVIDIA NIM `meta/llama-3.1-70b-instruct` | Swappable via config |
-| Frontend | React 18 + Vite + Tailwind | SPA, no SSR needed for a single-workspace tool |
-| Auth | JWT (bcrypt, `python-jose`) | Stateless, simple for single-tenant workspace |
+| Embeddings | Generalized (`auto`, `local`, `ollama`, `openai`, `nvidia`, `custom`) | Zero-cost local 384d feature vectors, local Ollama (`nomic-embed-text`), or cloud APIs |
+| LLM | Multi-model catalog (Ollama, vLLM, OpenAI, Groq, NVIDIA NIM, DeepSeek) | Swappable per turn in composer or workspace defaults, with reasoning/thinking support |
+| Frontend | React 19 + Vite + Tailwind CSS | SPA with Prism syntax highlighting, streaming markdown, and responsive workspace controls |
+| Auth | JWT (bcrypt, `python-jose`) | Stateless, secure for single-tenant workspace |
 | Containerisation | Docker Compose | Single command to run the full stack |
 
 ---
@@ -258,9 +258,24 @@ A root `Makefile` is included with standard shortcuts:
 ### Chat
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/chat/sessions` | Create a new chat session |
-| `GET`  | `/api/chat/sessions` | List sessions |
-| `POST` | `/api/chat/sessions/{id}/stream` | SSE stream — returns `thought`, `tool_call`, `tool_result`, `token`, `done` events |
+| `POST` | `/api/chat/stream` | Real-time SSE stream (`status`, `thought`, `tool_call`, `tool_result`, `token`, `done`) with Hybrid & Strict Docs grounding modes |
+
+### MCP (Model Context Protocol) Server
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/api/mcp` | SSE stream for server-sent messages (MCP 2024-11-05 spec) |
+| `POST` | `/api/mcp/message` | Client messages (`initialize`, `tools/list`, `tools/call`) exposing `search_knowledge_base` |
+| `GET`  | `/api/mcp/info` | Server status and connection details for Claude Desktop & Cursor |
+
+### Settings & Multi-Model Catalog
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/api/settings` | Retrieve workspace LLM, embedding, and security configurations |
+| `PATCH`| `/api/settings` | Update settings with encrypted credentials storage |
+| `POST` | `/api/settings/models` | Add or update a model profile in the saved multi-model catalog |
+| `DELETE`| `/api/settings/models/{id}` | Remove a model profile from the catalog |
+| `POST` | `/api/settings/test-llm` | Test endpoint connectivity, authentication, and roundtrip latency |
+| `GET`  | `/api/settings/detect-local-models` | Auto-detect Ollama models running on host or Docker network |
 
 ### Retrieval (Debug)
 | Method | Path | Description |
@@ -284,16 +299,20 @@ cd backend && source .venv/bin/activate
 pytest tests/ -v
 ```
 
-37 tests covering BM25 tokenization and recall, RRF formula correctness, cross-encoder ordering, context expansion overlap deduplication, document upload pipeline, chat SSE API, and agent tool dispatch. All tests run with no API key and no network — every AI service has a local deterministic fallback.
+61 tests covering BM25 tokenization and recall, RRF formula correctness, cross-encoder ordering, context expansion overlap deduplication, CRAG quality grading and rewriting, document upload pipeline, chat SSE API, hybrid/strict grounding modes, query length limits, and settings/API key encryption. All tests run with no API key and no network — every AI service has a local deterministic fallback.
 
 ```
 tests/test_bm25_search.py          — tokenizer preserves error codes, BM25 scores rank correctly
 tests/test_hybrid_retrieval.py     — RRF formula verification with known ranks
 tests/test_cross_encoder_reranker.py — exact phrase boost, proximity scoring
 tests/test_context_expansion.py   — overlap deduplication, window boundary handling
+tests/test_crag.py                — context grading, low-quality query rewriting, and corrective loop
 tests/test_document_upload.py     — parse → chunk → index pipeline
-tests/test_chat_stream_api.py     — SSE frame parsing, citation embedding
+tests/test_chat_stream_api.py     — SSE protocol, document filtering, hybrid vs. strict grounding, query length limits
 tests/test_react_agent.py         — tool dispatch, conversational short-circuit
+tests/test_settings_and_auth_security.py — encrypted API keys at rest, required cloud credentials, profile updates
+tests/test_dense_vector_search.py — ChromaDB ANN search and L2 normalization
+tests/test_critical_paths.py      — end-to-end integration workflows
 ```
 
 ---
@@ -317,11 +336,12 @@ This was the main reason I built HiVE — I wanted to see exactly why the wrong 
 
 Things I'd add with more time, roughly in priority order:
 
-- **Corrective RAG (CRAG):** Grade retrieved context relevance after retrieval. If the best chunk scores below a threshold, rewrite the query and retrieve again before synthesising. Already partially designed in `agent_runtime.py`.
-- **MCP server endpoint:** Expose the document search tool over the [Model Context Protocol](https://modelcontextprotocol.io) so Claude Desktop or Cursor can query indexed documents directly.
+- **HiVE as an MCP Client:** Allow HiVE to connect outwards to external MCP servers (e.g., Brave Search for live web access, GitHub MCP, PostgreSQL MCP).
+- **Expanded Agent Toolset:** Add tools such as `list_documents`, `get_document_outline`, and `summarize_document` so the agent can browse high-level structure beyond top-K chunk retrieval.
+- **Server-Side Chat Persistence:** Persist conversation sessions and message history in PostgreSQL for cross-device synchronization.
+- **LaTeX Math Rendering:** Native KaTeX formula rendering in chat responses for STEM, physics, and engineering textbooks.
+- **Vision / Multimodal Chat:** Image and diagram attachment support in the chat composer for vision-capable models (e.g. `llama-3.2-11b-vision`, `gpt-4o`).
 - **Eval harness:** A CLI script (`evals/run_eval.py`) that runs benchmark questions through the retrieval pipeline and scores Faithfulness and Answer Relevancy (Ragas / DeepEval).
-- **Sandboxed Python execution:** Let the agent write and run Python to answer quantitative questions over CSV/Excel data.
-- **Structured audit log:** Persist every document mutation and agent tool call with correlation IDs for debugging.
 
 ---
 

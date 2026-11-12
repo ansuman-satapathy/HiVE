@@ -112,6 +112,17 @@ def mask_api_key(key: Optional[str]) -> Optional[str]:
     return f"{k[:3]}••••••••{k[-4:]}"
 
 
+def _serialize_models_for_response(models: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Return model profiles with per-model `has_api_key` flag and without raw keys."""
+    serialized: List[Dict[str, Any]] = []
+    for m in models:
+        item = dict(m)
+        raw_key = (item.pop("api_key", None) or "").strip()
+        item["has_api_key"] = bool(raw_key)
+        serialized.append(item)
+    return serialized
+
+
 async def get_or_create_workspace_settings(db: AsyncSession) -> WorkspaceSetting:
     """Retrieve singleton workspace settings row, creating default if absent."""
     statement = select(WorkspaceSetting)
@@ -159,14 +170,22 @@ async def get_settings(
             "temperature": 0.2,
         }]
 
+    active_model = next((m for m in models if m.get("is_active")), None)
+    if active_model:
+        active_key = (active_model.get("api_key") or "").strip()
+        if not active_key and not _is_local_endpoint(active_model.get("provider", ""), active_model.get("base_url")):
+            active_key = (plain_key or "").strip()
+    else:
+        active_key = (plain_key or "").strip()
+
     return WorkspaceSettingsResponse(
         llm_provider=setting.llm_provider,
         llm_base_url=setting.llm_base_url,
         llm_model=setting.llm_model,
-        llm_api_key_masked=mask_api_key(plain_key),
-        has_api_key=bool(plain_key and plain_key.strip()),
+        llm_api_key_masked=mask_api_key(active_key),
+        has_api_key=bool(active_key),
         allow_demo_autofill=setting.allow_demo_autofill,
-        models=models,
+        models=_serialize_models_for_response(models),
         embedding_provider=setting.embedding_provider or "auto",
         embedding_model=setting.embedding_model or "BAAI/bge-small-en-v1.5",
         embedding_base_url=setting.embedding_base_url,
@@ -255,14 +274,22 @@ async def update_settings(
             "temperature": 0.2,
         }]
 
+    active_model = next((m for m in models if m.get("is_active")), None)
+    if active_model:
+        active_key = (active_model.get("api_key") or "").strip()
+        if not active_key and not _is_local_endpoint(active_model.get("provider", ""), active_model.get("base_url")):
+            active_key = (plain_key or "").strip()
+    else:
+        active_key = (plain_key or "").strip()
+
     return WorkspaceSettingsResponse(
         llm_provider=setting.llm_provider,
         llm_base_url=setting.llm_base_url,
         llm_model=setting.llm_model,
-        llm_api_key_masked=mask_api_key(plain_key),
-        has_api_key=bool(plain_key and plain_key.strip()),
+        llm_api_key_masked=mask_api_key(active_key),
+        has_api_key=bool(active_key),
         allow_demo_autofill=setting.allow_demo_autofill,
-        models=models,
+        models=_serialize_models_for_response(models),
         embedding_provider=setting.embedding_provider or "auto",
         embedding_model=setting.embedding_model or "BAAI/bge-small-en-v1.5",
         embedding_base_url=setting.embedding_base_url,
@@ -292,12 +319,23 @@ async def test_llm_connection(
             message="Local deterministic synthesizer is ready (offline fallback).",
         )
 
-    # Resolve effective API key: payload -> DB -> environment secrets
+    # Resolve effective API key: payload -> matching saved model -> workspace fallback (cloud only)
     effective_api_key = (req.api_key or "").strip()
     if not effective_api_key:
         setting = await get_or_create_workspace_settings(db)
-        effective_api_key = (setting.decrypted_api_key or "").strip()
-    if not effective_api_key:
+        matching_model = next(
+            (
+                m for m in setting.models_list
+                if (m.get("provider") or "").lower() == provider
+                and (not req.model_name or m.get("model_name") == req.model_name)
+            ),
+            None,
+        )
+        if matching_model:
+            effective_api_key = (matching_model.get("api_key") or "").strip()
+        elif provider != "ollama":
+            effective_api_key = (setting.decrypted_api_key or "").strip()
+    if not effective_api_key and provider != "ollama":
         if provider == "nvidia":
             effective_api_key = (app_settings.LLM_API_KEY or app_settings.NVIDIA_API_KEY or "").strip()
         elif provider == "openai":
@@ -569,7 +607,7 @@ async def save_workspace_model(
     await db.commit()
     await db.refresh(setting)
 
-    return {"status": "success", "models": setting.models_list}
+    return {"status": "success", "models": _serialize_models_for_response(setting.models_list)}
 
 
 @router.delete("/models/{model_id}")
@@ -585,7 +623,7 @@ async def delete_workspace_model(
     setting.set_models_list(new_list)
     db.add(setting)
     await db.commit()
-    return {"status": "deleted", "models": setting.models_list}
+    return {"status": "deleted", "models": _serialize_models_for_response(setting.models_list)}
 
 
 @router.post("/test-embedding", response_model=TestLLMResponse)

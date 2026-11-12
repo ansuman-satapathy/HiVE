@@ -215,3 +215,49 @@ async def test_chat_stream_scoped_document_filter(db_session, client: AsyncClien
     assert len(citations) == 1
     assert citations[0]["document_id"] == str(doc_python.id)
     assert citations[0]["document_title"] == "python_guide.md"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_grounding_mode_hybrid_vs_strict(db_session, client: AsyncClient):
+    """
+    Test that ChatStreamRequest accepts grounding_mode ('hybrid' and 'strict')
+    and successfully streams responses for both.
+    """
+    user = await create_test_user(db_session, "grounding_tester@hive.com")
+    headers = auth_header(user)
+
+    # Hybrid mode request
+    hybrid_payload = {
+        "query": "write a python program solving two sum problem",
+        "grounding_mode": "hybrid",
+        "top_k": 3,
+    }
+    res_hybrid = await client.post("/api/chat/stream", json=hybrid_payload, headers=headers)
+    assert res_hybrid.status_code == 200
+    assert "event: done" in res_hybrid.text
+
+    # Strict mode request
+    strict_payload = {
+        "query": "write a python program solving two sum problem",
+        "grounding_mode": "strict",
+        "top_k": 3,
+    }
+    res_strict = await client.post("/api/chat/stream", json=strict_payload, headers=headers)
+    assert res_strict.status_code == 200
+    assert "event: done" in res_strict.text
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_query_length_limit(db_session, client: AsyncClient):
+    """
+    Test that queries exceeding 16,000 characters return a 422 validation error.
+    """
+    user = await create_test_user(db_session, "length_tester@hive.com")
+    headers = auth_header(user)
+
+    excessive_payload = {
+        "query": "A" * 16001,
+        "grounding_mode": "hybrid",
+    }
+    res = await client.post("/api/chat/stream", json=excessive_payload, headers=headers)
+    assert res.status_code == 422

@@ -106,11 +106,12 @@ class NVIDIAEmbeddingProvider(EmbeddingProvider):
             return self._fallback.embed_documents(texts)
 
     def embed_query(self, text: str) -> List[float]:
+        bounded_text = (text or "")[:2500]
         try:
-            return self._client.embed_query(text)
+            return self._client.embed_query(bounded_text)
         except Exception as exc:
             logger.warning(f"NVIDIA embed_query failed ({exc}); falling back to deterministic local embeddings.")
-            return self._fallback.embed_query(text)
+            return self._fallback.embed_query(bounded_text)
 
 
 class OpenAICompatibleEmbeddingProvider(EmbeddingProvider):
@@ -177,8 +178,9 @@ class OpenAICompatibleEmbeddingProvider(EmbeddingProvider):
         return self._fallback.embed_documents(texts)
 
     def embed_query(self, text: str) -> List[float]:
-        res = self.embed_documents([text])
-        return res[0] if res else self._fallback.embed_query(text)
+        bounded_text = (text or "")[:2500]
+        res = self.embed_documents([bounded_text])
+        return res[0] if res else self._fallback.embed_query(bounded_text)
 
 
 class EmbeddingFactory:

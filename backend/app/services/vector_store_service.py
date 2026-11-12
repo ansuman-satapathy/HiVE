@@ -137,7 +137,8 @@ class VectorStoreService:
         if self.collection.count() == 0:
             return []
 
-        query_embedding = self.embedding_provider.embed_query(query)
+        # Guard: truncate search query slice to 2,500 chars to prevent embedding API token limit overflows
+        query_embedding = self.embedding_provider.embed_query(query[:2500])
         where_clause = None
         if document_id is not None:
             if isinstance(document_id, (list, set, tuple)):
