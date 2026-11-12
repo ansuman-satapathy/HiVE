@@ -27,7 +27,10 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY: str = ""
     NVIDIA_MODEL: str = "meta/llama-3.2-11b-vision-instruct"
     NVIDIA_EMBED_MODEL: str = "nvidia/nemotron-3-embed-1b"
-    EMBEDDING_PROVIDER: str = "auto"  # "auto", "nvidia", or "local"
+    EMBEDDING_PROVIDER: str = "auto"  # "auto", "local", "ollama", "openai", "nvidia", "custom"
+    EMBEDDING_BASE_URL: str = ""
+    EMBEDDING_MODEL: str = ""
+    EMBEDDING_API_KEY: str = ""
     RERANKER_PROVIDER: str = "local"  # "local", "nvidia", or "auto"
     NVIDIA_RERANK_MODEL: str = "nvidia/llama-nemotron-rerank-1b-v2"
     RERANKER_TIMEOUT_SECONDS: float = 5.0

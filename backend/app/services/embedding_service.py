@@ -206,10 +206,10 @@ class EmbeddingFactory:
             )
             return cls._instance
 
-        if p == "openai":
+        if p in ("openai", "custom"):
             url = base_url or "https://api.openai.com/v1"
             m = model or "text-embedding-3-small"
-            logger.info(f"Configuring OpenAI embedding provider: {m}")
+            logger.info(f"Configuring OpenAI-compatible embedding provider: {m} at {url}")
             cls._instance = OpenAICompatibleEmbeddingProvider(
                 base_url=url, model_name=m, api_key=api_key
             )
@@ -236,13 +236,26 @@ class EmbeddingFactory:
 
         provider_type = (settings.EMBEDDING_PROVIDER or "auto").lower()
 
-        if provider_type == "nvidia" or (provider_type == "auto" and settings.NVIDIA_API_KEY):
-            try:
-                cls._instance = NVIDIAEmbeddingProvider(api_key=settings.NVIDIA_API_KEY)
-                logger.info("Initialized NVIDIA NIM Embedding Provider (with resilient fallback).")
-                return cls._instance
-            except Exception as exc:
-                logger.warning(f"Failed to initialize NVIDIA NIM embeddings, falling back to local: {exc}")
+        if provider_type in ("ollama", "openai", "custom"):
+            return cls.configure(
+                provider=provider_type,
+                model=settings.EMBEDDING_MODEL or None,
+                base_url=settings.EMBEDDING_BASE_URL or None,
+                api_key=(settings.EMBEDDING_API_KEY or settings.OPENAI_API_KEY or None),
+            )
+
+        if provider_type == "nvidia" or (provider_type == "auto" and (settings.EMBEDDING_API_KEY or settings.NVIDIA_API_KEY)):
+            embed_key = settings.EMBEDDING_API_KEY or settings.NVIDIA_API_KEY
+            if embed_key:
+                try:
+                    cls._instance = NVIDIAEmbeddingProvider(
+                        api_key=embed_key,
+                        model=settings.EMBEDDING_MODEL or settings.NVIDIA_EMBED_MODEL,
+                    )
+                    logger.info("Initialized NVIDIA NIM Embedding Provider (with resilient fallback).")
+                    return cls._instance
+                except Exception as exc:
+                    logger.warning(f"Failed to initialize NVIDIA NIM embeddings, falling back to local: {exc}")
 
         cls._instance = LocalFeatureEmbeddingProvider()
         logger.info("Initialized Local Feature Embedding Provider.")
