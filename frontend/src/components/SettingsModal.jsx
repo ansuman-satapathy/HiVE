@@ -250,15 +250,31 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
     }
   }
 
-  // Save Model Settings
+  // Save Model to Catalog (sets as default automatically if it's the first model or already default)
   const handleSaveModelSettings = async (e) => {
     e.preventDefault()
-    setSavingModel(true)
     setModelSuccessMsg(null)
     setModelErrorMsg(null)
+
+    const effectiveModelName = provider === 'local' ? (modelName || 'local-synthesizer') : modelName.trim()
+    if (!effectiveModelName) {
+      setModelErrorMsg('Model identifier is required.')
+      return
+    }
+
+    const existingMatch = modelsList.find(
+      (m) => m.provider === provider && m.model_name === effectiveModelName
+    )
+    if (isCloudProvider && !apiKey.trim() && !existingMatch) {
+      setModelErrorMsg('API key is required for cloud providers (OpenAI, NVIDIA NIM, or remote endpoints).')
+      return
+    }
+
+    setSavingModel(true)
     const token = tokenStorage.getToken()
 
     try {
+      const shouldBeDefault = modelsList.length === 0 || Boolean(existingMatch?.is_active)
       const res = await fetch('/api/settings/models', {
         method: 'POST',
         headers: {
@@ -266,13 +282,13 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          id: `${provider}_${modelName.replace(/[:/]/g, '_')}`,
-          name: `${modelName} (${provider})`,
+          id: `${provider}_${effectiveModelName.replace(/[:/]/g, '_')}`,
+          name: `${effectiveModelName} (${provider})`,
           provider,
-          base_url: baseUrl,
-          model_name: modelName,
+          base_url: provider === 'local' ? '' : baseUrl,
+          model_name: effectiveModelName,
           api_key: apiKey.trim() || undefined,
-          is_active: true,
+          is_active: shouldBeDefault,
           enable_thinking: enableThinking,
           timeout_seconds: Number(timeoutSeconds) || 180,
           temperature: Number(temperature) || 0.2,
@@ -281,16 +297,21 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || 'Failed to update settings')
+        const msg = typeof err.detail === 'string' ? err.detail : 'Failed to save model'
+        throw new Error(msg)
       }
 
       const data = await res.json()
       if (apiKey.trim()) setHasApiKey(true)
       setApiKey('')
       if (data.models) setModelsList(data.models)
-      setModelSuccessMsg('Model configuration saved and active!')
+      setModelSuccessMsg(
+        shouldBeDefault
+          ? `Saved '${effectiveModelName}' as your Default model!`
+          : `Saved '${effectiveModelName}' to Saved Models. Click "Set as Default" above to make it default.`
+      )
       window.dispatchEvent(new CustomEvent('models-updated'))
-      setTimeout(() => setModelSuccessMsg(null), 3000)
+      setTimeout(() => setModelSuccessMsg(null), 4000)
     } catch (err) {
       setModelErrorMsg(err.message)
     } finally {
@@ -387,9 +408,16 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
   // Save Embedding Settings
   const handleSaveEmbeddingSettings = async (e) => {
     e.preventDefault()
-    setSavingEmbedding(true)
     setEmbeddingSuccessMsg(null)
     setEmbeddingErrorMsg(null)
+
+    const isCloudEmbed = embeddingProvider === 'openai' || embeddingProvider === 'nvidia'
+    if (isCloudEmbed && !embeddingApiKey.trim() && !hasEmbeddingApiKey) {
+      setEmbeddingErrorMsg('API key is required for cloud embedding providers (OpenAI or NVIDIA NIM).')
+      return
+    }
+
+    setSavingEmbedding(true)
     const token = tokenStorage.getToken()
 
     try {
@@ -715,32 +743,32 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                 </div>
               ) : (
                 <>
-                  {/* Configured Models Catalog */}
+                  {/* Saved Models List (clearly shows which model is Default vs available to switch in Chat) */}
                   {modelsList.length > 0 && (
                     <div className="p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-canvas)] space-y-2.5">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <label className="block text-xs font-bold text-[var(--text-primary)]">
-                          Connected Models Catalog ({modelsList.length})
+                          Saved Models ({modelsList.length})
                         </label>
                         <span className="text-[10px] text-[var(--text-muted)]">
-                          Switch between these in the chat composer
+                          Pick your Default model here, or switch anytime in Chat
                         </span>
                       </div>
                       <div className="space-y-1.5 max-h-48 overflow-y-auto">
                         {modelsList.map((m) => {
-                          const isActive = m.is_active || (m.model_name === modelName && m.provider === provider)
+                          const isDefault = Boolean(m.is_active)
                           return (
                             <div
                               key={m.id || m.model_name}
                               className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
-                                isActive
-                                  ? 'border-blue-500/50 bg-blue-500/5 ring-1 ring-blue-500/20'
+                                isDefault
+                                  ? 'border-emerald-500/40 bg-emerald-500/5 ring-1 ring-emerald-500/20'
                                   : 'border-[var(--border-default)] bg-[var(--bg-surface)]'
                               }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                                  isActive ? 'bg-blue-500 text-white' : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
+                                  isDefault ? 'bg-emerald-500 text-white' : 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
                                 }`}>
                                   <Cpu size={14} />
                                 </div>
@@ -754,7 +782,7 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                                     setTimeoutSeconds(m.timeout_seconds || 180)
                                     setTemperature(m.temperature ?? 0.2)
                                   }}
-                                  title="Click to load parameters into editor"
+                                  title="Click to edit parameters below"
                                 >
                                   <div className="font-bold text-[var(--text-primary)] font-mono text-[11px] truncate">
                                     {m.model_name || m.name}
@@ -775,9 +803,9 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                               </div>
 
                               <div className="flex items-center gap-2 shrink-0">
-                                {isActive ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-                                    <Check size={10} /> Active
+                                {isDefault ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                                    <Check size={10} /> Default
                                   </span>
                                 ) : (
                                   <button
@@ -785,7 +813,7 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                                     onClick={() => handleActivateModel(m)}
                                     className="px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-canvas)] hover:bg-blue-500/10 hover:border-blue-500/30 text-[11px] text-[var(--text-secondary)] hover:text-blue-500 font-medium transition-colors cursor-pointer"
                                   >
-                                    Set Active
+                                    Set as Default
                                   </button>
                                 )}
                                 {modelsList.length > 1 && (
@@ -1284,22 +1312,12 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
 
                     <div className="flex items-center gap-2 ml-auto">
                       <button
-                        type="button"
-                        onClick={handleAddModelToCatalog}
-                        disabled={savingModel || !modelName.trim()}
-                        className="px-3 py-2 rounded-xl border border-[var(--border-default)] hover:bg-[var(--bg-canvas)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-semibold transition-all cursor-pointer disabled:opacity-40"
-                        title="Add this model configuration to the catalog without overriding the current active model"
-                      >
-                        + Add to Catalog
-                      </button>
-
-                      <button
                         type="submit"
-                        disabled={savingModel}
-                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                        disabled={savingModel || (provider !== 'local' && !modelName.trim())}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         {savingModel && <Loader2 size={13} className="animate-spin" />}
-                        <span>Save &amp; Activate Model</span>
+                        <span>Save Model</span>
                       </button>
                     </div>
                   </div>

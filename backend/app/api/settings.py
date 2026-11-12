@@ -93,6 +93,15 @@ class LocalModelDetectionResponse(BaseModel):
     models: List[str] = Field(default_factory=list)
 
 
+def _is_local_endpoint(provider: str, base_url: Optional[str]) -> bool:
+    """Return True if provider/base_url refers to a local or keyless runtime."""
+    p = (provider or "").lower()
+    if p in ("local", "ollama", "fastembed", "auto"):
+        return True
+    url = (base_url or "").lower()
+    return any(h in url for h in ("localhost", "127.0.0.1", "host.docker.internal"))
+
+
 def mask_api_key(key: Optional[str]) -> Optional[str]:
     """Return a masked representation (e.g. sk-****1234) of a key."""
     if not key or not key.strip():
@@ -191,6 +200,16 @@ async def update_settings(
         setting.set_models_list(payload.models)
 
     if payload.embedding_provider is not None:
+        ep = payload.embedding_provider.lower()
+        ebase = payload.embedding_base_url if payload.embedding_base_url is not None else setting.embedding_base_url
+        if not _is_local_endpoint(ep, ebase):
+            provided_ekey = (payload.embedding_api_key or "").strip()
+            existing_ekey = (setting.decrypted_embedding_api_key or "").strip()
+            if not provided_ekey and not existing_ekey:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="API key is required for cloud embedding providers (OpenAI or NVIDIA NIM).",
+                )
         setting.embedding_provider = payload.embedding_provider
     if payload.embedding_model is not None:
         setting.embedding_model = payload.embedding_model.strip() if payload.embedding_model else None
@@ -481,9 +500,31 @@ async def save_workspace_model(
     target_id = model.id or f"{model.provider}_{model.model_name.replace(':', '_').replace('/', '_')}"
     target_name = model.name or f"{model.model_name} ({model.provider.capitalize()})"
 
+    # Find matching existing entry (if updating or activating)
+    existing_entry = next(
+        (
+            m for m in current_models
+            if m.get("id") == target_id
+            or (m.get("model_name") == model.model_name and m.get("provider") == model.provider)
+        ),
+        None,
+    )
+
+    provided_key = (model.api_key or "").strip()
+    existing_key = (existing_entry.get("api_key") or "").strip() if existing_entry else ""
+    effective_key = provided_key or existing_key
+
+    if not _is_local_endpoint(model.provider, model.base_url) and not effective_key:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="API key is required for cloud providers (OpenAI, NVIDIA NIM, or remote endpoints).",
+        )
+
     entry = model.model_dump()
     entry["id"] = target_id
     entry["name"] = target_name
+    if effective_key:
+        entry["api_key"] = effective_key
 
     # Update existing or append new
     updated = False
@@ -500,17 +541,19 @@ async def save_workspace_model(
             new_list.append(m)
 
     if not updated:
+        if not any(m.get("is_active") for m in new_list):
+            entry["is_active"] = True
         new_list.append(entry)
 
-    if model.is_active:
+    if entry.get("is_active"):
         setting.llm_provider = model.provider
         setting.llm_base_url = model.base_url.strip() if model.base_url else None
         setting.llm_model = model.model_name.strip() if model.model_name else None
-        if model.api_key:
-            setting.set_api_key(model.api_key)
+        if effective_key:
+            setting.set_api_key(effective_key)
 
         # Reconfigure LLMService immediately
-        plain_key = setting.decrypted_api_key or app_settings.LLM_API_KEY or app_settings.OPENAI_API_KEY
+        plain_key = effective_key or setting.decrypted_api_key or app_settings.LLM_API_KEY or app_settings.OPENAI_API_KEY
         llm_service = LLMService.get_instance()
         llm_service.configure(
             provider=setting.llm_provider,
