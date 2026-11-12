@@ -132,13 +132,13 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
         })
         if (res.ok) {
           const data = await res.json()
-          setProvider(data.llm_provider || 'ollama')
-          setBaseUrl(data.llm_base_url || 'http://localhost:11434/v1')
-          setModelName(data.llm_model || 'llama3.2')
+          const activeM = data.models?.find((m) => m.is_active)
+          setProvider(activeM?.provider || data.llm_provider || 'ollama')
+          setBaseUrl(activeM?.base_url || data.llm_base_url || 'http://host.docker.internal:11434/v1')
+          setModelName(activeM?.model_name || data.llm_model || 'llama3.2')
           setHasApiKey(data.has_api_key)
           setAllowDemoAutofill(data.allow_demo_autofill ?? true)
           setModelsList(data.models || [])
-          const activeM = data.models?.find((m) => m.is_active)
           if (activeM) {
             if (activeM.enable_thinking !== undefined) setEnableThinking(Boolean(activeM.enable_thinking))
             if (activeM.timeout_seconds) setTimeoutSeconds(Number(activeM.timeout_seconds))
@@ -760,10 +760,22 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                           return (
                             <div
                               key={m.id || m.model_name}
-                              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
+                              onClick={() => {
+                                setProvider(m.provider)
+                                setBaseUrl(m.base_url || '')
+                                setModelName(m.model_name || m.name)
+                                setEnableThinking(Boolean(m.enable_thinking))
+                                setTimeoutSeconds(m.timeout_seconds || 180)
+                                setTemperature(m.temperature ?? 0.2)
+                                setTestResult(null)
+                                setModelErrorMsg(null)
+                                setModelSuccessMsg(null)
+                              }}
+                              title="Click to load this model's config into the editor below"
+                              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all cursor-pointer ${
                                 isDefault
                                   ? 'border-emerald-500/40 bg-emerald-500/5 ring-1 ring-emerald-500/20'
-                                  : 'border-[var(--border-default)] bg-[var(--bg-surface)]'
+                                  : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-blue-500/30'
                               }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
@@ -772,18 +784,7 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                                 }`}>
                                   <Cpu size={14} />
                                 </div>
-                                <div
-                                  className="min-w-0 cursor-pointer"
-                                  onClick={() => {
-                                    setProvider(m.provider)
-                                    if (m.base_url) setBaseUrl(m.base_url)
-                                    setModelName(m.model_name || m.name)
-                                    setEnableThinking(Boolean(m.enable_thinking))
-                                    setTimeoutSeconds(m.timeout_seconds || 180)
-                                    setTemperature(m.temperature ?? 0.2)
-                                  }}
-                                  title="Click to edit parameters below"
-                                >
+                                <div className="min-w-0">
                                   <div className="font-bold text-[var(--text-primary)] font-mono text-[11px] truncate">
                                     {m.model_name || m.name}
                                   </div>
@@ -802,7 +803,7 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                                 {isDefault ? (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
                                     <Check size={10} /> Default
@@ -845,8 +846,10 @@ export default function SettingsModal({ isOpen, initialTab = 'model', onClose })
                         type="button"
                         onClick={() => {
                           setProvider('ollama')
-                          setBaseUrl('http://localhost:11434/v1')
-                          setModelName('llama3.2')
+                          const savedOllama = modelsList.find((m) => m.provider === 'ollama')
+                          setBaseUrl(savedOllama?.base_url || 'http://host.docker.internal:11434/v1')
+                          setModelName(savedOllama?.model_name || 'llama3.2')
+                          setTestResult(null)
                         }}
                         className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           provider === 'ollama'
